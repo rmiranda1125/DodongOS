@@ -1,0 +1,86 @@
+<div id="company-table">
+
+    <table class="table table-striped">
+
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Industry</th>
+                <th>Country</th>
+                <th>Website</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+
+        <tbody>
+
+            {% for company in companies %}
+
+            <tr>
+
+                <td>{{ company.name }}</td>
+
+                <td>{{ company.industry }}</td>
+
+                <td>{{ company.country }}</td>
+
+                <td>{{ company.website }}</td>
+
+                <td>
+
+                    <!-- Edit -->
+                    <button
+                        class="btn btn-warning btn-sm"
+                        hx-get="{% url 'companies:edit' company.id %}"
+                        hx-target="#modal-content"
+                        hx-swap="innerHTML">
+
+                        Edit
+
+                    </button>
+
+                    <!-- Delete -->
+                    <button
+                        class="btn btn-danger btn-sm"
+                        hx-get="{% url 'companies:delete' company.id %}"
+                        hx-target="#modal-content"
+                        hx-swap="innerHTML">
+
+                        Delete
+
+                    </button>
+
+                    <!-- Analyze -->
+                    <button
+                        class="btn btn-success btn-sm"
+                        hx-get="{% url 'companies:analyze' company.id %}"
+                        hx-target="#analysis"
+                        hx-swap="innerHTML">
+
+                        Analyze
+
+                    </button>
+
+                </td>
+
+            </tr>
+
+            {% empty %}
+
+            <tr>
+
+                <td colspan="5">
+
+                    No companies found.
+
+                </td>
+
+            </tr>
+
+            {% endfor %}
+
+        </tbody>
+
+    </table>
+
+</div>

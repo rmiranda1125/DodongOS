@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+
+{% block title %}
+    Companies
+{% endblock %}
+
+{% block content %}
+
+<div class="d-flex justify-content-between mb-4">
+
+    <h2>Companies</h2>
+
+    <button
+    class="btn btn-primary"
+    hx-get="{% url 'companies:create' %}"
+    hx-target="#modal-content"
+    hx-swap="innerHTML"
+    hx-indicator="#loading-indicator">
+
+    + Add Company
+
+    </button>
+
+</div>
+
+{% include "companies/partials/company_table.html" %}
+
+<div id="analysis" class="mt-4"></div>
+
+<div
+    id="loading-indicator"
+    class="htmx-indicator">
+
+    {% include "components/loading.html" %}
+
+</div>
+
+{% endblock %}

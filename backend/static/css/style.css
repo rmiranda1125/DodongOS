@@ -1,0 +1,12 @@
+body {
+    background: #f4f6f9;
+}
+
+.htmx-indicator {
+    display: none;
+}
+
+.htmx-request .htmx-indicator,
+.htmx-request.htmx-indicator {
+    display: block;
+}

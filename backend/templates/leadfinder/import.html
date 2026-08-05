@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<div class="container mt-4">
+
+    <h2>Import Company</h2>
+
+    <form
+        hx-post="{% url 'leadfinder:import' %}"
+        hx-target="#import-result"
+        hx-swap="innerHTML">
+
+        {% csrf_token %}
+
+        <input
+            class="form-control"
+            type="url"
+            name="website"
+            placeholder="https://company.com"
+            required>
+
+        <button
+            class="btn btn-primary mt-3">
+
+            Import Company
+
+        </button>
+
+    </form>
+
+    <div id="import-result" class="mt-4"></div>
+
+</div>
+
+{% endblock %}
