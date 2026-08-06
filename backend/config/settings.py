@@ -45,6 +45,7 @@ INSTALLED_APPS = [
     'apps.leads',
     "apps.ai",
     "apps.leadfinder",
+    "apps.scanner",
 ]
 
 MIDDLEWARE = [
