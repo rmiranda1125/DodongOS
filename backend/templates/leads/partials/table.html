@@ -1,0 +1,62 @@
+<table class="table table-hover align-middle">
+
+    <thead>
+
+        <tr>
+            <th>Score</th>
+            <th>Company</th>
+            <th>Job</th>
+            <th>Status</th>
+            <th></th>
+        </tr>
+
+    </thead>
+
+    <tbody>
+
+    {% for lead in leads %}
+
+        <tr>
+
+            <td>
+                <span class="badge bg-success">
+                    {{ lead.lead_score }}
+                </span>
+            </td>
+
+            <td>
+                <strong>{{ lead.company_name }}</strong>
+                <br>
+                <small class="text-muted">
+                    {{ lead.industry }}
+                </small>
+            </td>
+
+            <td>{{ lead.job_title }}</td>
+
+            <td>{{ lead.status }}</td>
+
+            <td>
+                <a
+                    href="{% url 'leads:detail' lead.pk %}"
+                    class="btn btn-sm btn-outline-primary"
+                >
+                    View
+                </a>
+            </td>
+
+        </tr>
+
+    {% empty %}
+
+        <tr>
+            <td colspan="5">
+                No leads have been scanned yet.
+            </td>
+        </tr>
+
+    {% endfor %}
+
+    </tbody>
+
+</table>

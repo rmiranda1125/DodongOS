@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+
+{% block title %}
+Lead CRM
+{% endblock %}
+
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+
+    <div>
+
+        <h2>Lead CRM</h2>
+
+        <p class="text-muted mb-0">
+            {{ leads|length }} total leads
+        </p>
+
+    </div>
+
+    <a href="/scanner/" class="btn btn-primary">
+        + Scan New Lead
+    </a>
+
+</div>
+
+<form
+    class="card mb-3"
+    hx-get="{% url 'leads:list' %}"
+    hx-target="#lead-table"
+    hx-swap="innerHTML"
+    hx-push-url="true"
+    hx-trigger="keyup changed delay:400ms from:input, change from:select"
+>
+
+    <div class="card-body">
+
+        <div class="row g-3">
+
+            <div class="col-md-5">
+                <input
+                    type="search"
+                    name="search"
+                    class="form-control"
+                    placeholder="Search companies, jobs, industry, or country..."
+                    value="{{ search }}"
+                >
+            </div>
+
+            <div class="col-md-4">
+                <select
+                    name="status"
+                    class="form-select"
+                >
+                    <option value="">All Statuses</option>
+                    {% for value, label in status_choices %}
+                        <option value="{{ value }}" {% if status == value %}selected{% endif %}>
+                            {{ label }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="col-md-3">
+                <select
+                    name="sort"
+                    class="form-select"
+                >
+                    <option value="newest" {% if sort == "newest" %}selected{% endif %}>
+                        Newest
+                    </option>
+                    <option value="score" {% if sort == "score" %}selected{% endif %}>
+                        Highest Score
+                    </option>
+                </select>
+            </div>
+
+        </div>
+
+    </div>
+
+</form>
+
+<div id="lead-table">
+    {% include "leads/partials/table.html" %}
+</div>
+
+{% endblock %}
