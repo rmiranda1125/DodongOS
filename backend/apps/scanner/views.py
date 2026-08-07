@@ -1,4 +1,4 @@
-from django.shortcuts import render
+from django.shortcuts import redirect, render
 
 from .forms import ScanURLForm
 from .services.scanner import LeadScanner
@@ -6,10 +6,9 @@ from .services.scanner import LeadScanner
 
 def scan(request):
     """
-    Display the scan page and process a URL.
+    Display the scanner page and process a URL.
     """
 
-    result = None
     error = None
 
     if request.method == "POST":
@@ -24,7 +23,13 @@ def scan(request):
 
                 scanner = LeadScanner()
 
-                result = scanner.scan(url)
+                lead = scanner.scan(url)
+
+                # Redirect to the newly created Lead
+                return redirect(
+                    "leads:detail",
+                    pk=lead.pk,
+                )
 
             except Exception as exc:
 
@@ -39,7 +44,6 @@ def scan(request):
         "scanner/scan.html",
         {
             "form": form,
-            "result": result,
             "error": error,
         },
     )

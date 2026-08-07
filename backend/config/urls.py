@@ -33,6 +33,11 @@ urlpatterns = [
         include("apps.leads.urls"),
     ),
 
+     path(
+        "scanner/",
+        include("apps.scanner.urls"),
+    ),
+
     path(
     "leadfinder/",
     include("apps.leadfinder.urls"),
