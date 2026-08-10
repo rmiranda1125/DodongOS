@@ -14,55 +14,70 @@ class LeadScanner:
     def __init__(self):
 
         self.downloader = HTMLDownloader()
-
         self.extractor = HTMLExtractor()
-
         self.cleaner = HTMLCleaner()
-
         self.prompt_builder = LeadScannerPromptBuilder()
-
         self.ai = GPTLunaProvider()
-
         self.validator = AIResponseValidator()
-
         self.deduplicator = LeadDeduplicator()
-
         self.repository = LeadRepository()
 
     def scan(self, url: str):
 
-        # Step 1 - Download the webpage
+        print("=" * 80)
+        print("STEP 1 - Downloading")
+        print("=" * 80)
+
         html = self.downloader.download(url)
 
-        # Step 2 - Extract readable text
+        print(f"Downloaded {len(html)} characters")
+
+        print("=" * 80)
+        print("STEP 2 - Extracting")
+        print("=" * 80)
+
         text = self.extractor.extract(html)
 
-        # Step 3 - Clean the extracted text
+        print(f"Extracted {len(text)} characters")
+
+        print("=" * 80)
+        print("STEP 3 - Cleaning")
+        print("=" * 80)
+
         cleaned = self.cleaner.clean(text)
 
-        # Step 4 - Build the AI prompt
+        print(f"Cleaned {len(cleaned)} characters")
+
+        print("=" * 80)
+        print("STEP 4 - Building Prompt")
+        print("=" * 80)
+
         prompt = self.prompt_builder.build(cleaned)
 
-        # Step 5 - Ask GPT-5.6 Luna
+        print(prompt[:1000])
+
+        print("=" * 80)
+        print("STEP 5 - Sending to GPT-5.6 Luna")
+        print("=" * 80)
+
         response = self.ai.analyze(prompt)
 
-        # Step 6 - Validate AI response
+        print(response)
+
+        print("=" * 80)
+        print("STEP 6 - Validating")
+        print("=" * 80)
+
         data = self.validator.validate(response)
 
-        # Step 7 - Store metadata
+        print("=" * 80)
+        print("STEP 7 - Saving Lead")
+        print("=" * 80)
+
         data["source_url"] = url
 
-        # If AI did not return these fields yet,
-        # initialize them to keep the repository happy.
-        data.setdefault("website", "")
-        data.setdefault("recommended_services", [])
-        data.setdefault("pain_points", [])
+        lead = self.repository.create(data)
 
-        # Step 8 - Check for duplicates
-        duplicate = self.deduplicator.find_duplicate(data)
+        print("Saved Lead ID:", lead.id)
 
-        if duplicate:
-            return duplicate
-
-        # Step 9 - Save new lead
-        return self.repository.create(data)
+        return lead

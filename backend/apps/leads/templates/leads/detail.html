@@ -1,0 +1,151 @@
+{% extends "base.html" %}
+
+{% block title %}
+{{ lead.company_name }}
+{% endblock %}
+
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+
+    <div>
+        <h2>{{ lead.company_name }}</h2>
+        <p class="text-muted mb-0">
+            {{ lead.job_title }}
+        </p>
+    </div>
+
+    <a
+        href="{% url 'leads:list' %}"
+        class="btn btn-outline-secondary"
+    >
+        ← Back to Leads
+    </a>
+
+</div>
+
+<div class="row">
+
+    <div class="col-lg-8">
+
+        <div class="card mb-4">
+
+            <div class="card-header">
+                Company Information
+            </div>
+
+            <div class="card-body">
+
+                <p><strong>Website:</strong> {{ lead.website }}</p>
+
+                <p><strong>Industry:</strong> {{ lead.industry }}</p>
+
+                <p><strong>Country:</strong> {{ lead.country }}</p>
+
+                <p><strong>Location:</strong> {{ lead.location }}</p>
+
+                <p><strong>Employment:</strong> {{ lead.employment_type }}</p>
+
+                <p><strong>Work Setup:</strong> {{ lead.work_setup }}</p>
+
+                <p><strong>Salary:</strong> {{ lead.salary }}</p>
+
+            </div>
+
+        </div>
+
+        <div class="card mb-4">
+
+            <div class="card-header">
+                AI Summary
+            </div>
+
+            <div class="card-body">
+
+                {{ lead.ai_summary|default:"No summary available." }}
+
+            </div>
+
+        </div>
+
+    </div>
+
+    <div class="col-lg-4">
+
+        <div class="card mb-3">
+
+            <div class="card-header">
+                Lead Score
+            </div>
+
+            <div class="card-body text-center">
+
+                <h1>{{ lead.lead_score }}</h1>
+
+            </div>
+
+        </div>
+
+        <div class="card mb-3">
+
+            <div class="card-header">
+                Status
+            </div>
+
+            <div class="card-body">
+
+                {{ lead.status }}
+
+            </div>
+
+        </div>
+
+        <div class="card mb-3">
+
+            <div class="card-header">
+                Pain Points
+            </div>
+
+            <div class="card-body">
+
+                <ul>
+
+                    {% for item in lead.pain_points %}
+                        <li>{{ item }}</li>
+                    {% empty %}
+                        <li>No pain points.</li>
+                    {% endfor %}
+
+                </ul>
+
+            </div>
+
+        </div>
+
+        <div class="card">
+
+            <div class="card-header">
+                Recommended Services
+            </div>
+
+            <div class="card-body">
+
+                <ul>
+
+                    {% for item in lead.recommended_services %}
+                        <li>{{ item }}</li>
+                    {% empty %}
+                        <li>No recommendations.</li>
+                    {% endfor %}
+
+                </ul>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+{% endblock %}

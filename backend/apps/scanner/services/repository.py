@@ -10,35 +10,79 @@ class LeadRepository:
 
         return Lead.objects.create(
 
-            # Company
-            company_name=data.get("company_name", ""),
-            website=data.get("website", ""),
-            industry=data.get("industry", ""),
-            country=data.get("country", ""),
+            # =========================
+            # Company Information
+            # =========================
+
+            company_name=data.get("company_name", "").strip(),
+
+            website=data.get("website", "").strip(),
+
+            industry=data.get("industry", "").strip(),
+
+            country=data.get("country", "").strip(),
+
             employee_count=data.get("employee_count"),
-            technologies=data.get("technologies", ""),
 
-            # Job
-            job_title=data.get("job_title", ""),
-            source_url=data.get("source_url", ""),
-            source_platform=data.get("source_platform", ""),
-            work_setup=data.get("work_setup", ""),
-            employment_type=data.get("employment_type", ""),
-            location=data.get("location", ""),
-            salary=data.get("salary", ""),
+            technologies=data.get("technologies", "").strip(),
 
-            # AI
-            lead_score=data.get("lead_score", 0),
-            ai_summary=data.get("summary", ""),
+            # =========================
+            # Job Information
+            # =========================
+
+            job_title=data.get("job_title", "").strip(),
+
+            source_url=data.get("source_url", "").strip(),
+
+            source_platform=data.get(
+                "source_platform",
+                "",
+            ).strip(),
+
+            work_setup=data.get(
+                "work_setup",
+                "",
+            ).strip(),
+
+            employment_type=data.get(
+                "employment_type",
+                "",
+            ).strip(),
+
+            location=data.get("location", "").strip(),
+
+            salary=data.get("salary", "").strip(),
+
+            # =========================
+            # AI Analysis
+            # =========================
+
+            lead_score=max(
+                0,
+                min(
+                    int(data.get("lead_score", 0)),
+                    100,
+                ),
+            ),
+
+            ai_summary=data.get(
+                "summary",
+                "",
+            ).strip(),
+
             recommended_services=data.get(
                 "recommended_services",
                 [],
             ),
+
             pain_points=data.get(
                 "pain_points",
                 [],
             ),
 
+            # =========================
             # CRM
+            # =========================
+
             status="new",
         )
