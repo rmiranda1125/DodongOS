@@ -1,62 +1,139 @@
-<table class="table table-hover align-middle">
+<div class="card">
+    <div class="card-body">
 
-    <thead>
+        <table class="table table-hover align-middle">
 
-        <tr>
-            <th>Score</th>
-            <th>Company</th>
-            <th>Job</th>
-            <th>Status</th>
-            <th></th>
-        </tr>
+            <thead>
+                <tr>
+                    <th>Score</th>
+                    <th>Company</th>
+                    <th>Job</th>
+                    <th>Status</th>
+                    <th></th>
+                </tr>
+            </thead>
 
-    </thead>
+            <tbody>
 
-    <tbody>
+            {% for lead in leads %}
 
-    {% for lead in leads %}
+                <tr>
 
-        <tr>
+                    <!-- Score -->
+                    <td>
+                        <span class="badge bg-success">
+                            {{ lead.lead_score }}
+                        </span>
+                    </td>
 
-            <td>
-                <span class="badge bg-success">
-                    {{ lead.lead_score }}
-                </span>
-            </td>
+                    <!-- Company -->
+                    <td>
+                        <strong>
+                            {{ lead.company_name }}
+                        </strong>
 
-            <td>
-                <strong>{{ lead.company_name }}</strong>
-                <br>
-                <small class="text-muted">
-                    {{ lead.industry }}
-                </small>
-            </td>
+                        <br>
 
-            <td>{{ lead.job_title }}</td>
+                        <small class="text-muted">
+                            {{ lead.industry }}
+                        </small>
+                    </td>
 
-            <td>{{ lead.status }}</td>
+                    <!-- Job -->
+                    <td>
+                        {{ lead.job_title }}
+                    </td>
 
-            <td>
-                <a
-                    href="{% url 'leads:detail' lead.pk %}"
-                    class="btn btn-sm btn-outline-primary"
-                >
-                    View
-                </a>
-            </td>
+                    <!-- Status -->
+                    <td>
+                        {% include "leads/partials/status.html" %}
+                    </td>
 
-        </tr>
+                    <!-- Action -->
+                    <td>
+                        <a
+                            href="{% url 'leads:detail' lead.pk %}"
+                            class="btn btn-sm btn-outline-primary"
+                        >
+                            View
+                        </a>
+                    </td>
 
-    {% empty %}
+                </tr>
 
-        <tr>
-            <td colspan="5">
-                No leads have been scanned yet.
-            </td>
-        </tr>
+            {% empty %}
 
-    {% endfor %}
+                <tr>
+                    <td colspan="5" class="text-center">
+                        No leads have been scanned yet.
+                    </td>
+                </tr>
 
-    </tbody>
+            {% endfor %}
 
-</table>
+            </tbody>
+
+        </table>
+
+
+        <!-- Pagination -->
+
+        {% if page_obj.paginator.num_pages > 1 %}
+
+        <nav aria-label="Lead pagination">
+
+            <ul class="pagination justify-content-center mb-0">
+
+                {% if page_obj.has_previous %}
+
+                    <li class="page-item">
+
+                        <a
+                            class="page-link"
+                            href="?page={{ page_obj.previous_page_number }}&search={{ search|urlencode }}&status={{ status|urlencode }}&sort={{ sort|urlencode }}"
+                        >
+                            Previous
+                        </a>
+
+                    </li>
+
+                {% endif %}
+
+
+                <li class="page-item disabled">
+
+                    <span class="page-link">
+
+                        Page
+                        {{ page_obj.number }}
+                        of
+                        {{ page_obj.paginator.num_pages }}
+
+                    </span>
+
+                </li>
+
+
+                {% if page_obj.has_next %}
+
+                    <li class="page-item">
+
+                        <a
+                            class="page-link"
+                            href="?page={{ page_obj.next_page_number }}&search={{ search|urlencode }}&status={{ status|urlencode }}&sort={{ sort|urlencode }}"
+                        >
+                            Next
+                        </a>
+
+                    </li>
+
+                {% endif %}
+
+            </ul>
+
+        </nav>
+
+        {% endif %}
+
+    </div>
+</div>

@@ -1,0 +1,19 @@
+<form
+    method="post"
+    hx-post="{% url 'leads:add_note' lead.pk %}"
+    hx-target="#lead-notes"
+    hx-swap="outerHTML"
+>
+
+    {% csrf_token %}
+
+    {{ note_form.note }}
+
+    <button
+        type="submit"
+        class="btn btn-primary mt-2"
+    >
+        Add Note
+    </button>
+
+</form>

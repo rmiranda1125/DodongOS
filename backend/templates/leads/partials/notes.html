@@ -1,0 +1,33 @@
+<div id="lead-notes">
+
+    <h3 class="mb-3">
+        Activity & Notes
+    </h3>
+
+    {% for note in lead.notes.all %}
+
+        <div class="card mb-3">
+
+            <div class="card-body">
+
+                <p class="mb-2">
+                    {{ note.note }}
+                </p>
+
+                <small class="text-muted">
+                    {{ note.created_at|date:"M d, Y H:i" }}
+                </small>
+
+            </div>
+
+        </div>
+
+    {% empty %}
+
+        <p class="text-muted">
+            No notes yet.
+        </p>
+
+    {% endfor %}
+
+</div>

@@ -1,0 +1,28 @@
+<form
+    method="post"
+    hx-post="{% url 'leads:status_update' lead.pk %}"
+    hx-target="this"
+    hx-swap="outerHTML"
+>
+    {% csrf_token %}
+
+    <select
+        name="status"
+        class="form-select form-select-sm"
+        onchange="this.form.requestSubmit()"
+    >
+
+        {% for value, label in lead.STATUS_CHOICES %}
+
+            <option
+                value="{{ value }}"
+                {% if lead.status == value %}selected{% endif %}
+            >
+                {{ label }}
+            </option>
+
+        {% endfor %}
+
+    </select>
+
+</form>
