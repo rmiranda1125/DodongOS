@@ -1,23 +1,54 @@
 <div class="card">
+
     <div class="card-body">
 
         <table class="table table-hover align-middle">
 
             <thead>
+
                 <tr>
+
+                    <!-- Select All -->
+                    <th>
+                        <input
+                            type="checkbox"
+                            id="select-all"
+                            onclick="toggleAllLeads(this)"
+                        >
+                    </th>
+
                     <th>Score</th>
+
                     <th>Company</th>
+
                     <th>Job</th>
+
                     <th>Status</th>
+
                     <th></th>
+
                 </tr>
+
             </thead>
+
 
             <tbody>
 
             {% for lead in leads %}
 
                 <tr>
+
+                    <!-- Checkbox -->
+                    <td>
+                        <input
+                            type="checkbox"
+                            name="lead_ids"
+                            value="{{ lead.pk }}"
+                            form="bulk-status-form"
+                            class="lead-checkbox"
+                        >
+                    </td>
+
 
                     <!-- Score -->
                     <td>
@@ -26,8 +57,10 @@
                         </span>
                     </td>
 
+
                     <!-- Company -->
                     <td>
+
                         <strong>
                             {{ lead.company_name }}
                         </strong>
@@ -37,36 +70,50 @@
                         <small class="text-muted">
                             {{ lead.industry }}
                         </small>
+
                     </td>
+
 
                     <!-- Job -->
                     <td>
                         {{ lead.job_title }}
                     </td>
 
+
                     <!-- Status -->
                     <td>
+
                         {% include "leads/partials/status.html" %}
+
                     </td>
+
 
                     <!-- Action -->
                     <td>
+
                         <a
                             href="{% url 'leads:detail' lead.pk %}"
                             class="btn btn-sm btn-outline-primary"
                         >
                             View
                         </a>
+
                     </td>
 
                 </tr>
 
+
             {% empty %}
 
                 <tr>
-                    <td colspan="5" class="text-center">
+
+                    <td
+                        colspan="6"
+                        class="text-center text-muted"
+                    >
                         No leads have been scanned yet.
                     </td>
+
                 </tr>
 
             {% endfor %}
@@ -76,13 +123,21 @@
         </table>
 
 
-        <!-- Pagination -->
+        <!-- ================================================= -->
+        <!-- PAGINATION -->
+        <!-- ================================================= -->
 
-        {% if page_obj.paginator.num_pages > 1 %}
+        {% if page_obj.has_other_pages %}
 
-        <nav aria-label="Lead pagination">
+        <nav
+            aria-label="Lead pagination"
+            class="mt-4"
+        >
 
             <ul class="pagination justify-content-center mb-0">
+
+
+                <!-- Previous -->
 
                 {% if page_obj.has_previous %}
 
@@ -90,7 +145,15 @@
 
                         <a
                             class="page-link"
-                            href="?page={{ page_obj.previous_page_number }}&search={{ search|urlencode }}&status={{ status|urlencode }}&sort={{ sort|urlencode }}"
+                            href="?search={{ search|urlencode }}&status={{ status|urlencode }}&sort={{ sort|urlencode }}&page={{ page_obj.previous_page_number }}"
+
+                            hx-get="?search={{ search|urlencode }}&status={{ status|urlencode }}&sort={{ sort|urlencode }}&page={{ page_obj.previous_page_number }}"
+
+                            hx-target="#lead-table"
+
+                            hx-swap="innerHTML"
+
+                            hx-push-url="true"
                         >
                             Previous
                         </a>
@@ -100,19 +163,38 @@
                 {% endif %}
 
 
-                <li class="page-item disabled">
+                <!-- Page Numbers -->
 
-                    <span class="page-link">
+                {% for num in page_obj.paginator.page_range %}
 
-                        Page
-                        {{ page_obj.number }}
-                        of
-                        {{ page_obj.paginator.num_pages }}
+                    <li
+                        class="page-item
+                        {% if page_obj.number == num %}
+                            active
+                        {% endif %}"
+                    >
 
-                    </span>
+                        <a
+                            class="page-link"
+                            href="?search={{ search|urlencode }}&status={{ status|urlencode }}&sort={{ sort|urlencode }}&page={{ num }}"
 
-                </li>
+                            hx-get="?search={{ search|urlencode }}&status={{ status|urlencode }}&sort={{ sort|urlencode }}&page={{ num }}"
 
+                            hx-target="#lead-table"
+
+                            hx-swap="innerHTML"
+
+                            hx-push-url="true"
+                        >
+                            {{ num }}
+                        </a>
+
+                    </li>
+
+                {% endfor %}
+
+
+                <!-- Next -->
 
                 {% if page_obj.has_next %}
 
@@ -120,7 +202,15 @@
 
                         <a
                             class="page-link"
-                            href="?page={{ page_obj.next_page_number }}&search={{ search|urlencode }}&status={{ status|urlencode }}&sort={{ sort|urlencode }}"
+                            href="?search={{ search|urlencode }}&status={{ status|urlencode }}&sort={{ sort|urlencode }}&page={{ page_obj.next_page_number }}"
+
+                            hx-get="?search={{ search|urlencode }}&status={{ status|urlencode }}&sort={{ sort|urlencode }}&page={{ page_obj.next_page_number }}"
+
+                            hx-target="#lead-table"
+
+                            hx-swap="innerHTML"
+
+                            hx-push-url="true"
                         >
                             Next
                         </a>
@@ -136,4 +226,5 @@
         {% endif %}
 
     </div>
+
 </div>

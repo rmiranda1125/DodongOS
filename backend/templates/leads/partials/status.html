@@ -1,22 +1,26 @@
-<form
-    method="post"
-    hx-post="{% url 'leads:status_update' lead.pk %}"
-    hx-target="this"
-    hx-swap="outerHTML"
->
-    {% csrf_token %}
+<div>
 
     <select
-        name="status"
         class="form-select form-select-sm"
-        onchange="this.form.requestSubmit()"
+        name="status"
+
+        hx-post="{% url 'leads:update_status' lead.pk %}"
+
+        hx-trigger="change"
+
+        hx-target="this"
+
+        hx-swap="outerHTML"
+
     >
 
         {% for value, label in lead.STATUS_CHOICES %}
 
             <option
                 value="{{ value }}"
-                {% if lead.status == value %}selected{% endif %}
+                {% if lead.status == value %}
+                    selected
+                {% endif %}
             >
                 {{ label }}
             </option>
@@ -25,4 +29,4 @@
 
     </select>
 
-</form>
+</div>

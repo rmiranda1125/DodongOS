@@ -1,0 +1,21 @@
+<span
+    class="badge
+    {% if lead.status == 'new' %}bg-primary
+    {% elif lead.status == 'qualified' %}bg-warning text-dark
+    {% elif lead.status == 'contacted' %}bg-info text-dark
+    {% elif lead.status == 'proposal' %}bg-warning text-dark
+    {% elif lead.status == 'won' %}bg-success
+    {% elif lead.status == 'lost' %}bg-danger
+    {% else %}bg-secondary
+    {% endif %}"
+
+    style="cursor: pointer;"
+
+    hx-get="{% url 'leads:edit_status' lead.pk %}"
+
+    hx-target="this"
+
+    hx-swap="outerHTML"
+>
+    {{ lead.get_status_display }}
+</span>

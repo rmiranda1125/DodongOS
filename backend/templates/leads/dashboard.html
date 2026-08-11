@@ -1,0 +1,738 @@
+ {% extends "base.html" %}
+
+
+{% block title %}
+Lead Dashboard
+{% endblock %}
+
+
+{% block content %}
+
+
+<!-- ===================================================== -->
+<!-- PAGE HEADER -->
+<!-- ===================================================== -->
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+
+    <div>
+
+        <h2>
+            Lead Dashboard
+        </h2>
+
+        <p class="text-muted mb-0">
+            Overview of your sales leads
+        </p>
+
+    </div>
+
+
+    <a
+        href="{% url 'leads:list' %}"
+        class="btn btn-outline-primary"
+    >
+        View All Leads
+    </a>
+
+</div>
+
+
+
+<!-- ===================================================== -->
+<!-- MAIN STATISTICS -->
+<!-- ===================================================== -->
+
+<div class="row g-3 mb-4">
+
+
+    <!-- Total Leads -->
+
+    <div class="col-md-3">
+
+        <div class="card shadow-sm">
+
+            <div class="card-body">
+
+                <h6 class="text-muted">
+                    Total Leads
+                </h6>
+
+                <h2>
+                    {{ total_leads }}
+                </h2>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+
+    <!-- New Leads -->
+
+    <div class="col-md-3">
+
+        <div class="card shadow-sm">
+
+            <div class="card-body">
+
+                <h6 class="text-muted">
+                    New
+                </h6>
+
+                <h2>
+                    {{ new_leads }}
+                </h2>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+
+    <!-- Qualified Leads -->
+
+    <div class="col-md-3">
+
+        <div class="card shadow-sm">
+
+            <div class="card-body">
+
+                <h6 class="text-muted">
+                    Qualified
+                </h6>
+
+                <h2>
+                    {{ qualified_leads }}
+                </h2>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+
+    <!-- Average Score -->
+
+    <div class="col-md-3">
+
+        <div class="card shadow-sm">
+
+            <div class="card-body">
+
+                <h6 class="text-muted">
+                    Average Score
+                </h6>
+
+                <h2>
+
+                    {% if average_score %}
+
+                        {{ average_score|floatformat:0 }}
+
+                    {% else %}
+
+                        0
+
+                    {% endif %}
+
+                </h2>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+
+<!-- ===================================================== -->
+<!-- CONVERSION METRICS -->
+<!-- ===================================================== -->
+
+<div class="row g-3 mb-4">
+
+
+    <!-- Qualification Rate -->
+
+    <div class="col-md-3">
+
+        <div class="card shadow-sm">
+
+            <div class="card-body">
+
+                <h6 class="text-muted">
+                    Qualification Rate
+                </h6>
+
+                <h2>
+                    {{ qualification_rate|floatformat:1 }}%
+                </h2>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+
+    <!-- Contact Rate -->
+
+    <div class="col-md-3">
+
+        <div class="card shadow-sm">
+
+            <div class="card-body">
+
+                <h6 class="text-muted">
+                    Contact Rate
+                </h6>
+
+                <h2>
+                    {{ contact_rate|floatformat:1 }}%
+                </h2>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+
+    <!-- Proposal Rate -->
+
+    <div class="col-md-3">
+
+        <div class="card shadow-sm">
+
+            <div class="card-body">
+
+                <h6 class="text-muted">
+                    Proposal Rate
+                </h6>
+
+                <h2>
+                    {{ proposal_rate|floatformat:1 }}%
+                </h2>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+
+    <!-- Win Rate -->
+
+    <div class="col-md-3">
+
+        <div class="card shadow-sm">
+
+            <div class="card-body">
+
+                <h6 class="text-muted">
+                    Win Rate
+                </h6>
+
+                <h2>
+                    {{ win_rate|floatformat:1 }}%
+                </h2>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+
+<!-- ===================================================== -->
+<!-- SALES PIPELINE -->
+<!-- ===================================================== -->
+
+<div class="card shadow-sm mb-4">
+
+    <div class="card-body">
+
+        <h5 class="mb-4">
+            Sales Pipeline
+        </h5>
+
+
+        <div class="row text-center g-3">
+
+
+            <!-- New -->
+
+            <div class="col">
+
+                <div class="border rounded p-3">
+
+                    <h3>
+                        {{ new_leads }}
+                    </h3>
+
+                    <span class="badge bg-secondary">
+                        New
+                    </span>
+
+                </div>
+
+            </div>
+
+
+
+            <!-- Qualified -->
+
+            <div class="col">
+
+                <div class="border rounded p-3">
+
+                    <h3>
+                        {{ qualified_leads }}
+                    </h3>
+
+                    <span class="badge bg-primary">
+                        Qualified
+                    </span>
+
+                </div>
+
+            </div>
+
+
+
+            <!-- Contacted -->
+
+            <div class="col">
+
+                <div class="border rounded p-3">
+
+                    <h3>
+                        {{ contacted_leads }}
+                    </h3>
+
+                    <span class="badge bg-info">
+                        Contacted
+                    </span>
+
+                </div>
+
+            </div>
+
+
+
+            <!-- Proposal -->
+
+            <div class="col">
+
+                <div class="border rounded p-3">
+
+                    <h3>
+                        {{ proposal_leads }}
+                    </h3>
+
+                    <span class="badge bg-warning text-dark">
+                        Proposal
+                    </span>
+
+                </div>
+
+            </div>
+
+
+
+            <!-- Won -->
+
+            <div class="col">
+
+                <div class="border rounded p-3">
+
+                    <h3>
+                        {{ won_leads }}
+                    </h3>
+
+                    <span class="badge bg-success">
+                        Won
+                    </span>
+
+                </div>
+
+            </div>
+
+
+
+            <!-- Lost -->
+
+            <div class="col">
+
+                <div class="border rounded p-3">
+
+                    <h3>
+                        {{ lost_leads }}
+                    </h3>
+
+                    <span class="badge bg-danger">
+                        Lost
+                    </span>
+
+                </div>
+
+            </div>
+
+
+        </div>
+
+    </div>
+
+</div>
+
+
+
+<!-- ===================================================== -->
+<!-- LEAD DISTRIBUTION CHART -->
+<!-- ===================================================== -->
+
+<div class="card shadow-sm mb-4">
+
+    <div class="card-body">
+
+        <h5 class="mb-4">
+            Lead Distribution
+        </h5>
+
+
+        <div
+            style="height: 300px;"
+        >
+
+            <canvas
+                id="leadPipelineChart"
+            ></canvas>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+
+<!-- ===================================================== -->
+<!-- RECENT LEADS -->
+<!-- ===================================================== -->
+
+<div class="card shadow-sm">
+
+    <div class="card-body">
+
+
+        <div class="d-flex justify-content-between mb-3">
+
+
+            <h5>
+                Recent Leads
+            </h5>
+
+
+            <a
+                href="{% url 'leads:list' %}"
+                class="btn btn-sm btn-outline-primary"
+            >
+                View All
+            </a>
+
+
+        </div>
+
+
+
+        <div class="table-responsive">
+
+
+            <table
+                class="table table-hover align-middle"
+            >
+
+
+                <thead>
+
+                    <tr>
+
+                        <th>
+                            Company
+                        </th>
+
+                        <th>
+                            Job
+                        </th>
+
+                        <th>
+                            Score
+                        </th>
+
+                        <th>
+                            Status
+                        </th>
+
+                        <th></th>
+
+                    </tr>
+
+                </thead>
+
+
+
+                <tbody>
+
+
+                {% for lead in recent_leads %}
+
+
+                    <tr>
+
+
+                        <!-- Company -->
+
+                        <td>
+
+                            <strong>
+                                {{ lead.company_name }}
+                            </strong>
+
+                        </td>
+
+
+
+                        <!-- Job -->
+
+                        <td>
+                            {{ lead.job_title }}
+                        </td>
+
+
+
+                        <!-- Score -->
+
+                        <td>
+
+                            <span class="badge bg-success">
+
+                                {{ lead.lead_score }}
+
+                            </span>
+
+                        </td>
+
+
+
+                        <!-- Status -->
+
+                        <td>
+
+                            {{ lead.get_status_display }}
+
+                        </td>
+
+
+
+                        <!-- View -->
+
+                        <td>
+
+                            <a
+                                href="{% url 'leads:detail' lead.pk %}"
+                                class="btn btn-sm btn-outline-primary"
+                            >
+                                View
+                            </a>
+
+                        </td>
+
+
+                    </tr>
+
+
+                {% empty %}
+
+
+                    <tr>
+
+                        <td
+                            colspan="5"
+                            class="text-muted"
+                        >
+
+                            No leads yet.
+
+                        </td>
+
+                    </tr>
+
+
+                {% endfor %}
+
+
+                </tbody>
+
+
+            </table>
+
+
+        </div>
+
+
+    </div>
+
+</div>
+
+
+{% endblock %}
+
+
+
+<!-- ===================================================== -->
+<!-- JAVASCRIPT -->
+<!-- ===================================================== -->
+
+{% block extra_js %}
+
+
+<!-- Chart.js -->
+
+<script
+    src="https://cdn.jsdelivr.net/npm/chart.js"
+></script>
+
+
+
+<script>
+
+
+const ctx = document.getElementById(
+    "leadPipelineChart"
+);
+
+
+if (ctx) {
+
+
+    new Chart(
+        ctx,
+        {
+
+            type: "bar",
+
+
+            data: {
+
+                labels: [
+
+                    "New",
+
+                    "Qualified",
+
+                    "Contacted",
+
+                    "Proposal",
+
+                    "Won",
+
+                    "Lost"
+
+                ],
+
+
+                datasets: [
+
+                    {
+
+                        label: "Leads",
+
+
+                        data: [
+
+                            {{ new_leads }},
+
+                            {{ qualified_leads }},
+
+                            {{ contacted_leads }},
+
+                            {{ proposal_leads }},
+
+                            {{ won_leads }},
+
+                            {{ lost_leads }}
+
+                        ],
+
+
+                        borderWidth: 1
+
+                    }
+
+                ]
+
+            },
+
+
+            options: {
+
+                responsive: true,
+
+                maintainAspectRatio: false,
+
+
+                scales: {
+
+                    y: {
+
+                        beginAtZero: true,
+
+
+                        ticks: {
+
+                            precision: 0
+
+                        }
+
+                    }
+
+                },
+
+
+                plugins: {
+
+                    legend: {
+
+                        display: true
+
+                    }
+
+                }
+
+            }
+
+        }
+    );
+
+}
+
+
+</script>
+
+
+{% endblock %}

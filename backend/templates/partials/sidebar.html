@@ -2,30 +2,55 @@
 
     <h5>Menu</h5>
 
-    <hr>
+<hr>
 
-    <a class="d-block mb-2" href="/">
-        Dashboard
-    </a>
+<a
+    class="d-block mb-2"
+    href="/"
+>
+    Dashboard
+</a>
 
-    <a class="d-block mb-2" href="/companies/">
-        Companies
-    </a>
+<a
+    class="d-block mb-2"
+    href="/companies/"
+>
+    Companies
+</a>
 
-    <a class="d-block mb-2" href="#">
-        Contacts
-    </a>
+<a
+    class="d-block mb-2"
+    href="#"
+>
+    Contacts
+</a>
 
-    <a class="d-block mb-2" href="#">
-        Leads
-    </a>
+<a
+    class="d-block mb-2"
+    href="{% url 'leads:dashboard' %}"
+>
+    Lead Dashboard
+</a>
 
-    <a class="d-block mb-2" href="#">
-        Opportunities
-    </a>
+<a
+    class="d-block mb-2"
+    href="{% url 'leads:list' %}"
+>
+    Leads
+</a>
 
-    <a class="d-block mb-2" href="#">
-        Tasks
-    </a>
+<a
+    class="d-block mb-2"
+    href="#"
+>
+    Opportunities
+</a>
+
+<a
+    class="d-block mb-2"
+    href="#"
+>
+    Tasks
+</a>
 
 </div>

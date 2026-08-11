@@ -18,11 +18,19 @@ Lead CRM
 
     </div>
 
-    <a href="/scanner/" class="btn btn-primary">
+    <a
+        href="/scanner/"
+        class="btn btn-primary"
+    >
         + Scan New Lead
     </a>
 
 </div>
+
+
+<!-- ========================================================= -->
+<!-- SEARCH / FILTER -->
+<!-- ========================================================= -->
 
 <form
     class="card mb-3"
@@ -37,7 +45,10 @@ Lead CRM
 
         <div class="row g-3">
 
+            <!-- Search -->
+
             <div class="col-md-5">
+
                 <input
                     type="search"
                     name="search"
@@ -45,34 +56,70 @@ Lead CRM
                     placeholder="Search companies, jobs, industry, or country..."
                     value="{{ search }}"
                 >
+
             </div>
 
+
+            <!-- Status Filter -->
+
             <div class="col-md-4">
+
                 <select
                     name="status"
                     class="form-select"
                 >
-                    <option value="">All Statuses</option>
+
+                    <option value="">
+                        All Statuses
+                    </option>
+
                     {% for value, label in status_choices %}
-                        <option value="{{ value }}" {% if status == value %}selected{% endif %}>
+
+                        <option
+                            value="{{ value }}"
+                            {% if status == value %}
+                                selected
+                            {% endif %}
+                        >
                             {{ label }}
                         </option>
+
                     {% endfor %}
+
                 </select>
+
             </div>
 
+
+            <!-- Sort -->
+
             <div class="col-md-3">
+
                 <select
                     name="sort"
                     class="form-select"
                 >
-                    <option value="newest" {% if sort == "newest" %}selected{% endif %}>
+
+                    <option
+                        value="newest"
+                        {% if sort == "newest" %}
+                            selected
+                        {% endif %}
+                    >
                         Newest
                     </option>
-                    <option value="score" {% if sort == "score" %}selected{% endif %}>
+
+                    <option
+                        value="score"
+                        {% if sort == "score" %}
+                            selected
+                        {% endif %}
+                    >
                         Highest Score
                     </option>
+
                 </select>
+
             </div>
 
         </div>
@@ -81,8 +128,148 @@ Lead CRM
 
 </form>
 
-<div id="lead-table">
-    {% include "leads/partials/table.html" %}
-</div>
+
+<!-- ========================================================= -->
+<!-- BULK ACTIONS -->
+<!-- ========================================================= -->
+
+<form
+    id="bulk-status-form"
+    method="POST"
+    action="{% url 'leads:bulk_status_update' %}"
+>
+
+    {% csrf_token %}
+
+
+    <div class="d-flex gap-2 mb-3">
+
+        <select
+            name="status"
+            class="form-select"
+            style="max-width: 220px;"
+        >
+
+            {% for value, label in status_choices %}
+
+                <option value="{{ value }}">
+                    {{ label }}
+                </option>
+
+            {% endfor %}
+
+        </select>
+
+
+        <button
+            type="submit"
+            class="btn btn-primary"
+        >
+            Update Selected
+        </button>
+
+    </div>
+
+
+    <!-- ===================================================== -->
+    <!-- LEAD TABLE -->
+    <!-- ===================================================== -->
+
+    <div id="lead-table">
+
+        {% include "leads/partials/table.html" %}
+
+    </div>
+
+</form>
+
+
+<!-- ========================================================= -->
+<!-- PAGINATION -->
+<!-- ========================================================= -->
+
+{% if page_obj.has_other_pages %}
+
+<nav
+    aria-label="Lead pagination"
+    class="mt-4"
+>
+
+    <ul class="pagination justify-content-center">
+
+
+        <!-- Previous -->
+
+        {% if page_obj.has_previous %}
+
+        <li class="page-item">
+
+            <a
+                class="page-link"
+                href="?search={{ search|urlencode }}&status={{ status|urlencode }}&sort={{ sort|urlencode }}&page={{ page_obj.previous_page_number }}"
+                hx-get="?search={{ search|urlencode }}&status={{ status|urlencode }}&sort={{ sort|urlencode }}&page={{ page_obj.previous_page_number }}"
+                hx-target="#lead-table"
+                hx-swap="innerHTML"
+                hx-push-url="true"
+            >
+                Previous
+            </a>
+
+        </li>
+
+        {% endif %}
+
+
+        <!-- Page Numbers -->
+
+        {% for num in page_obj.paginator.page_range %}
+
+        <li
+            class="page-item {% if page_obj.number == num %}active{% endif %}"
+        >
+
+            <a
+                class="page-link"
+                href="?search={{ search|urlencode }}&status={{ status|urlencode }}&sort={{ sort|urlencode }}&page={{ num }}"
+                hx-get="?search={{ search|urlencode }}&status={{ status|urlencode }}&sort={{ sort|urlencode }}&page={{ num }}"
+                hx-target="#lead-table"
+                hx-swap="innerHTML"
+                hx-push-url="true"
+            >
+                {{ num }}
+
+            </a>
+
+        </li>
+
+        {% endfor %}
+
+
+        <!-- Next -->
+
+        {% if page_obj.has_next %}
+
+        <li class="page-item">
+
+            <a
+                class="page-link"
+                href="?search={{ search|urlencode }}&status={{ status|urlencode }}&sort={{ sort|urlencode }}&page={{ page_obj.next_page_number }}"
+                hx-get="?search={{ search|urlencode }}&status={{ status|urlencode }}&sort={{ sort|urlencode }}&page={{ page_obj.next_page_number }}"
+                hx-target="#lead-table"
+                hx-swap="innerHTML"
+                hx-push-url="true"
+            >
+                Next
+            </a>
+
+        </li>
+
+        {% endif %}
+
+    </ul>
+
+</nav>
+
+{% endif %}
 
 {% endblock %}
