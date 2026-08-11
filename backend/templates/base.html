@@ -1,93 +1,116 @@
 {% load static %}
+
 <!DOCTYPE html>
 <html lang="en">
 
 <head>
+
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
 
     <title>
         {% block title %}
-        Dodong OS
+            Dodong OS
         {% endblock %}
     </title>
 
+
     <!-- Bootstrap -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <link
+        href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/css/bootstrap.min.css"
+        rel="stylesheet"
+    >
+
 
     <!-- HTMX -->
-    <script src="https://unpkg.com/htmx.org@2.0.6"></script>
+
+    <script
+        src="https://unpkg.com/htmx.org@2.0.6"
+    ></script>
+
 
     <!-- Custom CSS -->
-    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+
+    <link
+        rel="stylesheet"
+        href="{% static 'css/style.css' %}"
+    >
 
 </head>
 
+
 <body>
 
-{% include "partials/navbar.html" %}
 
-<div class="container-fluid">
+    <!-- Navbar -->
+
+    {% include "partials/navbar.html" %}
+
+
+    <!-- Main Layout -->
 
     <div class="row">
 
+        <!-- Sidebar -->
+
         <div class="col-md-2 p-0">
+
             {% include "partials/sidebar.html" %}
+
         </div>
+
+
+        <!-- Content -->
 
         <div class="col-md-10 p-4">
 
             {% block content %}
+
             {% endblock %}
 
         </div>
 
     </div>
 
-</div>
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Modal -->
 
-<script>
+    {% include "components/modal.html" %}
 
-document.body.addEventListener("htmx:afterSwap", function(event) {
 
-    if (event.detail.target.id === "modal-content") {
+    <!-- Page-specific JavaScript -->
 
-        const modal = new bootstrap.Modal(
-            document.getElementById("mainModal")
-        );
+    {% block extra_js %}
 
-        modal.show();
+    {% endblock %}
 
-    }
 
-});
+    <!-- Lead Selection JavaScript -->
 
-</script>
+    <script>
 
-<script>
+        function toggleAllLeads(source) {
 
-document.body.addEventListener("htmx:afterSwap", function(event) {
+            const checkboxes = document.querySelectorAll(
+                ".lead-checkbox"
+            );
 
-    if (event.detail.target.id === "company-table") {
+            checkboxes.forEach(function(checkbox) {
 
-        const modalElement = document.getElementById("mainModal");
+                checkbox.checked = source.checked;
 
-        const modal = bootstrap.Modal.getInstance(modalElement);
-
-        if (modal) {
-
-            modal.hide();
+            });
 
         }
 
-    }
+    </script>
 
-});
-
-</script>
-
-{% include "components/modal.html" %}
 
 </body>
+
+</html>

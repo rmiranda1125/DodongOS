@@ -30,4 +30,28 @@ urlpatterns = [
         name="detail",
     ),
 
+    path(
+    "dashboard/",
+    views.lead_dashboard,
+    name="dashboard",
+    ),
+
+    path(
+    "<int:pk>/status/",
+    views.update_lead_status,
+    name="update_status",
+    ),
+
+    path(
+    "bulk-status/",
+    views.bulk_update_status,
+    name="bulk_status_update",
+    ),
+
+    path(
+    "<int:pk>/status/edit/",
+    views.edit_lead_status,
+    name="edit_status",
+    ),
+
 ]
