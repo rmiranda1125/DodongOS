@@ -1,0 +1,180 @@
+<div id="activity-timeline">
+
+    {% for activity in activities %}
+
+        <div class="d-flex mb-4">
+
+            <!-- ================================================= -->
+            <!-- ACTIVITY ICON -->
+            <!-- ================================================= -->
+
+            <div class="me-3">
+
+                {% if activity.activity_type == "note" %}
+
+                    <div
+                        class="rounded-circle bg-secondary text-white d-flex align-items-center justify-content-center"
+                        style="width:40px;height:40px;"
+                    >
+                        📝
+                    </div>
+
+                {% elif activity.activity_type == "call" %}
+
+                    <div
+                        class="rounded-circle bg-success text-white d-flex align-items-center justify-content-center"
+                        style="width:40px;height:40px;"
+                    >
+                        ☎
+                    </div>
+
+                {% elif activity.activity_type == "email" %}
+
+                    <div
+                        class="rounded-circle bg-info text-white d-flex align-items-center justify-content-center"
+                        style="width:40px;height:40px;"
+                    >
+                        ✉
+                    </div>
+
+                {% elif activity.activity_type == "meeting" %}
+
+                    <div
+                        class="rounded-circle bg-warning text-dark d-flex align-items-center justify-content-center"
+                        style="width:40px;height:40px;"
+                    >
+                        📅
+                    </div>
+
+                {% elif activity.activity_type == "follow_up" %}
+
+                    <div
+                        class="rounded-circle bg-primary text-white d-flex align-items-center justify-content-center"
+                        style="width:40px;height:40px;"
+                    >
+                        ↻
+                    </div>
+
+                {% elif activity.activity_type == "status_changed" %}
+
+                    <div
+                        class="rounded-circle bg-dark text-white d-flex align-items-center justify-content-center"
+                        style="width:40px;height:40px;"
+                    >
+                        ✓
+                    </div>
+
+                {% else %}
+
+                    <div
+                        class="rounded-circle bg-secondary text-white d-flex align-items-center justify-content-center"
+                        style="width:40px;height:40px;"
+                    >
+                        •
+                    </div>
+
+                {% endif %}
+
+            </div>
+
+
+            <!-- ================================================= -->
+            <!-- ACTIVITY CONTENT -->
+            <!-- ================================================= -->
+
+            <div class="flex-grow-1">
+
+                <div class="d-flex justify-content-between">
+
+
+                    <!-- ================================================= -->
+                    <!-- ACTIVITY DETAILS -->
+                    <!-- ================================================= -->
+
+                    <div>
+
+                        <strong>
+                            {{ activity.get_activity_type_display }}
+                        </strong>
+
+                        {% if activity.description %}
+
+                            <p class="mb-1">
+                                {{ activity.description }}
+                            </p>
+
+                        {% endif %}
+
+                        <small class="text-muted">
+                            {{ activity.created_at|date:"M d, Y g:i A" }}
+                        </small>
+
+                    </div>
+
+
+                    <!-- ================================================= -->
+                    <!-- ACTION BUTTONS -->
+                    <!-- ================================================= -->
+
+                    <div class="d-flex gap-2 align-items-start">
+
+
+                        <!-- ================================================= -->
+                        <!-- EDIT BUTTON -->
+                        <!-- ================================================= -->
+
+                        <button
+                            type="button"
+                            class="btn btn-sm btn-outline-primary"
+                            hx-get="{% url 'leads:edit_activity' lead.pk activity.pk %}"
+                            hx-target="#modal-content"
+                            hx-swap="innerHTML"
+                        >
+                            Edit
+                        </button>
+
+
+                        <!-- ================================================= -->
+                        <!-- DELETE BUTTON -->
+                        <!-- ================================================= -->
+
+                        <form
+                            method="POST"
+                            hx-post="{% url 'leads:delete_activity' lead.pk activity.pk %}"
+                            hx-target="#activity-timeline"
+                            hx-swap="outerHTML"
+                            hx-confirm="Are you sure you want to delete this activity?"
+                        >
+
+                            {% csrf_token %}
+
+                            <button
+                                type="submit"
+                                class="btn btn-sm btn-outline-danger"
+                            >
+                                Delete
+                            </button>
+
+                        </form>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    {% empty %}
+
+        <div class="text-center py-4">
+
+            <p class="text-muted mb-0">
+                No activity recorded yet.
+            </p>
+
+        </div>
+
+    {% endfor %}
+
+</div>

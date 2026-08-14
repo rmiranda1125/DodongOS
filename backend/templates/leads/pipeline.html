@@ -1,0 +1,991 @@
+{% extends "base.html" %}
+
+{% block title %}
+Lead Pipeline
+{% endblock %}
+
+
+{% block content %}
+
+
+<!-- ================================================= -->
+<!-- HEADER -->
+<!-- ================================================= -->
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+
+    <div>
+
+        <h2 class="mb-1">
+            Lead Pipeline
+        </h2>
+
+        <p class="text-muted mb-0">
+            Track leads through the CRM pipeline.
+        </p>
+
+    </div>
+
+
+    <a
+        href="{% url 'leads:list' %}"
+        class="btn btn-outline-primary"
+    >
+        List View
+    </a>
+
+</div>
+
+
+<!-- ================================================= -->
+<!-- CSRF TOKEN -->
+<!-- ================================================= -->
+
+{% csrf_token %}
+
+
+<!-- ================================================= -->
+<!-- PIPELINE SUMMARY -->
+<!-- ================================================= -->
+
+<div class="row g-3 mb-4">
+
+
+    <!-- TOTAL -->
+
+    <div class="col-md-3">
+
+        <div class="card h-100">
+
+            <div class="card-body">
+
+                <small class="text-muted">
+                    Total Leads
+                </small>
+
+                <h3 class="mb-0">
+                    {{ total_leads }}
+                </h3>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <!-- NEW -->
+
+    <div class="col-md-3">
+
+        <div class="card h-100">
+
+            <div class="card-body">
+
+                <small class="text-muted">
+                    New
+                </small>
+
+                <h3 class="mb-0">
+                    {{ pipeline.new|length }}
+                </h3>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <!-- QUALIFIED -->
+
+    <div class="col-md-3">
+
+        <div class="card h-100">
+
+            <div class="card-body">
+
+                <small class="text-muted">
+                    Qualified
+                </small>
+
+                <h3 class="mb-0">
+                    {{ pipeline.qualified|length }}
+                </h3>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <!-- CONVERSION -->
+
+    <div class="col-md-3">
+
+        <div class="card h-100">
+
+            <div class="card-body">
+
+                <small class="text-muted">
+                    Conversion Rate
+                </small>
+
+                <h3 class="mb-0">
+                    {{ conversion_rate }}%
+                </h3>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+<!-- ================================================= -->
+<!-- LEAD TEMPERATURE -->
+<!-- ================================================= -->
+
+<div class="row g-3 mb-4">
+
+
+    <!-- HOT -->
+
+    <div class="col-md-4">
+
+        <div class="card border-danger h-100">
+
+            <div class="card-body">
+
+                <small class="text-muted">
+                    Hot Leads
+                </small>
+
+                <h3 class="mb-0 text-danger">
+                    {{ hot_count }}
+                </h3>
+
+                <small class="text-muted">
+                    Score 80+
+                </small>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <!-- WARM -->
+
+    <div class="col-md-4">
+
+        <div class="card border-warning h-100">
+
+            <div class="card-body">
+
+                <small class="text-muted">
+                    Warm Leads
+                </small>
+
+                <h3 class="mb-0 text-warning">
+                    {{ warm_count }}
+                </h3>
+
+                <small class="text-muted">
+                    Score 60–79
+                </small>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <!-- COLD -->
+
+    <div class="col-md-4">
+
+        <div class="card h-100">
+
+            <div class="card-body">
+
+                <small class="text-muted">
+                    Cold Leads
+                </small>
+
+                <h3 class="mb-0">
+                    {{ cold_count }}
+                </h3>
+
+                <small class="text-muted">
+                    Score 0–59
+                </small>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+<!-- ================================================= -->
+<!-- PIPELINE BOARD -->
+<!-- ================================================= -->
+
+<div
+    class="row g-3"
+    id="pipeline-board"
+>
+
+
+    <!-- ================================================= -->
+    <!-- NEW -->
+    <!-- ================================================= -->
+
+    <div class="col-lg-2">
+
+        <div
+            class="card h-100 pipeline-column"
+            data-status="new"
+        >
+
+            <div class="card-header d-flex justify-content-between">
+
+                <strong>
+                    New
+                </strong>
+
+                <span class="badge bg-secondary">
+                    {{ pipeline.new|length }}
+                </span>
+
+            </div>
+
+
+            <div class="card-body pipeline-drop-zone">
+
+                {% for lead in pipeline.new %}
+
+                    {% include "leads/partials/pipeline_card.html" %}
+
+                {% empty %}
+
+                    <p class="text-muted small text-center drop-message">
+                        Drop leads here
+                    </p>
+
+                {% endfor %}
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <!-- ================================================= -->
+    <!-- CONTACTED -->
+    <!-- ================================================= -->
+
+    <div class="col-lg-2">
+
+        <div
+            class="card h-100 pipeline-column"
+            data-status="contacted"
+        >
+
+            <div class="card-header d-flex justify-content-between">
+
+                <strong>
+                    Contacted
+                </strong>
+
+                <span class="badge bg-info text-dark">
+                    {{ pipeline.contacted|length }}
+                </span>
+
+            </div>
+
+
+            <div class="card-body pipeline-drop-zone">
+
+                {% for lead in pipeline.contacted %}
+
+                    {% include "leads/partials/pipeline_card.html" %}
+
+                {% empty %}
+
+                    <p class="text-muted small text-center drop-message">
+                        Drop leads here
+                    </p>
+
+                {% endfor %}
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <!-- ================================================= -->
+    <!-- QUALIFIED -->
+    <!-- ================================================= -->
+
+    <div class="col-lg-2">
+
+        <div
+            class="card h-100 pipeline-column"
+            data-status="qualified"
+        >
+
+            <div class="card-header d-flex justify-content-between">
+
+                <strong>
+                    Qualified
+                </strong>
+
+                <span class="badge bg-primary">
+                    {{ pipeline.qualified|length }}
+                </span>
+
+            </div>
+
+
+            <div class="card-body pipeline-drop-zone">
+
+                {% for lead in pipeline.qualified %}
+
+                    {% include "leads/partials/pipeline_card.html" %}
+
+                {% empty %}
+
+                    <p class="text-muted small text-center drop-message">
+                        Drop leads here
+                    </p>
+
+                {% endfor %}
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <!-- ================================================= -->
+    <!-- PROPOSAL -->
+    <!-- ================================================= -->
+
+    <div class="col-lg-2">
+
+        <div
+            class="card h-100 pipeline-column"
+            data-status="proposal"
+        >
+
+            <div class="card-header d-flex justify-content-between">
+
+                <strong>
+                    Proposal
+                </strong>
+
+                <span class="badge bg-warning text-dark">
+                    {{ pipeline.proposal|length }}
+                </span>
+
+            </div>
+
+
+            <div class="card-body pipeline-drop-zone">
+
+                {% for lead in pipeline.proposal %}
+
+                    {% include "leads/partials/pipeline_card.html" %}
+
+                {% empty %}
+
+                    <p class="text-muted small text-center drop-message">
+                        Drop leads here
+                    </p>
+
+                {% endfor %}
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <!-- ================================================= -->
+    <!-- WON -->
+    <!-- ================================================= -->
+
+    <div class="col-lg-2">
+
+        <div
+            class="card h-100 pipeline-column"
+            data-status="won"
+        >
+
+            <div class="card-header d-flex justify-content-between">
+
+                <strong>
+                    Won
+                </strong>
+
+                <span class="badge bg-success">
+                    {{ pipeline.won|length }}
+                </span>
+
+            </div>
+
+
+            <div class="card-body pipeline-drop-zone">
+
+                {% for lead in pipeline.won %}
+
+                    {% include "leads/partials/pipeline_card.html" %}
+
+                {% empty %}
+
+                    <p class="text-muted small text-center drop-message">
+                        Drop leads here
+                    </p>
+
+                {% endfor %}
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <!-- ================================================= -->
+    <!-- LOST -->
+    <!-- ================================================= -->
+
+    <div class="col-lg-2">
+
+        <div
+            class="card h-100 pipeline-column"
+            data-status="lost"
+        >
+
+            <div class="card-header d-flex justify-content-between">
+
+                <strong>
+                    Lost
+                </strong>
+
+                <span class="badge bg-danger">
+                    {{ pipeline.lost|length }}
+                </span>
+
+            </div>
+
+
+            <div class="card-body pipeline-drop-zone">
+
+                {% for lead in pipeline.lost %}
+
+                    {% include "leads/partials/pipeline_card.html" %}
+
+                {% empty %}
+
+                    <p class="text-muted small text-center drop-message">
+                        Drop leads here
+                    </p>
+
+                {% endfor %}
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+</div>
+
+
+{% endblock %}
+
+
+{% block extra_js %}
+
+<script>
+
+document.addEventListener(
+    "DOMContentLoaded",
+    function () {
+
+
+        // =================================================
+        // CSRF TOKEN
+        // =================================================
+
+        const csrfInput =
+            document.querySelector(
+                'input[name="csrfmiddlewaretoken"]'
+            );
+
+
+        if (!csrfInput) {
+
+            console.error(
+                "CSRF token not found."
+            );
+
+            return;
+
+        }
+
+
+        const csrfToken =
+            csrfInput.value;
+
+
+        // =================================================
+        // PIPELINE ELEMENTS
+        // =================================================
+
+        const cards =
+            document.querySelectorAll(
+                ".lead-card"
+            );
+
+
+        const dropZones =
+            document.querySelectorAll(
+                ".pipeline-drop-zone"
+            );
+
+
+        let draggedCard = null;
+
+        let originalZone = null;
+
+        let originalNextSibling = null;
+
+
+        // =================================================
+        // DRAG START
+        // =================================================
+
+        cards.forEach(
+            function (card) {
+
+                card.addEventListener(
+                    "dragstart",
+                    function (event) {
+
+                        draggedCard = card;
+
+                        originalZone =
+                            card.parentElement;
+
+                        originalNextSibling =
+                            card.nextElementSibling;
+
+
+                        card.classList.add(
+                            "opacity-50"
+                        );
+
+
+                        event.dataTransfer.effectAllowed =
+                            "move";
+
+
+                        event.dataTransfer.setData(
+                            "text/plain",
+                            card.dataset.leadId
+                        );
+
+                    }
+                );
+
+
+                // =================================================
+                // DRAG END
+                // =================================================
+
+                card.addEventListener(
+                    "dragend",
+                    function () {
+
+                        card.classList.remove(
+                            "opacity-50"
+                        );
+
+                        dropZones.forEach(
+                            function (zone) {
+
+                                zone.classList.remove(
+                                    "bg-light"
+                                );
+
+                            }
+                        );
+
+                    }
+                );
+
+            }
+        );
+
+
+        // =================================================
+        // DRAG OVER
+        // =================================================
+
+        dropZones.forEach(
+            function (zone) {
+
+                zone.addEventListener(
+                    "dragover",
+                    function (event) {
+
+                        event.preventDefault();
+
+                        event.dataTransfer.dropEffect =
+                            "move";
+
+
+                        zone.classList.add(
+                            "bg-light"
+                        );
+
+                    }
+                );
+
+
+                // =================================================
+                // DRAG LEAVE
+                // =================================================
+
+                zone.addEventListener(
+                    "dragleave",
+                    function () {
+
+                        zone.classList.remove(
+                            "bg-light"
+                        );
+
+                    }
+                );
+
+
+                // =================================================
+                // DROP
+                // =================================================
+
+                zone.addEventListener(
+                    "drop",
+                    async function (event) {
+
+                        event.preventDefault();
+
+
+                        zone.classList.remove(
+                            "bg-light"
+                        );
+
+
+                        if (!draggedCard) {
+
+                            return;
+
+                        }
+
+
+                        const leadId =
+                            draggedCard.dataset.leadId;
+
+
+                        const newStatus =
+                            zone.closest(
+                                ".pipeline-column"
+                            ).dataset.status;
+
+
+                        const oldStatus =
+                            originalZone.closest(
+                                ".pipeline-column"
+                            ).dataset.status;
+
+
+                        // Nothing changed
+
+                        if (
+                            newStatus === oldStatus
+                        ) {
+
+                            return;
+
+                        }
+
+
+                        // =================================================
+                        // MOVE CARD VISUALLY
+                        // =================================================
+
+                        zone.appendChild(
+                            draggedCard
+                        );
+
+
+                        // Remove "Drop leads here"
+
+                        const message =
+                            zone.querySelector(
+                                ".drop-message"
+                            );
+
+
+                        if (message) {
+
+                            message.remove();
+
+                        }
+
+
+                        // =================================================
+                        // SAVE TO DJANGO
+                        // =================================================
+
+                        const formData =
+                            new FormData();
+
+
+                        formData.append(
+                            "status",
+                            newStatus
+                        );
+
+
+                        formData.append(
+                            "csrfmiddlewaretoken",
+                            csrfToken
+                        );
+
+
+                        try {
+
+                            const response =
+                                await fetch(
+                                    `/leads/${leadId}/pipeline-status/`,
+                                    {
+                                        method: "POST",
+
+                                        headers: {
+                                            "X-CSRFToken":
+                                                csrfToken,
+
+                                            "HX-Request":
+                                                "true"
+                                        },
+
+                                        body: formData
+                                    }
+                                );
+
+
+                            // =================================================
+                            // FAILED
+                            // =================================================
+
+                            if (!response.ok) {
+
+                                throw new Error(
+                                    "HTTP " +
+                                    response.status
+                                );
+
+                            }
+
+
+                            // =================================================
+                            // SUCCESS
+                            // =================================================
+
+                            console.log(
+                                "Pipeline status saved:",
+                                leadId,
+                                newStatus
+                            );
+
+
+                            // Update select
+
+                            const select =
+                                draggedCard.querySelector(
+                                    'select[name="status"]'
+                                );
+
+
+                            if (select) {
+
+                                select.value =
+                                    newStatus;
+
+                            }
+
+
+                            draggedCard =
+                                null;
+
+                            originalZone =
+                                null;
+
+                            originalNextSibling =
+                                null;
+
+                        }
+
+
+                        catch (error) {
+
+                            console.error(
+                                "Pipeline save failed:",
+                                error
+                            );
+
+
+                            // =================================================
+                            // MOVE CARD BACK
+                            // =================================================
+
+                            if (
+                                originalNextSibling &&
+                                originalNextSibling.parentElement ===
+                                    originalZone
+                            ) {
+
+                                originalZone.insertBefore(
+                                    draggedCard,
+                                    originalNextSibling
+                                );
+
+                            }
+
+                            else {
+
+                                originalZone.appendChild(
+                                    draggedCard
+                                );
+
+                            }
+
+
+                            alert(
+                                "Could not save the pipeline status."
+                            );
+
+
+                            draggedCard =
+                                null;
+
+                            originalZone =
+                                null;
+
+                            originalNextSibling =
+                                null;
+
+                        }
+
+                    }
+                );
+
+            }
+        );
+
+
+        // =================================================
+        // PREVENT DRAGGING WHEN USING FORM CONTROLS
+        // =================================================
+
+        document
+            .querySelectorAll(
+                ".lead-card select, .lead-card a, .lead-card button"
+            )
+            .forEach(
+                function (element) {
+
+                    element.addEventListener(
+                        "mousedown",
+                        function (event) {
+
+                            event.stopPropagation();
+
+                        }
+                    );
+
+                }
+            );
+
+
+    }
+);
+
+</script>
+
+
+<style>
+
+.lead-card {
+
+    cursor: grab;
+
+    transition:
+        transform 0.15s ease,
+        box-shadow 0.15s ease;
+
+}
+
+
+.lead-card:hover {
+
+    box-shadow:
+        0 4px 12px rgba(0, 0, 0, 0.12);
+
+}
+
+
+.lead-card:active {
+
+    cursor: grabbing;
+
+}
+
+
+.pipeline-drop-zone {
+
+    min-height: 180px;
+
+    transition:
+        background-color 0.2s ease;
+
+}
+
+
+.pipeline-drop-zone.bg-light {
+
+    border: 2px dashed #0d6efd;
+
+}
+
+
+</style>
+
+{% endblock %}

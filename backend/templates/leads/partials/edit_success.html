@@ -1,0 +1,48 @@
+<div
+    id="edit-success"
+
+    hx-get="{% url 'leads:list' %}"
+
+    hx-trigger="load delay:500ms"
+
+    hx-target="#lead-table"
+
+    hx-select="#lead-table"
+
+    hx-swap="outerHTML"
+>
+
+</div>
+
+
+<div class="modal-header">
+
+    <h5 class="modal-title">
+        Lead Updated
+    </h5>
+
+</div>
+
+
+<div class="modal-body">
+
+    <div class="alert alert-success mb-0">
+
+        Lead information was updated successfully.
+
+    </div>
+
+</div>
+
+
+<div class="modal-footer">
+
+    <button
+        type="button"
+        class="btn btn-primary"
+        data-bs-dismiss="modal"
+    >
+        Done
+    </button>
+
+</div>

@@ -3,7 +3,10 @@ from django.db import models
 
 class Lead(models.Model):
 
-    # Company Information
+    # =====================================================
+    # COMPANY INFORMATION
+    # =====================================================
+
     company_name = models.CharField(
         max_length=255,
     )
@@ -31,7 +34,11 @@ class Lead(models.Model):
         blank=True,
     )
 
-    # Job Information
+
+    # =====================================================
+    # JOB INFORMATION
+    # =====================================================
+
     job_title = models.CharField(
         max_length=255,
         blank=True,
@@ -68,7 +75,11 @@ class Lead(models.Model):
         blank=True,
     )
 
-    # AI Results
+
+    # =====================================================
+    # AI RESULTS
+    # =====================================================
+
     lead_score = models.IntegerField(
         default=0,
     )
@@ -85,16 +96,20 @@ class Lead(models.Model):
         default=list,
     )
 
-    # Lead Status
+
+    # =====================================================
+    # LEAD STATUS
+    # =====================================================
+
     STATUS_CHOICES = [
 
         ("new", "New"),
 
-        ("qualified", "Qualified"),
-
         ("contacted", "Contacted"),
 
-        ("proposal", "Proposal Sent"),
+        ("qualified", "Qualified"),
+
+        ("proposal", "Proposal"),
 
         ("won", "Won"),
 
@@ -108,6 +123,11 @@ class Lead(models.Model):
         default="new",
     )
 
+
+    # =====================================================
+    # TIMESTAMPS
+    # =====================================================
+
     created_at = models.DateTimeField(
         auto_now_add=True,
     )
@@ -116,9 +136,15 @@ class Lead(models.Model):
         auto_now=True,
     )
 
+
     def __str__(self):
+
         return f"{self.company_name} - {self.job_title}"
 
+
+# =========================================================
+# LEAD NOTE
+# =========================================================
 
 class LeadNote(models.Model):
 
@@ -138,31 +164,36 @@ class LeadNote(models.Model):
         auto_now=True,
     )
 
+
     class Meta:
-        ordering = ["-created_at"]
+
+        ordering = [
+            "-created_at",
+        ]
+
 
     def __str__(self):
+
         return f"Note for {self.lead.company_name}"
 
+
+# =========================================================
+# LEAD ACTIVITY
+# =========================================================
+
+# =========================================================
+# LEAD ACTIVITY
+# =========================================================
 
 class LeadActivity(models.Model):
 
     ACTIVITY_TYPES = [
-
-        ("created", "Lead Created"),
-
+        ("note", "Note"),
+        ("call", "Call"),
+        ("email", "Email"),
+        ("meeting", "Meeting"),
+        ("follow_up", "Follow Up"),
         ("status_changed", "Status Changed"),
-
-        ("note_added", "Note Added"),
-
-        ("ai_analysis", "AI Analysis"),
-
-        ("proposal_sent", "Proposal Sent"),
-
-        ("won", "Lead Won"),
-
-        ("lost", "Lead Lost"),
-
     ]
 
     lead = models.ForeignKey(
@@ -172,8 +203,9 @@ class LeadActivity(models.Model):
     )
 
     activity_type = models.CharField(
-        max_length=50,
+        max_length=20,
         choices=ACTIVITY_TYPES,
+        default="note",
     )
 
     description = models.TextField()
@@ -183,7 +215,9 @@ class LeadActivity(models.Model):
     )
 
     class Meta:
-        ordering = ["-created_at"]
+        ordering = [
+            "-created_at",
+        ]
 
     def __str__(self):
         return f"{self.lead.company_name} - {self.activity_type}"

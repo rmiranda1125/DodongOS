@@ -1,0 +1,129 @@
+<form
+    method="post"
+    hx-post="{% url 'leads:edit_activity' lead.pk activity.pk %}"
+    hx-target="#activity-timeline"
+    hx-swap="outerHTML"
+>
+
+    {% csrf_token %}
+
+
+    <!-- ================================================= -->
+    <!-- MODAL HEADER -->
+    <!-- ================================================= -->
+
+    <div class="d-flex justify-content-between align-items-center mb-4">
+
+        <div>
+
+            <h5
+                id="dodongModalTitle"
+                class="mb-1"
+            >
+                Edit Activity
+            </h5>
+
+            <small class="text-muted">
+                Update this activity
+            </small>
+
+        </div>
+
+
+        <button
+            type="button"
+            class="btn-close"
+            aria-label="Close"
+            onclick="closeDodongModal()"
+        ></button>
+
+    </div>
+
+
+    <!-- ================================================= -->
+    <!-- ACTIVITY TYPE -->
+    <!-- ================================================= -->
+
+    <div class="mb-3">
+
+        <label
+            for="activity_type"
+            class="form-label"
+        >
+            Activity Type
+        </label>
+
+        <select
+            name="activity_type"
+            id="activity_type"
+            class="form-select"
+            required
+        >
+
+            {% for value, label in activity.ACTIVITY_TYPE_CHOICES %}
+
+                <option
+                    value="{{ value }}"
+                    {% if activity.activity_type == value %}
+                        selected
+                    {% endif %}
+                >
+                    {{ label }}
+                </option>
+
+            {% endfor %}
+
+        </select>
+
+    </div>
+
+
+    <!-- ================================================= -->
+    <!-- DESCRIPTION -->
+    <!-- ================================================= -->
+
+    <div class="mb-3">
+
+        <label
+            for="description"
+            class="form-label"
+        >
+            Description
+        </label>
+
+        <textarea
+            name="description"
+            id="description"
+            class="form-control"
+            rows="5"
+            placeholder="Enter activity description..."
+        >{{ activity.description }}</textarea>
+
+    </div>
+
+
+    <!-- ================================================= -->
+    <!-- ACTIONS -->
+    <!-- ================================================= -->
+
+    <div class="d-flex justify-content-end gap-2">
+
+        <button
+            type="button"
+            class="btn btn-secondary"
+            onclick="closeDodongModal()"
+        >
+            Cancel
+        </button>
+
+
+        <button
+            type="submit"
+            class="btn btn-primary"
+        >
+            Save Changes
+        </button>
+
+    </div>
+
+</form>

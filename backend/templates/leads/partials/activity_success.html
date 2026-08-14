@@ -1,0 +1,43 @@
+<div
+    id="activity-success"
+    hx-get="{% url 'leads:detail' lead.pk %}"
+    hx-trigger="load delay:300ms"
+    hx-target="#activity-history"
+    hx-select="#activity-history"
+    hx-swap="outerHTML"
+>
+</div>
+
+<div class="modal-header">
+
+    <h5 class="modal-title">
+        Activity Added
+    </h5>
+
+    <button
+        type="button"
+        class="btn-close"
+        data-bs-dismiss="modal"
+    ></button>
+
+</div>
+
+<div class="modal-body">
+
+    <div class="alert alert-success mb-0">
+        Activity was added successfully.
+    </div>
+
+</div>
+
+<div class="modal-footer">
+
+    <button
+        type="button"
+        class="btn btn-primary"
+        data-bs-dismiss="modal"
+    >
+        Done
+    </button>
+
+</div>

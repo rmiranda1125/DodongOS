@@ -1,18 +1,30 @@
+{% comment %}
+=========================================================
+DODONG OS CUSTOM MODAL
+=========================================================
+{% endcomment %}
+
 <div
-    class="modal fade"
     id="mainModal"
-    tabindex="-1"
-    aria-hidden="true">
+    class="dodong-modal"
+    aria-hidden="true"
+>
 
-    <div class="modal-dialog modal-lg">
+    <div
+        class="dodong-modal-backdrop"
+        onclick="closeDodongModal()"
+    ></div>
 
-        <div class="modal-content">
+    <div
+        class="dodong-modal-dialog"
+        role="dialog"
+        aria-modal="true"
+    >
 
-            <div id="modal-content">
-
-            </div>
-
-        </div>
+        <div
+            id="modal-content"
+            class="dodong-modal-content"
+        ></div>
 
     </div>
 

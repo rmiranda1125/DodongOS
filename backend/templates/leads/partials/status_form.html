@@ -1,0 +1,51 @@
+<div
+    id="lead-status"
+    class="d-flex align-items-center gap-2"
+>
+
+    <form
+        method="POST"
+
+        hx-post="{% url 'leads:update_lead_status' lead.pk %}"
+
+        hx-target="#lead-status"
+
+        hx-swap="outerHTML"
+    >
+
+        {% csrf_token %}
+
+        <div class="input-group">
+
+            <select
+                name="status"
+                class="form-select"
+            >
+
+                {% for value, label in lead.STATUS_CHOICES %}
+
+                    <option
+                        value="{{ value }}"
+                        {% if lead.status == value %}
+                            selected
+                        {% endif %}
+                    >
+                        {{ label }}
+                    </option>
+
+                {% endfor %}
+
+            </select>
+
+            <button
+                type="submit"
+                class="btn btn-primary"
+            >
+                Save
+            </button>
+
+        </div>
+
+    </form>
+
+</div>

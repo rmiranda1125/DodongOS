@@ -1,230 +1,379 @@
-<div class="card">
+<div class="card-body">
 
-    <div class="card-body">
+    <table class="table table-hover align-middle">
 
-        <table class="table table-hover align-middle">
+        <thead>
 
-            <thead>
+            <tr>
 
-                <tr>
-
-                    <!-- Select All -->
-                    <th>
-                        <input
-                            type="checkbox"
-                            id="select-all"
-                            onclick="toggleAllLeads(this)"
-                        >
-                    </th>
-
-                    <th>Score</th>
-
-                    <th>Company</th>
-
-                    <th>Job</th>
-
-                    <th>Status</th>
-
-                    <th></th>
-
-                </tr>
-
-            </thead>
-
-
-            <tbody>
-
-            {% for lead in leads %}
-
-                <tr>
-
-                    <!-- Checkbox -->
-                    <td>
-                        <input
-                            type="checkbox"
-                            name="lead_ids"
-                            value="{{ lead.pk }}"
-                            form="bulk-status-form"
-                            class="lead-checkbox"
-                        >
-                    </td>
-
-
-                    <!-- Score -->
-                    <td>
-                        <span class="badge bg-success">
-                            {{ lead.lead_score }}
-                        </span>
-                    </td>
-
-
-                    <!-- Company -->
-                    <td>
-
-                        <strong>
-                            {{ lead.company_name }}
-                        </strong>
-
-                        <br>
-
-                        <small class="text-muted">
-                            {{ lead.industry }}
-                        </small>
-
-                    </td>
-
-
-                    <!-- Job -->
-                    <td>
-                        {{ lead.job_title }}
-                    </td>
-
-
-                    <!-- Status -->
-                    <td>
-
-                        {% include "leads/partials/status.html" %}
-
-                    </td>
-
-
-                    <!-- Action -->
-                    <td>
-
-                        <a
-                            href="{% url 'leads:detail' lead.pk %}"
-                            class="btn btn-sm btn-outline-primary"
-                        >
-                            View
-                        </a>
-
-                    </td>
-
-                </tr>
-
-
-            {% empty %}
-
-                <tr>
-
-                    <td
-                        colspan="6"
-                        class="text-center text-muted"
+                <!-- Select All -->
+                <th>
+                    <input
+                        type="checkbox"
+                        id="select-all"
+                        onclick="toggleAllLeads(this)"
                     >
-                        No leads have been scanned yet.
-                    </td>
+                </th>
 
-                </tr>
+                <th>Score</th>
+
+                <th>Company</th>
+
+                <th>Job</th>
+
+                <th>Status</th>
+
+                <th></th>
+
+            </tr>
+
+        </thead>
+
+
+        <tbody>
+
+        {% for lead in leads %}
+
+            <tr>
+
+                <!-- ====================================== -->
+                <!-- Checkbox -->
+                <!-- ====================================== -->
+
+                <td>
+
+                    <input
+                        type="checkbox"
+                        name="lead_ids"
+                        value="{{ lead.pk }}"
+                        form="bulk-status-form"
+                        class="lead-checkbox"
+                    >
+
+                </td>
+
+
+                <!-- ====================================== -->
+                <!-- Score -->
+                <!-- ====================================== -->
+
+                <td>
+
+                    <span class="badge bg-success">
+
+                        {{ lead.lead_score }}
+
+                    </span>
+
+                </td>
+
+
+                <!-- ====================================== -->
+                <!-- Company -->
+                <!-- ====================================== -->
+
+                <td>
+
+                    <strong>
+
+                        {{ lead.company_name }}
+
+                    </strong>
+
+                    <br>
+
+                    <small class="text-muted">
+
+                        {{ lead.industry }}
+
+                    </small>
+
+                </td>
+
+
+                <!-- ====================================== -->
+                <!-- Job -->
+                <!-- ====================================== -->
+
+                <td>
+
+                    {{ lead.job_title }}
+
+                </td>
+
+
+                <!-- ====================================== -->
+                <!-- Status -->
+                <!-- ====================================== -->
+
+                <td>
+
+                    <div id="lead-status-{{ lead.pk }}">
+
+                        {% include "leads/partials/table_status.html" %}
+
+                    </div>
+
+                </td>
+
+
+                <!-- ====================================== -->
+                <!-- Action -->
+                <!-- ====================================== -->
+
+                <td>
+
+                    <a
+                        href="{% url 'leads:detail' lead.pk %}"
+                        class="btn btn-sm btn-outline-primary"
+                    >
+
+                        View
+
+                    </a>
+
+                </td>
+
+            </tr>
+
+
+        {% empty %}
+
+            <tr>
+
+                <td
+                    colspan="6"
+                    class="text-center text-muted py-4"
+                >
+
+                    No leads have been scanned yet.
+
+                </td>
+
+            </tr>
+
+        {% endfor %}
+
+        </tbody>
+
+    </table>
+
+
+    <!-- ================================================= -->
+    <!-- PAGINATION -->
+    <!-- ================================================= -->
+
+    {% if page_obj.has_other_pages %}
+
+    <nav
+        aria-label="Lead pagination"
+        class="mt-4"
+    >
+
+        <ul class="pagination justify-content-center mb-0">
+
+
+            <!-- ========================================== -->
+            <!-- Previous -->
+            <!-- ========================================== -->
+
+            {% if page_obj.has_previous %}
+
+                <li class="page-item">
+
+                    <a
+                        class="page-link"
+
+                        href="?search={{ search|urlencode }}&status={{ status|urlencode }}&sort={{ sort|urlencode }}&page={{ page_obj.previous_page_number }}"
+
+                        hx-get="?search={{ search|urlencode }}&status={{ status|urlencode }}&sort={{ sort|urlencode }}&page={{ page_obj.previous_page_number }}"
+
+                        hx-target="#lead-table"
+
+                        hx-swap="innerHTML"
+
+                        hx-push-url="true"
+                    >
+
+                        Previous
+
+                    </a>
+
+                </li>
+
+            {% endif %}
+
+
+            <!-- ========================================== -->
+            <!-- Page Numbers -->
+            <!-- ========================================== -->
+
+            {% for num in page_obj.paginator.page_range %}
+
+                <li
+                    class="page-item
+                    {% if page_obj.number == num %}
+                        active
+                    {% endif %}"
+                >
+
+                    <a
+                        class="page-link"
+
+                        href="?search={{ search|urlencode }}&status={{ status|urlencode }}&sort={{ sort|urlencode }}&page={{ num }}"
+
+                        hx-get="?search={{ search|urlencode }}&status={{ status|urlencode }}&sort={{ sort|urlencode }}&page={{ num }}"
+
+                        hx-target="#lead-table"
+
+                        hx-swap="innerHTML"
+
+                        hx-push-url="true"
+                    >
+
+                        {{ num }}
+
+                    </a>
+
+                </li>
 
             {% endfor %}
 
-            </tbody>
 
-        </table>
+            <!-- ========================================== -->
+            <!-- Next -->
+            <!-- ========================================== -->
 
+            {% if page_obj.has_next %}
 
-        <!-- ================================================= -->
-        <!-- PAGINATION -->
-        <!-- ================================================= -->
+                <li class="page-item">
 
-        {% if page_obj.has_other_pages %}
+                    <a
+                        class="page-link"
 
-        <nav
-            aria-label="Lead pagination"
-            class="mt-4"
-        >
+                        href="?search={{ search|urlencode }}&status={{ status|urlencode }}&sort={{ sort|urlencode }}&page={{ page_obj.next_page_number }}"
 
-            <ul class="pagination justify-content-center mb-0">
+                        hx-get="?search={{ search|urlencode }}&status={{ status|urlencode }}&sort={{ sort|urlencode }}&page={{ page_obj.next_page_number }}"
 
+                        hx-target="#lead-table"
 
-                <!-- Previous -->
+                        hx-swap="innerHTML"
 
-                {% if page_obj.has_previous %}
-
-                    <li class="page-item">
-
-                        <a
-                            class="page-link"
-                            href="?search={{ search|urlencode }}&status={{ status|urlencode }}&sort={{ sort|urlencode }}&page={{ page_obj.previous_page_number }}"
-
-                            hx-get="?search={{ search|urlencode }}&status={{ status|urlencode }}&sort={{ sort|urlencode }}&page={{ page_obj.previous_page_number }}"
-
-                            hx-target="#lead-table"
-
-                            hx-swap="innerHTML"
-
-                            hx-push-url="true"
-                        >
-                            Previous
-                        </a>
-
-                    </li>
-
-                {% endif %}
-
-
-                <!-- Page Numbers -->
-
-                {% for num in page_obj.paginator.page_range %}
-
-                    <li
-                        class="page-item
-                        {% if page_obj.number == num %}
-                            active
-                        {% endif %}"
+                        hx-push-url="true"
                     >
 
-                        <a
-                            class="page-link"
-                            href="?search={{ search|urlencode }}&status={{ status|urlencode }}&sort={{ sort|urlencode }}&page={{ num }}"
+                        Next
 
-                            hx-get="?search={{ search|urlencode }}&status={{ status|urlencode }}&sort={{ sort|urlencode }}&page={{ num }}"
+                    </a>
 
-                            hx-target="#lead-table"
+                </li>
 
-                            hx-swap="innerHTML"
+            {% endif %}
 
-                            hx-push-url="true"
-                        >
-                            {{ num }}
-                        </a>
+        </ul>
 
-                    </li>
+    </nav>
 
-                {% endfor %}
+    {% endif %}
 
+</div>
 
-                <!-- Next -->
+{% if leads.has_other_pages %}
 
-                {% if page_obj.has_next %}
+<nav class="mt-4">
 
-                    <li class="page-item">
+    <ul class="pagination justify-content-center">
 
-                        <a
-                            class="page-link"
-                            href="?search={{ search|urlencode }}&status={{ status|urlencode }}&sort={{ sort|urlencode }}&page={{ page_obj.next_page_number }}"
+        {% if leads.has_previous %}
 
-                            hx-get="?search={{ search|urlencode }}&status={{ status|urlencode }}&sort={{ sort|urlencode }}&page={{ page_obj.next_page_number }}"
+            <li class="page-item">
 
-                            hx-target="#lead-table"
+                <a
+                    class="page-link"
 
-                            hx-swap="innerHTML"
+                    href="?search={{ search }}&status={{ status }}&sort={{ sort }}&page={{ leads.previous_page_number }}"
 
-                            hx-push-url="true"
-                        >
-                            Next
-                        </a>
+                    hx-get="{% url 'leads:list' %}?search={{ search }}&status={{ status }}&sort={{ sort }}&page={{ leads.previous_page_number }}"
 
-                    </li>
+                    hx-target="#lead-table"
 
-                {% endif %}
+                    hx-select="#lead-table"
 
-            </ul>
+                    hx-push-url="true"
+                >
+                    Previous
+                </a>
 
-        </nav>
+            </li>
 
         {% endif %}
 
-    </div>
 
-</div>
+        {% for page_num in leads.paginator.page_range %}
+
+            {% if page_num == leads.number %}
+
+                <li class="page-item active">
+
+                    <span class="page-link">
+                        {{ page_num }}
+                    </span>
+
+                </li>
+
+            {% else %}
+
+                <li class="page-item">
+
+                    <a
+                        class="page-link"
+
+                        href="?search={{ search }}&status={{ status }}&sort={{ sort }}&page={{ page_num }}"
+
+                        hx-get="{% url 'leads:list' %}?search={{ search }}&status={{ status }}&sort={{ sort }}&page={{ page_num }}"
+
+                        hx-target="#lead-table"
+
+                        hx-select="#lead-table"
+
+                        hx-push-url="true"
+                    >
+                        {{ page_num }}
+                    </a>
+
+                </li>
+
+            {% endif %}
+
+        {% endfor %}
+
+
+        {% if leads.has_next %}
+
+            <li class="page-item">
+
+                <a
+                    class="page-link"
+
+                    href="?search={{ search }}&status={{ status }}&sort={{ sort }}&page={{ leads.next_page_number }}"
+
+                    hx-get="{% url 'leads:list' %}?search={{ search }}&status={{ status }}&sort={{ sort }}&page={{ leads.next_page_number }}"
+
+                    hx-target="#lead-table"
+
+                    hx-select="#lead-table"
+
+                    hx-push-url="true"
+                >
+                    Next
+                </a>
+
+            </li>
+
+        {% endif %}
+
+    </ul>
+
+</nav>
+
+{% endif %}

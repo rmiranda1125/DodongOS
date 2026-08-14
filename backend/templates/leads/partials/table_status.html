@@ -1,0 +1,30 @@
+<span class="badge
+    {% if lead.status == 'new' %}
+        bg-secondary
+    {% elif lead.status == 'contacted' %}
+        bg-info text-dark
+    {% elif lead.status == 'qualified' %}
+        bg-primary
+    {% elif lead.status == 'proposal' %}
+        bg-warning text-dark
+    {% elif lead.status == 'won' %}
+        bg-success
+    {% elif lead.status == 'lost' %}
+        bg-danger
+    {% endif %}
+">
+    {{ lead.get_status_display }}
+</span>
+
+<button
+    type="button"
+    class="btn btn-sm btn-outline-secondary ms-1"
+
+    hx-get="{% url 'leads:update_lead_status' lead.pk %}"
+
+    hx-target="#lead-status-{{ lead.pk }}"
+
+    hx-swap="innerHTML"
+>
+    Change
+</button>

@@ -1,181 +1,189 @@
 {% extends "base.html" %}
 
 {% block title %}
-{{ lead.company_name }}
+{{ lead.company_name }} - Lead
 {% endblock %}
+
 
 {% block content %}
 
-<div class="d-flex justify-content-between align-items-center mb-4">
-
-    <div>
-
-        <h2>
-            {{ lead.company_name }}
-        </h2>
-
-        <p class="text-muted mb-0">
-            {{ lead.job_title }}
-        </p>
-
-    </div>
-
-    <a
-        href="{% url 'leads:list' %}"
-        class="btn btn-outline-secondary"
-    >
-        ← Back to Leads
-    </a>
-
-</div>
+<div class="container-fluid">
 
 
-<div class="row">
+    <!-- ================================================= -->
+    <!-- PAGE HEADER -->
+    <!-- ================================================= -->
 
-    <div class="col-lg-8">
+    <div class="d-flex justify-content-between align-items-center mb-4">
 
-        <div class="card mb-4">
+        <div>
 
-            <div class="card-body">
+            <h2 class="mb-1">
+                {{ lead.company_name }}
+            </h2>
 
-                <h4>Lead Information</h4>
-
-                <hr>
-
-                <p>
-                    <strong>Company:</strong>
-                    {{ lead.company_name }}
-                </p>
-
-                <p>
-                    <strong>Job:</strong>
-                    {{ lead.job_title }}
-                </p>
-
-                <p>
-                    <strong>Website:</strong>
-                    {{ lead.website }}
-                </p>
-
-                <p>
-                    <strong>Industry:</strong>
-                    {{ lead.industry }}
-                </p>
-
-                <p>
-                    <strong>Country:</strong>
-                    {{ lead.country }}
-                </p>
-
-                <p>
-                    <strong>Lead Score:</strong>
-                    {{ lead.lead_score }}
-                </p>
-
-                <p>
-                    <strong>Status:</strong>
-                    {{ lead.status }}
-                </p>
-
-            </div>
+            <p class="text-muted mb-0">
+                {{ lead.job_title }}
+            </p>
 
         </div>
 
 
-        <div class="card mb-4">
+        <div class="d-flex gap-2">
 
-            <div class="card-body">
-
-                <h4>AI Summary</h4>
-
-                <hr>
-
-                <p>
-                    {{ lead.ai_summary }}
-                </p>
-
-            </div>
-
-        </div>
+            <a
+                href="{% url 'leads:list' %}"
+                class="btn btn-outline-secondary"
+            >
+                ← Back to Leads
+            </a>
 
 
-        <div class="card mb-4">
-
-            <div class="card-body">
-
-                <h4>Pain Points</h4>
-
-                <hr>
-
-                <ul>
-
-                    {% for item in lead.pain_points %}
-
-                        <li>
-                            {{ item }}
-                        </li>
-
-                    {% empty %}
-
-                        <li>
-                            No pain points.
-                        </li>
-
-                    {% endfor %}
-
-                </ul>
-
-            </div>
-
-        </div>
-
-
-        <div class="card mb-4">
-
-            <div class="card-body">
-
-                <h4>Recommended Services</h4>
-
-                <hr>
-
-                <ul>
-
-                    {% for item in lead.recommended_services %}
-
-                        <li>
-                            {{ item }}
-                        </li>
-
-                    {% empty %}
-
-                        <li>
-                            No recommendations.
-                        </li>
-
-                    {% endfor %}
-
-                </ul>
-
-            </div>
+            <a
+                href="{% url 'leads:pipeline' %}"
+                class="btn btn-primary"
+            >
+                Pipeline
+            </a>
 
         </div>
 
     </div>
 
 
-    <div class="col-lg-4">
 
-        <div class="card mb-4">
+    <!-- ================================================= -->
+    <!-- LEAD INFORMATION + LEAD SCORE -->
+    <!-- ================================================= -->
 
-            <div class="card-body">
+    <div class="row g-4 mb-4">
 
-                <h4>Add Note</h4>
 
-                <hr>
+        <!-- LEAD INFORMATION -->
 
-                <div id="lead-notes">
+        <div class="col-md-8">
 
-                    {% include "leads/partials/note_form.html" %}
+            <div class="card h-100">
+
+                <div class="card-header">
+
+                    <strong>
+                        Lead Information
+                    </strong>
+
+                </div>
+
+
+                <div class="card-body">
+
+                    <div class="row g-3">
+
+
+                        <div class="col-md-6">
+
+                            <small class="text-muted">
+                                Company
+                            </small>
+
+                            <div>
+                                {{ lead.company_name }}
+                            </div>
+
+                        </div>
+
+
+                        <div class="col-md-6">
+
+                            <small class="text-muted">
+                                Job Title
+                            </small>
+
+                            <div>
+                                {{ lead.job_title }}
+                            </div>
+
+                        </div>
+
+
+                        <div class="col-md-6">
+
+                            <small class="text-muted">
+                                Industry
+                            </small>
+
+                            <div>
+                                {{ lead.industry|default:"Not available" }}
+                            </div>
+
+                        </div>
+
+
+                        <div class="col-md-6">
+
+                            <small class="text-muted">
+                                Country
+                            </small>
+
+                            <div>
+                                {{ lead.country|default:"Not available" }}
+                            </div>
+
+                        </div>
+
+
+                        <div class="col-md-6">
+
+                            <small class="text-muted">
+                                Location
+                            </small>
+
+                            <div>
+                                {{ lead.location|default:"Not available" }}
+                            </div>
+
+                        </div>
+
+
+                        <div class="col-md-6">
+
+                            <small class="text-muted">
+                                Employees
+                            </small>
+
+                            <div>
+                                {{ lead.employee_count|default:"Not available" }}
+                            </div>
+
+                        </div>
+
+
+                        <div class="col-md-6">
+
+                            <small class="text-muted">
+                                Employment Type
+                            </small>
+
+                            <div>
+                                {{ lead.employment_type|default:"Not available" }}
+                            </div>
+
+                        </div>
+
+
+                        <div class="col-md-6">
+
+                            <small class="text-muted">
+                                Work Setup
+                            </small>
+
+                            <div>
+                                {{ lead.work_setup|default:"Not available" }}
+                            </div>
+
+                        </div>
+
+
+                    </div>
 
                 </div>
 
@@ -184,10 +192,488 @@
         </div>
 
 
-        {% include "leads/partials/notes.html" %}
+
+        <!-- LEAD SCORE -->
+
+        <div class="col-md-4">
+
+            <div class="card h-100">
+
+                <div class="card-header">
+
+                    <strong>
+                        Lead Score
+                    </strong>
+
+                </div>
+
+
+                <div class="card-body text-center">
+
+                    <div class="display-3 fw-bold">
+
+                        {{ lead.lead_score }}
+
+                    </div>
+
+
+                    <p class="text-muted">
+                        out of 100
+                    </p>
+
+
+                    {% if lead.lead_score >= 80 %}
+
+                        <span class="badge bg-danger fs-6">
+                            Hot Lead
+                        </span>
+
+
+                    {% elif lead.lead_score >= 60 %}
+
+                        <span class="badge bg-warning text-dark fs-6">
+                            Warm Lead
+                        </span>
+
+
+                    {% else %}
+
+                        <span class="badge bg-secondary fs-6">
+                            Cold Lead
+                        </span>
+
+                    {% endif %}
+
+
+                </div>
+
+            </div>
+
+        </div>
+
 
     </div>
 
+
+
+    <!-- ================================================= -->
+    <!-- COMPANY INFORMATION -->
+    <!-- ================================================= -->
+
+    <div class="card mb-4">
+
+        <div class="card-header">
+
+            <strong>
+                Company
+            </strong>
+
+        </div>
+
+
+        <div class="card-body">
+
+            <div class="row">
+
+
+                <div class="col-md-6">
+
+                    <p>
+
+                        <strong>
+                            Website:
+                        </strong>
+
+
+                        {% if lead.website %}
+
+                            <a
+                                href="{{ lead.website }}"
+                                target="_blank"
+                                rel="noopener"
+                            >
+                                {{ lead.website }}
+                            </a>
+
+                        {% else %}
+
+                            Not available
+
+                        {% endif %}
+
+                    </p>
+
+                </div>
+
+
+                <div class="col-md-6">
+
+                    <p>
+
+                        <strong>
+                            Technologies:
+                        </strong>
+
+                        {{ lead.technologies|default:"Not available" }}
+
+                    </p>
+
+                </div>
+
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+
+    <!-- ================================================= -->
+    <!-- AI ANALYSIS -->
+    <!-- ================================================= -->
+
+    <div class="card mb-4">
+
+        <div class="card-header">
+
+            <strong>
+                AI Analysis
+            </strong>
+
+        </div>
+
+
+        <div class="card-body">
+
+
+            <h5>
+                Summary
+            </h5>
+
+
+            <p>
+                {{ lead.ai_summary|default:"No AI summary available." }}
+            </p>
+
+
+            <div class="row g-4">
+
+
+                <!-- PAIN POINTS -->
+
+                <div class="col-md-6">
+
+                    <h5>
+                        Pain Points
+                    </h5>
+
+
+                    <ul>
+
+                        {% for item in lead.pain_points %}
+
+                            <li>
+                                {{ item }}
+                            </li>
+
+                        {% empty %}
+
+                            <li class="text-muted">
+                                No pain points identified.
+                            </li>
+
+                        {% endfor %}
+
+                    </ul>
+
+                </div>
+
+
+
+                <!-- RECOMMENDED SERVICES -->
+
+                <div class="col-md-6">
+
+                    <h5>
+                        Recommended Services
+                    </h5>
+
+
+                    <ul>
+
+                        {% for item in lead.recommended_services %}
+
+                            <li>
+                                {{ item }}
+                            </li>
+
+                        {% empty %}
+
+                            <li class="text-muted">
+                                No recommendations available.
+                            </li>
+
+                        {% endfor %}
+
+                    </ul>
+
+                </div>
+
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+
+    <!-- ================================================= -->
+    <!-- JOB INFORMATION -->
+    <!-- ================================================= -->
+
+    <div class="card mb-4">
+
+        <div class="card-header">
+
+            <strong>
+                Job Information
+            </strong>
+
+        </div>
+
+
+        <div class="card-body">
+
+            <div class="row">
+
+
+                <div class="col-md-6">
+
+                    <p>
+
+                        <strong>
+                            Source:
+                        </strong>
+
+                        {{ lead.source_platform|default:"Not available" }}
+
+                    </p>
+
+                </div>
+
+
+                <div class="col-md-6">
+
+                    <p>
+
+                        <strong>
+                            Salary:
+                        </strong>
+
+                        {{ lead.salary|default:"Not available" }}
+
+                    </p>
+
+                </div>
+
+
+                <div class="col-md-12">
+
+                    <p>
+
+                        <strong>
+                            Source URL:
+                        </strong>
+
+
+                        {% if lead.source_url %}
+
+                            <a
+                                href="{{ lead.source_url }}"
+                                target="_blank"
+                                rel="noopener"
+                            >
+                                Open Source
+                            </a>
+
+                        {% else %}
+
+                            Not available
+
+                        {% endif %}
+
+                    </p>
+
+                </div>
+
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+
+    <!-- ================================================= -->
+    <!-- CRM STATUS -->
+    <!-- ================================================= -->
+
+    <div class="card mb-4">
+
+        <div class="card-header">
+
+            <strong>
+                CRM Status
+            </strong>
+
+        </div>
+
+
+        <div class="card-body">
+
+
+            <!-- CURRENT STATUS -->
+
+            <div
+                id="lead-status"
+                class="mb-3"
+            >
+
+                {% include "leads/partials/status.html" %}
+
+            </div>
+
+
+            <!-- STATUS UPDATE FORM -->
+
+            <form
+                hx-post="{% url 'leads:update_lead_status' lead.pk %}"
+                hx-target="#lead-status"
+                hx-swap="outerHTML"
+            >
+
+                {% csrf_token %}
+
+
+                <div class="input-group">
+
+
+                    <select
+                        name="status"
+                        class="form-select"
+                    >
+
+                        {% for value, label in lead.STATUS_CHOICES %}
+
+                            <option
+                                value="{{ value }}"
+                                {% if lead.status == value %}
+                                    selected
+                                {% endif %}
+                            >
+                                {{ label }}
+                            </option>
+
+                        {% endfor %}
+
+                    </select>
+
+
+                    <button
+                        type="submit"
+                        class="btn btn-primary"
+                    >
+                        Update Status
+                    </button>
+
+
+                </div>
+
+            </form>
+
+
+        </div>
+
+    </div>
+
+
+
+    <!-- ================================================= -->
+    <!-- ACTIVITY TIMELINE -->
+    <!-- ================================================= -->
+
+    <div class="card mb-4">
+
+
+        <!-- ACTIVITY HEADER -->
+
+        <div class="card-header d-flex justify-content-between align-items-center">
+
+
+            <strong>
+                Activity Timeline
+            </strong>
+
+
+            <button
+                type="button"
+                class="btn btn-sm btn-primary"
+                data-bs-toggle="modal"
+                data-bs-target="#activityModal"
+                hx-get="{% url 'leads:add_activity' lead.pk %}"
+                hx-target="#modal-content"
+                hx-swap="innerHTML"
+            >
+                + Add Activity
+            </button>
+
+
+        </div>
+
+
+        <!-- ACTIVITY BODY -->
+
+        <div class="card-body">
+
+            {% include "leads/partials/activity_timeline.html" %}
+
+        </div>
+
+
+    </div>
+
+
+
+    <!-- ================================================= -->
+    <!-- ACTIVITY MODAL -->
+    <!-- ================================================= -->
+
+    <div
+        class="modal fade"
+        id="activityModal"
+        tabindex="-1"
+        aria-labelledby="activityModalLabel"
+        aria-hidden="true"
+    >
+
+        <div class="modal-dialog">
+
+            <div
+                class="modal-content"
+                id="modal-content"
+            >
+
+            </div>
+
+        </div>
+
+    </div>
+
+
 </div>
+
 
 {% endblock %}

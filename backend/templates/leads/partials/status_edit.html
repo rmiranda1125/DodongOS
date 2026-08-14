@@ -1,8 +1,9 @@
 <select
     class="form-select form-select-sm"
+
     name="status"
 
-    hx-post="{% url 'leads:update_status' lead.pk %}"
+    hx-post="{% url 'leads:update_lead_status' lead.pk %}"
 
     hx-trigger="change"
 

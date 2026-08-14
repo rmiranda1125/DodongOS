@@ -1,32 +1,43 @@
-<div>
+{% if lead.status == "new" %}
 
-    <select
-        class="form-select form-select-sm"
-        name="status"
+    <span class="badge bg-secondary fs-6">
+        New
+    </span>
 
-        hx-post="{% url 'leads:update_status' lead.pk %}"
+{% elif lead.status == "contacted" %}
 
-        hx-trigger="change"
+    <span class="badge bg-info text-dark fs-6">
+        Contacted
+    </span>
 
-        hx-target="this"
+{% elif lead.status == "qualified" %}
 
-        hx-swap="outerHTML"
+    <span class="badge bg-primary fs-6">
+        Qualified
+    </span>
 
-    >
+{% elif lead.status == "proposal" %}
 
-        {% for value, label in lead.STATUS_CHOICES %}
+    <span class="badge bg-warning text-dark fs-6">
+        Proposal
+    </span>
 
-            <option
-                value="{{ value }}"
-                {% if lead.status == value %}
-                    selected
-                {% endif %}
-            >
-                {{ label }}
-            </option>
+{% elif lead.status == "won" %}
 
-        {% endfor %}
+    <span class="badge bg-success fs-6">
+        Won
+    </span>
 
-    </select>
+{% elif lead.status == "lost" %}
 
-</div>
+    <span class="badge bg-danger fs-6">
+        Lost
+    </span>
+
+{% else %}
+
+    <span class="badge bg-secondary fs-6">
+        {{ lead.status|title }}
+    </span>
+
+{% endif %}
