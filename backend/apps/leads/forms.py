@@ -1,6 +1,6 @@
 from django import forms
 
-from .models import Lead, LeadNote, LeadActivity
+from .models import Lead, LeadNote, LeadActivity, LeadTask
 
 
 class LeadNoteForm(forms.ModelForm):
@@ -191,5 +191,66 @@ class LeadActivityForm(forms.ModelForm):
                     "rows": 5,
                     "placeholder": "Describe what happened...",
                 }
+            ),
+        }
+
+      
+
+class LeadTaskForm(forms.ModelForm):
+
+    class Meta:
+
+        model = LeadTask
+
+        fields = [
+            "title",
+            "description",
+            "task_type",
+            "priority",
+            "status",
+            "due_date",
+        ]
+
+        widgets = {
+
+            "title": forms.TextInput(
+                attrs={
+                    "class": "form-control",
+                    "placeholder": "Enter task title...",
+                }
+            ),
+
+            "description": forms.Textarea(
+                attrs={
+                    "class": "form-control",
+                    "rows": 4,
+                    "placeholder": "Describe the task...",
+                }
+            ),
+
+            "task_type": forms.Select(
+                attrs={
+                    "class": "form-select",
+                }
+            ),
+
+            "priority": forms.Select(
+                attrs={
+                    "class": "form-select",
+                }
+            ),
+
+            "status": forms.Select(
+                attrs={
+                    "class": "form-select",
+                }
+            ),
+
+            "due_date": forms.DateTimeInput(
+                attrs={
+                    "class": "form-control",
+                    "type": "datetime-local",
+                },
+                format="%Y-%m-%dT%H:%M",
             ),
         }

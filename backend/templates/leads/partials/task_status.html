@@ -1,0 +1,38 @@
+<div
+    id="task-status-{{ task.pk }}"
+    class="d-inline-flex align-items-center"
+>
+
+    <form
+        method="POST"
+        hx-post="{% url 'leads:task_update_status' lead.pk task.pk %}"
+        hx-target="#task-status-{{ task.pk }}"
+        hx-swap="outerHTML"
+    >
+
+        {% csrf_token %}
+
+        <select
+            name="status"
+            class="form-select form-select-sm"
+            onchange="this.form.requestSubmit()"
+        >
+
+            {% for value, label in task.STATUS_CHOICES %}
+
+                <option
+                    value="{{ value }}"
+                    {% if task.status == value %}
+                        selected
+                    {% endif %}
+                >
+                    {{ label }}
+                </option>
+
+            {% endfor %}
+
+        </select>
+
+    </form>
+
+</div>

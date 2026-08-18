@@ -4,7 +4,6 @@
 {{ lead.company_name }} - Lead
 {% endblock %}
 
-
 {% block content %}
 
 <div class="container-fluid">
@@ -49,7 +48,6 @@
         </div>
 
     </div>
-
 
 
     <!-- ================================================= -->
@@ -182,7 +180,6 @@
 
                         </div>
 
-
                     </div>
 
                 </div>
@@ -190,7 +187,6 @@
             </div>
 
         </div>
-
 
 
         <!-- LEAD SCORE -->
@@ -211,9 +207,7 @@
                 <div class="card-body text-center">
 
                     <div class="display-3 fw-bold">
-
                         {{ lead.lead_score }}
-
                     </div>
 
 
@@ -228,13 +222,11 @@
                             Hot Lead
                         </span>
 
-
                     {% elif lead.lead_score >= 60 %}
 
                         <span class="badge bg-warning text-dark fs-6">
                             Warm Lead
                         </span>
-
 
                     {% else %}
 
@@ -244,16 +236,13 @@
 
                     {% endif %}
 
-
                 </div>
 
             </div>
 
         </div>
 
-
     </div>
-
 
 
     <!-- ================================================= -->
@@ -320,13 +309,11 @@
 
                 </div>
 
-
             </div>
 
         </div>
 
     </div>
-
 
 
     <!-- ================================================= -->
@@ -345,7 +332,6 @@
 
 
         <div class="card-body">
-
 
             <h5>
                 Summary
@@ -390,7 +376,6 @@
                 </div>
 
 
-
                 <!-- RECOMMENDED SERVICES -->
 
                 <div class="col-md-6">
@@ -420,13 +405,11 @@
 
                 </div>
 
-
             </div>
 
         </div>
 
     </div>
-
 
 
     <!-- ================================================= -->
@@ -508,13 +491,11 @@
 
                 </div>
 
-
             </div>
 
         </div>
 
     </div>
-
 
 
     <!-- ================================================= -->
@@ -550,6 +531,8 @@
             <!-- STATUS UPDATE FORM -->
 
             <form
+                method="post"
+                action="{% url 'leads:update_lead_status' lead.pk %}"
                 hx-post="{% url 'leads:update_lead_status' lead.pk %}"
                 hx-target="#lead-status"
                 hx-swap="outerHTML"
@@ -559,7 +542,6 @@
 
 
                 <div class="input-group">
-
 
                     <select
                         name="status"
@@ -589,16 +571,130 @@
                         Update Status
                     </button>
 
-
                 </div>
 
             </form>
-
 
         </div>
 
     </div>
 
+
+    <!-- ================================================= -->
+    <!-- CRM TASKS -->
+    <!-- ================================================= -->
+
+    <div class="card mb-4">
+
+        <div class="card-header d-flex justify-content-between align-items-center">
+
+            <strong>
+                Tasks
+            </strong>
+
+
+            <a
+                href="{% url 'leads:task_create' lead.pk %}"
+                class="btn btn-sm btn-primary"
+            >
+                + Add Task
+            </a>
+
+        </div>
+
+
+        <div class="card-body">
+
+            {% for task in tasks %}
+
+                <div class="border rounded p-3 mb-3">
+
+                    <div class="d-flex justify-content-between align-items-start">
+
+
+                        <!-- TASK DETAILS -->
+
+                        <div>
+
+                            <h6 class="mb-1">
+                                {{ task.title }}
+                            </h6>
+
+
+                            {% if task.description %}
+
+                                <p class="text-muted mb-2">
+                                    {{ task.description }}
+                                </p>
+
+                            {% endif %}
+
+                        </div>
+
+
+                        <!-- TASK BADGES -->
+
+                        <div class="text-end">
+
+                            <!-- PRIORITY -->
+
+                            <span class="badge bg-warning text-dark">
+                                {{ task.get_priority_display }}
+                            </span>
+
+
+                            <!-- STATUS -->
+
+                            {% include "leads/partials/task_status.html" %}
+
+                        </div>
+
+                    </div>
+
+
+                    <!-- TASK META -->
+
+                    <div class="d-flex gap-3 mt-2">
+
+                        <small class="text-muted">
+
+                            Type:
+                            {{ task.get_task_type_display }}
+
+                        </small>
+
+
+                        {% if task.due_date %}
+
+                            <small class="text-muted">
+
+                                Due:
+                                {{ task.due_date|date:"M d, Y g:i A" }}
+
+                            </small>
+
+                        {% endif %}
+
+                    </div>
+
+                </div>
+
+
+            {% empty %}
+
+                <div class="text-center py-4">
+
+                    <p class="text-muted mb-0">
+                        No tasks for this lead yet.
+                    </p>
+
+                </div>
+
+            {% endfor %}
+
+        </div>
+
+    </div>
 
 
     <!-- ================================================= -->
@@ -608,10 +704,7 @@
     <div class="card mb-4">
 
 
-        <!-- ACTIVITY HEADER -->
-
         <div class="card-header d-flex justify-content-between align-items-center">
-
 
             <strong>
                 Activity Timeline
@@ -621,8 +714,6 @@
             <button
                 type="button"
                 class="btn btn-sm btn-primary"
-                data-bs-toggle="modal"
-                data-bs-target="#activityModal"
                 hx-get="{% url 'leads:add_activity' lead.pk %}"
                 hx-target="#modal-content"
                 hx-swap="innerHTML"
@@ -630,11 +721,8 @@
                 + Add Activity
             </button>
 
-
         </div>
 
-
-        <!-- ACTIVITY BODY -->
 
         <div class="card-body">
 
@@ -642,38 +730,9 @@
 
         </div>
 
-
-    </div>
-
-
-
-    <!-- ================================================= -->
-    <!-- ACTIVITY MODAL -->
-    <!-- ================================================= -->
-
-    <div
-        class="modal fade"
-        id="activityModal"
-        tabindex="-1"
-        aria-labelledby="activityModalLabel"
-        aria-hidden="true"
-    >
-
-        <div class="modal-dialog">
-
-            <div
-                class="modal-content"
-                id="modal-content"
-            >
-
-            </div>
-
-        </div>
-
     </div>
 
 
 </div>
-
 
 {% endblock %}

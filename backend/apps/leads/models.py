@@ -221,3 +221,92 @@ class LeadActivity(models.Model):
 
     def __str__(self):
         return f"{self.lead.company_name} - {self.activity_type}"
+
+    # =========================================================
+# LEAD TASK
+# =========================================================
+
+class LeadTask(models.Model):
+
+    TASK_TYPES = [
+        ("follow_up", "Follow Up"),
+        ("call", "Call"),
+        ("email", "Email"),
+        ("meeting", "Meeting"),
+        ("research", "Research"),
+        ("other", "Other"),
+    ]
+
+    PRIORITY_CHOICES = [
+        ("low", "Low"),
+        ("medium", "Medium"),
+        ("high", "High"),
+        ("urgent", "Urgent"),
+    ]
+
+    STATUS_CHOICES = [
+        ("pending", "Pending"),
+        ("in_progress", "In Progress"),
+        ("completed", "Completed"),
+        ("cancelled", "Cancelled"),
+    ]
+
+    lead = models.ForeignKey(
+        Lead,
+        on_delete=models.CASCADE,
+        related_name="tasks",
+    )
+
+    title = models.CharField(
+        max_length=255,
+    )
+
+    description = models.TextField(
+        blank=True,
+    )
+
+    task_type = models.CharField(
+        max_length=30,
+        choices=TASK_TYPES,
+        default="follow_up",
+    )
+
+    priority = models.CharField(
+        max_length=20,
+        choices=PRIORITY_CHOICES,
+        default="medium",
+    )
+
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default="pending",
+    )
+
+    due_date = models.DateTimeField(
+        null=True,
+        blank=True,
+    )
+
+    completed_at = models.DateTimeField(
+        null=True,
+        blank=True,
+    )
+
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+    )
+
+    updated_at = models.DateTimeField(
+        auto_now=True,
+    )
+
+    class Meta:
+        ordering = [
+            "status",
+            "due_date",
+            "-created_at",
+        ]
+
+    def __str__(self):
+        return f"{self.title} - {self.lead.company_name}"

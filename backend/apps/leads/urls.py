@@ -108,6 +108,17 @@ urlpatterns = [
         name="edit",
     ),
 
+    path(
+    "<int:pk>/tasks/new/",
+    views.lead_task_create,
+    name="task_create",
+    ),
+
+    path(
+    "<int:pk>/tasks/<int:task_pk>/status/",
+    views.lead_task_update_status,
+    name="task_update_status",
+    ),
 
     # =====================================================
     # LEAD DETAIL

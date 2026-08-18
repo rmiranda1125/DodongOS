@@ -1,0 +1,312 @@
+{% extends "base.html" %}
+
+{% block title %}
+Create Task - {{ lead.company_name }}
+{% endblock %}
+
+
+{% block content %}
+
+<div class="container-fluid">
+
+    <!-- ================================================= -->
+    <!-- HEADER -->
+    <!-- ================================================= -->
+
+    <div class="d-flex justify-content-between align-items-center mb-4">
+
+        <div>
+
+            <h2 class="mb-1">
+                Create Task
+            </h2>
+
+            <p class="text-muted mb-0">
+                {{ lead.company_name }}
+            </p>
+
+        </div>
+
+
+        <a
+            href="{% url 'leads:detail' lead.pk %}"
+            class="btn btn-outline-secondary"
+        >
+            ← Back to Lead
+        </a>
+
+    </div>
+
+
+    <!-- ================================================= -->
+    <!-- TASK FORM -->
+    <!-- ================================================= -->
+
+    <div class="row">
+
+        <div class="col-lg-8">
+
+            <div class="card shadow-sm">
+
+                <div class="card-body p-4">
+
+                    <form method="POST">
+
+                        {% csrf_token %}
+
+
+                        <!-- ================================================= -->
+                        <!-- TITLE -->
+                        <!-- ================================================= -->
+
+                        <div class="mb-3">
+
+                            <label
+                                for="{{ form.title.id_for_label }}"
+                                class="form-label"
+                            >
+                                Task Title
+                            </label>
+
+                            {{ form.title }}
+
+                            {% if form.title.errors %}
+
+                                <div class="text-danger small mt-1">
+                                    {{ form.title.errors }}
+                                </div>
+
+                            {% endif %}
+
+                        </div>
+
+
+                        <!-- ================================================= -->
+                        <!-- DESCRIPTION -->
+                        <!-- ================================================= -->
+
+                        <div class="mb-3">
+
+                            <label
+                                for="{{ form.description.id_for_label }}"
+                                class="form-label"
+                            >
+                                Description
+                            </label>
+
+                            {{ form.description }}
+
+                            {% if form.description.errors %}
+
+                                <div class="text-danger small mt-1">
+                                    {{ form.description.errors }}
+                                </div>
+
+                            {% endif %}
+
+                        </div>
+
+
+                        <!-- ================================================= -->
+                        <!-- TASK TYPE -->
+                        <!-- ================================================= -->
+
+                        <div class="mb-3">
+
+                            <label
+                                for="{{ form.task_type.id_for_label }}"
+                                class="form-label"
+                            >
+                                Task Type
+                            </label>
+
+                            {{ form.task_type }}
+
+                            {% if form.task_type.errors %}
+
+                                <div class="text-danger small mt-1">
+                                    {{ form.task_type.errors }}
+                                </div>
+
+                            {% endif %}
+
+                        </div>
+
+
+                        <!-- ================================================= -->
+                        <!-- PRIORITY -->
+                        <!-- ================================================= -->
+
+                        <div class="mb-3">
+
+                            <label
+                                for="{{ form.priority.id_for_label }}"
+                                class="form-label"
+                            >
+                                Priority
+                            </label>
+
+                            {{ form.priority }}
+
+                            {% if form.priority.errors %}
+
+                                <div class="text-danger small mt-1">
+                                    {{ form.priority.errors }}
+                                </div>
+
+                            {% endif %}
+
+                        </div>
+
+
+                        <!-- ================================================= -->
+                        <!-- STATUS -->
+                        <!-- ================================================= -->
+
+                        <div class="mb-3">
+
+                            <label
+                                for="{{ form.status.id_for_label }}"
+                                class="form-label"
+                            >
+                                Status
+                            </label>
+
+                            {{ form.status }}
+
+                            {% if form.status.errors %}
+
+                                <div class="text-danger small mt-1">
+                                    {{ form.status.errors }}
+                                </div>
+
+                            {% endif %}
+
+                        </div>
+
+
+                        <!-- ================================================= -->
+                        <!-- DUE DATE -->
+                        <!-- ================================================= -->
+
+                        <div class="mb-4">
+
+                            <label
+                                for="{{ form.due_date.id_for_label }}"
+                                class="form-label"
+                            >
+                                Due Date
+                            </label>
+
+                            {{ form.due_date }}
+
+                            {% if form.due_date.errors %}
+
+                                <div class="text-danger small mt-1">
+                                    {{ form.due_date.errors }}
+                                </div>
+
+                            {% endif %}
+
+                        </div>
+
+
+                        <!-- ================================================= -->
+                        <!-- FORM ACTIONS -->
+                        <!-- ================================================= -->
+
+                        <div class="d-flex gap-2">
+
+                            <button
+                                type="submit"
+                                class="btn btn-primary"
+                            >
+                                Create Task
+                            </button>
+
+
+                            <a
+                                href="{% url 'leads:detail' lead.pk %}"
+                                class="btn btn-secondary"
+                            >
+                                Cancel
+                            </a>
+
+                        </div>
+
+                    </form>
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <!-- ================================================= -->
+        <!-- LEAD SUMMARY -->
+        <!-- ================================================= -->
+
+        <div class="col-lg-4">
+
+            <div class="card shadow-sm">
+
+                <div class="card-header">
+
+                    <strong>
+                        Lead
+                    </strong>
+
+                </div>
+
+                <div class="card-body">
+
+                    <h5>
+                        {{ lead.company_name }}
+                    </h5>
+
+                    {% if lead.job_title %}
+
+                        <p class="text-muted mb-2">
+                            {{ lead.job_title }}
+                        </p>
+
+                    {% endif %}
+
+
+                    <div class="mb-2">
+
+                        <small class="text-muted">
+                            Status
+                        </small>
+
+                        <div>
+                            {{ lead.get_status_display }}
+                        </div>
+
+                    </div>
+
+
+                    <div>
+
+                        <small class="text-muted">
+                            Lead Score
+                        </small>
+
+                        <div>
+                            {{ lead.lead_score }}
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+{% endblock %}

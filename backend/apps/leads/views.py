@@ -15,13 +15,25 @@ from .forms import (
     LeadActivityForm,
     LeadForm,
     LeadNoteForm,
+    LeadTaskForm,
 )
 
 from .models import (
     Lead,
     LeadActivity,
+    LeadTask,
 )
 
+from .models import (
+    Lead,
+    LeadActivity,
+    LeadTask,
+)
+
+from .services import (
+    create_lead_task,
+    complete_lead_task,
+)
 
 # =========================================================
 # LEAD LIST
@@ -162,12 +174,21 @@ def lead_detail(request, pk):
         "-created_at"
     )
 
+    tasks = LeadTask.objects.filter(
+        lead=lead
+    ).order_by(
+        "status",
+        "due_date",
+        "-created_at",
+    )
+
     return render(
         request,
         "leads/detail.html",
         {
             "lead": lead,
             "activities": activities,
+            "tasks": tasks,
         },
     )
 
@@ -980,5 +1001,169 @@ def edit_activity(request, pk, activity_pk):
             "lead": lead,
             "activity": activity,
             "activity_types": LeadActivity.ACTIVITY_TYPES,
+        },
+    )
+
+# =========================================================
+# CREATE LEAD TASK
+# =========================================================
+
+def lead_task_create(request, pk):
+
+    lead = get_object_or_404(
+        Lead,
+        pk=pk,
+    )
+
+    if request.method == "POST":
+
+        form = LeadTaskForm(
+            request.POST,
+        )
+
+        if form.is_valid():
+
+            create_lead_task(
+                lead=lead,
+                title=form.cleaned_data["title"],
+                description=form.cleaned_data["description"],
+                task_type=form.cleaned_data["task_type"],
+                priority=form.cleaned_data["priority"],
+                status=form.cleaned_data["status"],
+                due_date=form.cleaned_data["due_date"],
+            )
+
+            return redirect(
+                "leads:detail",
+                pk=lead.pk,
+            )
+
+    else:
+
+        form = LeadTaskForm()
+
+    return render(
+        request,
+        "leads/task_form.html",
+        {
+            "lead": lead,
+            "form": form,
+        },
+    )
+
+# =========================================================
+# UPDATE LEAD TASK STATUS
+# =========================================================
+
+@require_POST
+def lead_task_update_status(request, pk, task_pk):
+
+    lead = get_object_or_404(
+        Lead,
+        pk=pk,
+    )
+
+    task = get_object_or_404(
+        LeadTask,
+        pk=task_pk,
+        lead=lead,
+    )
+
+    new_status = request.POST.get(
+        "status"
+    )
+
+    valid_statuses = dict(
+        LeadTask.STATUS_CHOICES
+    )
+
+    if new_status not in valid_statuses:
+
+        return HttpResponseBadRequest(
+            "Invalid task status."
+        )
+
+    old_status = task.status
+
+    # =====================================================
+    # NO CHANGE
+    # =====================================================
+
+    if old_status == new_status:
+
+        return render(
+            request,
+            "leads/partials/task_status.html",
+            {
+                "lead": lead,
+                "task": task,
+            },
+        )
+
+    # =====================================================
+    # COMPLETE TASK THROUGH SERVICE
+    # =====================================================
+
+    if new_status == "completed":
+
+        complete_lead_task(
+            task=task,
+        )
+
+    # =====================================================
+    # OTHER STATUS CHANGES
+    # =====================================================
+
+    else:
+
+        task.status = new_status
+
+        task.completed_at = None
+
+        task.save(
+            update_fields=[
+                "status",
+                "completed_at",
+                "updated_at",
+            ],
+        )
+
+    # =====================================================
+    # RETURN UPDATED STATUS
+    # =====================================================
+
+    return render(
+        request,
+        "leads/partials/task_status.html",
+        {
+            "lead": lead,
+            "task": task,
+        },
+    )
+
+    # =====================================================
+    # CREATE ACTIVITY WHEN TASK IS COMPLETED
+    # =====================================================
+
+    if (
+        new_status == "completed"
+        and old_status != "completed"
+    ):
+
+        LeadActivity.objects.create(
+            lead=lead,
+            activity_type="status_changed",
+            description=(
+                f"Task completed: "
+                f"{task.title}"
+            ),
+        )
+
+    return render(
+        request,
+        "leads/partials/task_status.html",
+        {
+            "lead": lead,
+            "task": task,
         },
     )
