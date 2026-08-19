@@ -7,6 +7,7 @@ from django.utils import timezone
 from .models import Lead, LeadActivity, LeadTask
 from .services import (
     create_lead_task,
+    get_lead_by_id,
     get_lead_tasks,
     get_lead_tasks_by_id,
     get_pending_tasks,
@@ -220,3 +221,23 @@ class LeadTaskServiceTests(TestCase):
         )
 
         self.assertIsNone(tasks)    
+
+    def test_get_lead_by_id(self):
+        lead = get_lead_by_id(
+        lead_id=self.lead.id,
+        )
+
+        self.assertIsNotNone(lead)
+
+        self.assertEqual(
+        lead.id,
+        self.lead.id,
+        )
+
+
+    def test_get_lead_by_id_returns_none_for_missing_lead(self):
+        lead = get_lead_by_id(
+        lead_id=999999,
+        )
+
+        self.assertIsNone(lead)

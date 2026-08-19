@@ -11,6 +11,7 @@ from apps.ai.tools.crm.tasks import (
     get_pending_tasks_tool,
     get_priority_tasks_tool,
 )
+from apps.ai.tools.crm.leads import get_lead_tool
 
 
 class PriorityTasksToolTests(TestCase):
@@ -696,4 +697,135 @@ class LeadTasksToolTests(TestCase):
             lead_id=7,
             status="pending",
             priority="high",
+        )
+
+class GetLeadToolTests(TestCase):
+
+    def setUp(self):
+        self.lead = Lead.objects.create(
+            company_name="Dodong Test Company",
+            job_title="BI Developer",
+            industry="Technology",
+            country="Philippines",
+            lead_score=88,
+            ai_summary="Strong Power BI opportunity.",
+            recommended_services=[
+                "Power BI",
+                "Data Engineering",
+            ],
+            pain_points=[
+                "Manual reporting",
+            ],
+            status="qualified",
+        )
+
+    def test_tool_returns_structured_lead(self):
+        result = get_lead_tool(
+            lead_id=self.lead.id,
+        )
+
+        self.assertTrue(
+            result["success"],
+        )
+
+        self.assertIsInstance(
+            result["data"],
+            dict,
+        )
+
+        self.assertEqual(
+            result["data"]["id"],
+            self.lead.id,
+        )
+
+        self.assertEqual(
+            result["data"]["company_name"],
+            "Dodong Test Company",
+        )
+
+        self.assertEqual(
+            result["data"]["lead_score"],
+            88,
+        )
+
+        self.assertEqual(
+            result["data"]["status"],
+            "qualified",
+        )
+
+    def test_tool_returns_ai_fields(self):
+        result = get_lead_tool(
+            lead_id=self.lead.id,
+        )
+
+        data = result["data"]
+
+        self.assertEqual(
+            data["ai_summary"],
+            "Strong Power BI opportunity.",
+        )
+
+        self.assertEqual(
+            data["recommended_services"],
+            [
+                "Power BI",
+                "Data Engineering",
+            ],
+        )
+
+        self.assertEqual(
+            data["pain_points"],
+            [
+                "Manual reporting",
+            ],
+        )
+
+    def test_tool_returns_lead_not_found(self):
+        result = get_lead_tool(
+            lead_id=999999,
+        )
+
+        self.assertFalse(
+            result["success"],
+        )
+
+        self.assertEqual(
+            result["error"]["code"],
+            "LEAD_NOT_FOUND",
+        )
+
+    def test_tool_rejects_invalid_lead_id(self):
+        result = get_lead_tool(
+            lead_id=0,
+        )
+
+        self.assertFalse(
+            result["success"],
+        )
+
+        self.assertEqual(
+            result["error"]["code"],
+            "INVALID_LEAD_ID",
+        )
+
+    @patch(
+        "apps.ai.tools.crm.leads."
+        "lead_services.get_lead_by_id"
+    )
+    def test_tool_delegates_to_crm_service(
+        self,
+        mock_get_lead_by_id,
+    ):
+        mock_get_lead_by_id.return_value = self.lead
+
+        result = get_lead_tool(
+            lead_id=7,
+        )
+
+        self.assertTrue(
+            result["success"],
+        )
+
+        mock_get_lead_by_id.assert_called_once_with(
+            lead_id=7,
         )

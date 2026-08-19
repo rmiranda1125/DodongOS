@@ -38,6 +38,28 @@ def create_lead_task(
 
 
 # =========================================================
+# GET LEAD BY ID
+# =========================================================
+
+def get_lead_by_id(
+    *,
+    lead_id,
+):
+    """
+    Return one lead by ID.
+
+    Returns None when the lead does not exist.
+
+    AI tools should use this CRM service instead of querying
+    the Lead model directly.
+    """
+
+    return Lead.objects.filter(
+        pk=lead_id,
+    ).first()
+
+
+# =========================================================
 # GET LEAD TASKS
 # =========================================================
 
