@@ -92,3 +92,111 @@ def get_lead_tool(*, lead_id):
                 "message": "Unable to retrieve lead.",
             },
         }
+
+def search_leads_tool(
+    *,
+    query=None,
+    status=None,
+    country=None,
+    industry=None,
+    limit=20,
+):
+    """
+    Read-only CRM tool.
+
+    Search leads through the CRM service layer.
+
+    This function must never query Django models directly.
+    """
+
+    if not isinstance(limit, int) or isinstance(limit, bool):
+        return {
+            "success": False,
+            "error": {
+                "code": "INVALID_LIMIT",
+                "message": "limit must be an integer.",
+            },
+        }
+
+    if limit < 1 or limit > 100:
+        return {
+            "success": False,
+            "error": {
+                "code": "INVALID_LIMIT",
+                "message": "limit must be between 1 and 100.",
+            },
+        }
+
+    allowed_statuses = {
+        "new",
+        "contacted",
+        "qualified",
+        "proposal",
+        "won",
+        "lost",
+    }
+
+    if status is not None and status not in allowed_statuses:
+        return {
+            "success": False,
+            "error": {
+                "code": "INVALID_STATUS",
+                "message": (
+                    "status must be one of: "
+                    "new, contacted, qualified, "
+                    "proposal, won, lost."
+                ),
+            },
+        }
+
+    if query is not None and not isinstance(query, str):
+        return {
+            "success": False,
+            "error": {
+                "code": "INVALID_QUERY",
+                "message": "query must be a string.",
+            },
+        }
+
+    if country is not None and not isinstance(country, str):
+        return {
+            "success": False,
+            "error": {
+                "code": "INVALID_COUNTRY",
+                "message": "country must be a string.",
+            },
+        }
+
+    if industry is not None and not isinstance(industry, str):
+        return {
+            "success": False,
+            "error": {
+                "code": "INVALID_INDUSTRY",
+                "message": "industry must be a string.",
+            },
+        }
+
+    try:
+        leads = lead_services.search_leads(
+            query=query,
+            status=status,
+            country=country,
+            industry=industry,
+        )
+
+        return {
+            "success": True,
+            "data": [
+                _serialize_lead(lead)
+                for lead in leads[:limit]
+            ],
+        }
+
+    except Exception:
+        return {
+            "success": False,
+            "error": {
+                "code": "CRM_TOOL_ERROR",
+                "message": "Unable to search leads.",
+            },
+        }

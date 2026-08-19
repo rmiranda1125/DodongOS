@@ -11,7 +11,10 @@ from apps.ai.tools.crm.tasks import (
     get_pending_tasks_tool,
     get_priority_tasks_tool,
 )
-from apps.ai.tools.crm.leads import get_lead_tool
+from apps.ai.tools.crm.leads import (
+    get_lead_tool,
+    search_leads_tool,
+)
 
 
 class PriorityTasksToolTests(TestCase):
@@ -828,4 +831,176 @@ class GetLeadToolTests(TestCase):
 
         mock_get_lead_by_id.assert_called_once_with(
             lead_id=7,
+        )
+
+class SearchLeadsToolTests(TestCase):
+
+    def setUp(self):
+        self.lead = Lead.objects.create(
+            company_name="Acme Analytics",
+            job_title="Power BI Developer",
+            industry="Technology",
+            country="Philippines",
+            location="Manila",
+            lead_score=90,
+            ai_summary="Needs automated Power BI reporting.",
+            status="qualified",
+        )
+
+    def test_tool_returns_matching_lead(self):
+        result = search_leads_tool(
+            query="Acme",
+        )
+
+        self.assertTrue(
+            result["success"],
+        )
+
+        self.assertEqual(
+            len(result["data"]),
+            1,
+        )
+
+        self.assertEqual(
+            result["data"][0]["id"],
+            self.lead.id,
+        )
+
+    def test_tool_searches_job_title(self):
+        result = search_leads_tool(
+            query="Power BI",
+        )
+
+        self.assertTrue(
+            result["success"],
+        )
+
+        self.assertEqual(
+            result["data"][0]["company_name"],
+            "Acme Analytics",
+        )
+
+    def test_tool_filters_by_status(self):
+        Lead.objects.create(
+            company_name="New Lead Company",
+            status="new",
+        )
+
+        result = search_leads_tool(
+            status="qualified",
+        )
+
+        self.assertTrue(
+            result["success"],
+        )
+
+        self.assertEqual(
+            len(result["data"]),
+            1,
+        )
+
+        self.assertEqual(
+            result["data"][0]["status"],
+            "qualified",
+        )
+
+    def test_tool_filters_by_country(self):
+        Lead.objects.create(
+            company_name="US Company",
+            country="United States",
+        )
+
+        result = search_leads_tool(
+            country="Philippines",
+        )
+
+        self.assertTrue(
+            result["success"],
+        )
+
+        self.assertEqual(
+            len(result["data"]),
+            1,
+        )
+
+        self.assertEqual(
+            result["data"][0]["country"],
+            "Philippines",
+        )
+
+    def test_tool_returns_empty_success(self):
+        result = search_leads_tool(
+            query="Company That Does Not Exist",
+        )
+
+        self.assertTrue(
+            result["success"],
+        )
+
+        self.assertEqual(
+            result["data"],
+            [],
+        )
+
+    def test_tool_rejects_invalid_status(self):
+        result = search_leads_tool(
+            status="maybe",
+        )
+
+        self.assertFalse(
+            result["success"],
+        )
+
+        self.assertEqual(
+            result["error"]["code"],
+            "INVALID_STATUS",
+        )
+
+    def test_tool_respects_limit(self):
+        for number in range(5):
+            Lead.objects.create(
+                company_name=f"Analytics Company {number}",
+                job_title="Power BI Developer",
+            )
+
+        result = search_leads_tool(
+            query="Analytics",
+            limit=2,
+        )
+
+        self.assertTrue(
+            result["success"],
+        )
+
+        self.assertEqual(
+            len(result["data"]),
+            2,
+        )
+
+    @patch(
+        "apps.ai.tools.crm.leads."
+        "lead_services.search_leads"
+    )
+    def test_tool_delegates_to_crm_service(
+        self,
+        mock_search_leads,
+    ):
+        mock_search_leads.return_value = []
+
+        result = search_leads_tool(
+            query="Acme",
+            status="qualified",
+            country="Philippines",
+            industry="Technology",
+        )
+
+        self.assertTrue(
+            result["success"],
+        )
+
+        mock_search_leads.assert_called_once_with(
+            query="Acme",
+            status="qualified",
+            country="Philippines",
+            industry="Technology",
         )

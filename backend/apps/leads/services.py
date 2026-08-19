@@ -4,6 +4,8 @@ from django.utils import timezone
 
 from .models import Lead, LeadTask, LeadActivity
 
+from django.db.models import Q
+
 
 # =========================================================
 # CREATE LEAD TASK
@@ -58,6 +60,57 @@ def get_lead_by_id(
         pk=lead_id,
     ).first()
 
+# =========================================================
+# SEARCH LEADS
+# =========================================================
+
+def search_leads(
+    *,
+    query=None,
+    status=None,
+    country=None,
+    industry=None,
+):
+    """
+    Search CRM leads using common business fields.
+
+    All ORM search logic stays inside the CRM service layer.
+    """
+
+    leads = Lead.objects.all()
+
+    if query:
+        query = query.strip()
+
+        if query:
+            leads = leads.filter(
+                Q(company_name__icontains=query)
+                | Q(job_title__icontains=query)
+                | Q(industry__icontains=query)
+                | Q(country__icontains=query)
+                | Q(location__icontains=query)
+                | Q(ai_summary__icontains=query)
+            )
+
+    if status:
+        leads = leads.filter(
+            status=status,
+        )
+
+    if country:
+        leads = leads.filter(
+            country__icontains=country.strip(),
+        )
+
+    if industry:
+        leads = leads.filter(
+            industry__icontains=industry.strip(),
+        )
+
+    return leads.order_by(
+        "-lead_score",
+        "-updated_at",
+    )
 
 # =========================================================
 # GET LEAD TASKS
