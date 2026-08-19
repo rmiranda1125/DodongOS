@@ -6,6 +6,7 @@ from django.utils import timezone
 
 from apps.leads.models import Lead, LeadTask
 from apps.ai.tools.crm.tasks import (
+    get_lead_tasks_tool,
     get_overdue_tasks_tool,
     get_pending_tasks_tool,
     get_priority_tasks_tool,
@@ -504,5 +505,195 @@ class PendingTasksToolTests(TestCase):
         self.assertTrue(result["success"])
 
         mock_get_pending_tasks.assert_called_once_with(
+            priority="high",
+        )
+
+class LeadTasksToolTests(TestCase):
+
+    def setUp(self):
+        self.lead = Lead.objects.create(
+            company_name="Lead Tasks Company",
+            job_title="BI Developer",
+        )
+
+        self.other_lead = Lead.objects.create(
+            company_name="Other Company",
+            job_title="Data Engineer",
+        )
+
+    def test_tool_returns_tasks_for_requested_lead(self):
+        task = LeadTask.objects.create(
+            lead=self.lead,
+            title="Requested Lead Task",
+            priority="high",
+            status="pending",
+        )
+
+        LeadTask.objects.create(
+            lead=self.other_lead,
+            title="Other Lead Task",
+            priority="urgent",
+            status="pending",
+        )
+
+        result = get_lead_tasks_tool(
+            lead_id=self.lead.id,
+        )
+
+        self.assertTrue(result["success"])
+        self.assertEqual(
+            len(result["data"]),
+            1,
+        )
+
+        self.assertEqual(
+            result["data"][0]["id"],
+            task.id,
+        )
+
+        self.assertEqual(
+            result["data"][0]["lead_id"],
+            self.lead.id,
+        )
+
+    def test_tool_filters_by_status(self):
+        LeadTask.objects.create(
+            lead=self.lead,
+            title="Pending Task",
+            status="pending",
+        )
+
+        LeadTask.objects.create(
+            lead=self.lead,
+            title="Completed Task",
+            status="completed",
+        )
+
+        result = get_lead_tasks_tool(
+            lead_id=self.lead.id,
+            status="completed",
+        )
+
+        self.assertTrue(result["success"])
+        self.assertEqual(
+            len(result["data"]),
+            1,
+        )
+
+        self.assertEqual(
+            result["data"][0]["title"],
+            "Completed Task",
+        )
+
+    def test_tool_filters_by_priority(self):
+        LeadTask.objects.create(
+            lead=self.lead,
+            title="Urgent Task",
+            priority="urgent",
+            status="pending",
+        )
+
+        LeadTask.objects.create(
+            lead=self.lead,
+            title="Low Task",
+            priority="low",
+            status="pending",
+        )
+
+        result = get_lead_tasks_tool(
+            lead_id=self.lead.id,
+            priority="urgent",
+        )
+
+        self.assertTrue(result["success"])
+        self.assertEqual(
+            len(result["data"]),
+            1,
+        )
+
+        self.assertEqual(
+            result["data"][0]["title"],
+            "Urgent Task",
+        )
+
+    def test_tool_returns_lead_not_found(self):
+        result = get_lead_tasks_tool(
+            lead_id=999999,
+        )
+
+        self.assertFalse(result["success"])
+
+        self.assertEqual(
+            result["error"]["code"],
+            "LEAD_NOT_FOUND",
+        )
+
+    def test_tool_rejects_invalid_lead_id(self):
+        result = get_lead_tasks_tool(
+            lead_id=0,
+        )
+
+        self.assertFalse(result["success"])
+
+        self.assertEqual(
+            result["error"]["code"],
+            "INVALID_LEAD_ID",
+        )
+
+    def test_tool_rejects_invalid_status(self):
+        result = get_lead_tasks_tool(
+            lead_id=self.lead.id,
+            status="waiting_for_magic",
+        )
+
+        self.assertFalse(result["success"])
+
+        self.assertEqual(
+            result["error"]["code"],
+            "INVALID_STATUS",
+        )
+
+    def test_tool_respects_limit(self):
+        for number in range(5):
+            LeadTask.objects.create(
+                lead=self.lead,
+                title=f"Lead Task {number}",
+                priority="medium",
+                status="pending",
+            )
+
+        result = get_lead_tasks_tool(
+            lead_id=self.lead.id,
+            limit=2,
+        )
+
+        self.assertTrue(result["success"])
+
+        self.assertEqual(
+            len(result["data"]),
+            2,
+        )
+
+    @patch(
+        "apps.ai.tools.crm.tasks."
+        "lead_services.get_lead_tasks_by_id"
+    )
+    def test_tool_delegates_to_crm_service(
+        self,
+        mock_get_lead_tasks_by_id,
+    ):
+        mock_get_lead_tasks_by_id.return_value = []
+
+        result = get_lead_tasks_tool(
+            lead_id=7,
+            status="pending",
+            priority="high",
+        )
+
+        self.assertTrue(result["success"])
+
+        mock_get_lead_tasks_by_id.assert_called_once_with(
+            lead_id=7,
+            status="pending",
             priority="high",
         )

@@ -1,5 +1,6 @@
 from datetime import timedelta
 
+from django import tasks
 from django.test import TestCase
 from django.utils import timezone
 
@@ -7,6 +8,7 @@ from .models import Lead, LeadActivity, LeadTask
 from .services import (
     create_lead_task,
     get_lead_tasks,
+    get_lead_tasks_by_id,
     get_pending_tasks,
     get_overdue_tasks,
     get_priority_tasks,
@@ -189,3 +191,32 @@ class LeadTaskServiceTests(TestCase):
                 ),
             ).exists()
         )
+
+    def test_get_lead_tasks_by_id(self):
+        create_lead_task(
+        lead=self.lead,
+        title="Lead ID Task",
+        )
+
+        tasks = get_lead_tasks_by_id(
+        lead_id=self.lead.id,
+        )
+
+        self.assertIsNotNone(tasks)
+        self.assertEqual(
+        tasks.count(),
+        1,
+        )
+
+        self.assertEqual(
+        tasks.first().title,
+        "Lead ID Task",
+        )
+
+
+    def test_get_lead_tasks_by_id_returns_none_for_missing_lead(self):
+        tasks = get_lead_tasks_by_id(
+        lead_id=999999,
+        )
+
+        self.assertIsNone(tasks)    

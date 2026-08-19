@@ -1,6 +1,9 @@
-from .models import Lead, LeadTask, LeadActivity
-from django.utils import timezone
 from datetime import timedelta
+
+from django.utils import timezone
+
+from .models import Lead, LeadTask, LeadActivity
+
 
 # =========================================================
 # CREATE LEAD TASK
@@ -60,13 +63,11 @@ def get_lead_tasks(
     )
 
     if status:
-
         tasks = tasks.filter(
             status=status,
         )
 
     if priority:
-
         tasks = tasks.filter(
             priority=priority,
         )
@@ -75,6 +76,40 @@ def get_lead_tasks(
         "status",
         "due_date",
         "-created_at",
+    )
+
+
+# =========================================================
+# GET LEAD TASKS BY ID
+# =========================================================
+
+def get_lead_tasks_by_id(
+    *,
+    lead_id,
+    status=None,
+    priority=None,
+):
+    """
+    Resolve a lead ID inside the CRM service layer and return
+    that lead's tasks.
+
+    Returns None when the lead does not exist.
+
+    AI tools should use this service instead of resolving
+    Lead records directly.
+    """
+
+    lead = Lead.objects.filter(
+        pk=lead_id,
+    ).first()
+
+    if lead is None:
+        return None
+
+    return get_lead_tasks(
+        lead=lead,
+        status=status,
+        priority=priority,
     )
 
 
@@ -99,14 +134,10 @@ def complete_lead_task(
     """
 
     if task.status == "completed":
-
         return task
 
-
     task.status = "completed"
-
     task.completed_at = timezone.now()
-
 
     task.save(
         update_fields=[
@@ -115,7 +146,6 @@ def complete_lead_task(
             "updated_at",
         ],
     )
-
 
     LeadActivity.objects.create(
         lead=task.lead,
@@ -126,8 +156,8 @@ def complete_lead_task(
         ),
     )
 
-
     return task
+
 
 # =========================================================
 # GET PENDING LEAD TASKS
@@ -157,13 +187,11 @@ def get_pending_tasks(
     )
 
     if lead is not None:
-
         tasks = tasks.filter(
             lead=lead,
         )
 
     if priority:
-
         tasks = tasks.filter(
             priority=priority,
         )
@@ -173,12 +201,10 @@ def get_pending_tasks(
         "-created_at",
     )
 
+
 # =========================================================
 # GET OVERDUE TASKS
 # =========================================================
-
-from django.utils import timezone
-
 
 def get_overdue_tasks(
     *,
@@ -209,13 +235,11 @@ def get_overdue_tasks(
     )
 
     if lead is not None:
-
         tasks = tasks.filter(
             lead=lead,
         )
 
     if priority:
-
         tasks = tasks.filter(
             priority=priority,
         )
@@ -224,6 +248,7 @@ def get_overdue_tasks(
         "due_date",
         "-created_at",
     )
+
 
 # =========================================================
 # GET PRIORITY TASKS
@@ -273,19 +298,15 @@ def get_priority_tasks(
     now = timezone.now()
 
     def task_sort_key(task):
-
         priority_rank = priority_order.get(
             task.priority,
             99,
         )
 
         if task.due_date is None:
-
             overdue_rank = 1
             due_rank = now
-
         else:
-
             overdue_rank = (
                 0
                 if task.due_date < now
