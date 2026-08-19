@@ -80,3 +80,50 @@ def get_priority_tasks_tool(*, limit=10):
                 "message": "Unable to retrieve priority tasks.",
             },
         }
+
+def get_overdue_tasks_tool(*, limit=50):
+    """
+    Read-only CRM tool.
+
+    Returns overdue CRM tasks using the existing CRM service layer.
+
+    This function must never query Django models directly.
+    """
+
+    if not isinstance(limit, int) or isinstance(limit, bool):
+        return {
+            "success": False,
+            "error": {
+                "code": "INVALID_LIMIT",
+                "message": "limit must be an integer.",
+            },
+        }
+
+    if limit < 1 or limit > 100:
+        return {
+            "success": False,
+            "error": {
+                "code": "INVALID_LIMIT",
+                "message": "limit must be between 1 and 100.",
+            },
+        }
+
+    try:
+        tasks = lead_services.get_overdue_tasks()
+
+        return {
+            "success": True,
+            "data": [
+                _serialize_task(task)
+                for task in tasks[:limit]
+            ],
+        }
+
+    except Exception:
+        return {
+            "success": False,
+            "error": {
+                "code": "CRM_TOOL_ERROR",
+                "message": "Unable to retrieve overdue tasks.",
+            },
+        } 
