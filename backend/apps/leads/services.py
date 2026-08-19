@@ -1,4 +1,4 @@
-from apps.leads.models import Lead, LeadTask
+from .models import Lead, LeadTask, LeadActivity
 from django.utils import timezone
 from datetime import timedelta
 
