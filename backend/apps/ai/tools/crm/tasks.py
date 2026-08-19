@@ -127,3 +127,72 @@ def get_overdue_tasks_tool(*, limit=50):
                 "message": "Unable to retrieve overdue tasks.",
             },
         } 
+
+def get_pending_tasks_tool(*, limit=50, priority=None):
+    """
+    Read-only CRM tool.
+
+    Returns pending and in-progress CRM tasks using the
+    existing CRM service layer.
+
+    This function must never query Django models directly.
+    """
+
+    if not isinstance(limit, int) or isinstance(limit, bool):
+        return {
+            "success": False,
+            "error": {
+                "code": "INVALID_LIMIT",
+                "message": "limit must be an integer.",
+            },
+        }
+
+    if limit < 1 or limit > 100:
+        return {
+            "success": False,
+            "error": {
+                "code": "INVALID_LIMIT",
+                "message": "limit must be between 1 and 100.",
+            },
+        }
+
+    allowed_priorities = {
+        "low",
+        "medium",
+        "high",
+        "urgent",
+    }
+
+    if priority is not None and priority not in allowed_priorities:
+        return {
+            "success": False,
+            "error": {
+                "code": "INVALID_PRIORITY",
+                "message": (
+                    "priority must be one of: "
+                    "low, medium, high, urgent."
+                ),
+            },
+        }
+
+    try:
+        tasks = lead_services.get_pending_tasks(
+            priority=priority,
+        )
+
+        return {
+            "success": True,
+            "data": [
+                _serialize_task(task)
+                for task in tasks[:limit]
+            ],
+        }
+
+    except Exception:
+        return {
+            "success": False,
+            "error": {
+                "code": "CRM_TOOL_ERROR",
+                "message": "Unable to retrieve pending tasks.",
+            },
+        }

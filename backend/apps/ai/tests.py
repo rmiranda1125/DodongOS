@@ -7,6 +7,7 @@ from django.utils import timezone
 from apps.leads.models import Lead, LeadTask
 from apps.ai.tools.crm.tasks import (
     get_overdue_tasks_tool,
+    get_pending_tasks_tool,
     get_priority_tasks_tool,
 )
 
@@ -332,3 +333,176 @@ class OverdueTasksToolTests(TestCase):
         )
 
         mock_get_overdue_tasks.assert_called_once_with()
+
+class PendingTasksToolTests(TestCase):
+
+    def setUp(self):
+        self.lead = Lead.objects.create(
+            company_name="Pending Test Company",
+            job_title="Data Engineer",
+        )
+
+    def test_tool_returns_pending_task(self):
+        task = LeadTask.objects.create(
+            lead=self.lead,
+            title="Pending Follow Up",
+            task_type="follow_up",
+            priority="medium",
+            status="pending",
+            due_date=timezone.now() + timedelta(days=1),
+        )
+
+        result = get_pending_tasks_tool()
+
+        self.assertTrue(result["success"])
+        self.assertEqual(len(result["data"]), 1)
+
+        returned_task = result["data"][0]
+
+        self.assertEqual(
+            returned_task["id"],
+            task.id,
+        )
+
+        self.assertEqual(
+            returned_task["title"],
+            "Pending Follow Up",
+        )
+
+    def test_tool_returns_in_progress_task(self):
+        LeadTask.objects.create(
+            lead=self.lead,
+            title="Research Lead",
+            task_type="research",
+            priority="high",
+            status="in_progress",
+        )
+
+        result = get_pending_tasks_tool()
+
+        self.assertTrue(result["success"])
+
+        self.assertEqual(
+            result["data"][0]["status"],
+            "in_progress",
+        )
+
+    def test_tool_excludes_completed_and_cancelled_tasks(self):
+        LeadTask.objects.create(
+            lead=self.lead,
+            title="Completed Task",
+            priority="high",
+            status="completed",
+        )
+
+        LeadTask.objects.create(
+            lead=self.lead,
+            title="Cancelled Task",
+            priority="urgent",
+            status="cancelled",
+        )
+
+        result = get_pending_tasks_tool()
+
+        self.assertTrue(result["success"])
+        self.assertEqual(
+            result["data"],
+            [],
+        )
+
+    def test_tool_filters_by_priority(self):
+        LeadTask.objects.create(
+            lead=self.lead,
+            title="Urgent Task",
+            priority="urgent",
+            status="pending",
+        )
+
+        LeadTask.objects.create(
+            lead=self.lead,
+            title="Low Task",
+            priority="low",
+            status="pending",
+        )
+
+        result = get_pending_tasks_tool(
+            priority="urgent",
+        )
+
+        self.assertTrue(result["success"])
+        self.assertEqual(
+            len(result["data"]),
+            1,
+        )
+
+        self.assertEqual(
+            result["data"][0]["title"],
+            "Urgent Task",
+        )
+
+    def test_tool_respects_limit(self):
+        for number in range(5):
+            LeadTask.objects.create(
+                lead=self.lead,
+                title=f"Pending Task {number}",
+                priority="medium",
+                status="pending",
+                due_date=(
+                    timezone.now()
+                    + timedelta(days=number + 1)
+                ),
+            )
+
+        result = get_pending_tasks_tool(
+            limit=2,
+        )
+
+        self.assertTrue(result["success"])
+        self.assertEqual(
+            len(result["data"]),
+            2,
+        )
+
+    def test_tool_rejects_invalid_priority(self):
+        result = get_pending_tasks_tool(
+            priority="super_important",
+        )
+
+        self.assertFalse(result["success"])
+
+        self.assertEqual(
+            result["error"]["code"],
+            "INVALID_PRIORITY",
+        )
+
+    def test_tool_rejects_invalid_limit(self):
+        result = get_pending_tasks_tool(
+            limit=0,
+        )
+
+        self.assertFalse(result["success"])
+
+        self.assertEqual(
+            result["error"]["code"],
+            "INVALID_LIMIT",
+        )
+
+    @patch(
+        "apps.ai.tools.crm.tasks."
+        "lead_services.get_pending_tasks"
+    )
+    def test_tool_delegates_to_crm_service(
+        self,
+        mock_get_pending_tasks,
+    ):
+        mock_get_pending_tasks.return_value = []
+
+        result = get_pending_tasks_tool(
+            priority="high",
+        )
+
+        self.assertTrue(result["success"])
+
+        mock_get_pending_tasks.assert_called_once_with(
+            priority="high",
+        )
