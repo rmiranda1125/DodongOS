@@ -22,6 +22,57 @@ Eventually it becomes my own AI employee.
 
 ---
 
+# Current Implementation Status
+
+> Updated: August 21, 2026
+
+Dodong OS implementation has progressed beyond the original learning-phase timeline documented below.
+
+The detailed implementation roadmap is maintained in:
+
+`docs/ROADMAP.md`
+
+## Current Software Milestone
+
+**Phase 5.6 — Documentation Sync**
+
+Recently completed:
+
+- ✅ CRM Foundation
+- ✅ CRM service layer
+- ✅ Lead task management
+- ✅ Pending-task detection
+- ✅ Overdue-task detection
+- ✅ Priority-task ranking
+- ✅ Lead lookup and search
+- ✅ Lead activity retrieval
+- ✅ Pipeline summary
+- ✅ Agent-Ready CRM Tool Layer
+- ✅ Eight registered read-only CRM tools
+- ✅ Controlled read-only tool dispatcher
+- ✅ Structured tool inputs and outputs
+- ✅ 86 relevant CRM + AI automated tests passing
+
+## Current Agent Architecture
+
+```text
+Future CRM Read Agent
+        |
+        v
+Read-Only Tool Registry
+        |
+        v
+CRM Tools
+        |
+        v
+CRM Services
+        |
+        v
+Django ORM
+        |
+        v
+Database
+
 # Development Tracks
 
 We develop **three tracks in parallel**.
