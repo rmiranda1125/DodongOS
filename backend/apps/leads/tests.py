@@ -7,13 +7,14 @@ from .models import Lead, LeadActivity, LeadTask
 from .services import (
     complete_lead_task,
     create_lead_task,
-    get_lead_activities,
-    get_lead_activities_by_id,
     get_lead_by_id,
     get_lead_tasks,
     get_lead_tasks_by_id,
+    get_lead_activities,
+    get_lead_activities_by_id,
     get_overdue_tasks,
     get_pending_tasks,
+    get_pipeline_summary,
     get_priority_tasks,
     search_leads,
 )
@@ -450,4 +451,88 @@ class LeadTaskServiceTests(TestCase):
 
         self.assertIsNone(
             activities,
+        )
+
+    # =====================================================
+    # GET PIPELINE SUMMARY
+    # =====================================================
+
+    def test_get_pipeline_summary_counts_statuses(self):
+        Lead.objects.create(
+            company_name="New Lead",
+            status="new",
+        )
+
+        Lead.objects.create(
+            company_name="Qualified Lead 1",
+            status="qualified",
+        )
+
+        Lead.objects.create(
+            company_name="Qualified Lead 2",
+            status="qualified",
+        )
+
+        summary = get_pipeline_summary()
+
+        self.assertEqual(
+            summary["total_leads"],
+            4,
+        )
+
+        self.assertEqual(
+            summary["by_status"]["new"],
+            2,
+        )
+
+        self.assertEqual(
+            summary["by_status"]["qualified"],
+            2,
+        )
+
+    def test_get_pipeline_summary_includes_zero_statuses(self):
+        Lead.objects.create(
+            company_name="Only Lead",
+            status="new",
+        )
+
+        summary = get_pipeline_summary()
+
+        self.assertEqual(
+            summary["by_status"]["proposal"],
+            0,
+        )
+
+        self.assertEqual(
+            summary["by_status"]["won"],
+            0,
+        )
+
+    def test_get_pipeline_summary_average_score(self):
+        Lead.objects.create(
+            company_name="Lead A",
+            lead_score=80,
+        )
+
+        Lead.objects.create(
+            company_name="Lead B",
+            lead_score=100,
+        )
+
+        summary = get_pipeline_summary()
+
+        self.assertEqual(
+            summary["average_lead_score"],
+            90,
+        )
+
+    def test_get_pipeline_summary_no_scores(self):
+        Lead.objects.create(
+            company_name="Lead Without Score",
+        )
+
+        summary = get_pipeline_summary()
+
+        self.assertIsNone(
+            summary["average_lead_score"],
         )

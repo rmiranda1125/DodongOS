@@ -18,6 +18,9 @@ from apps.ai.tools.crm.leads import (
 from apps.ai.tools.crm.activities import (
     get_lead_activities_tool,
 )
+from apps.ai.tools.crm.pipeline import (
+    get_pipeline_summary_tool,
+)
 
 class PriorityTasksToolTests(TestCase):
 
@@ -1205,3 +1208,114 @@ class LeadActivitiesToolTests(TestCase):
             lead_id=7,
             activity_type="email",
         )
+
+class PipelineSummaryToolTests(TestCase):
+
+    def test_tool_returns_pipeline_summary(self):
+        Lead.objects.create(
+            company_name="New Lead",
+            status="new",
+            lead_score=80,
+        )
+
+        Lead.objects.create(
+            company_name="Qualified Lead",
+            status="qualified",
+            lead_score=100,
+        )
+
+        result = get_pipeline_summary_tool()
+
+        self.assertTrue(
+            result["success"],
+        )
+
+        data = result["data"]
+
+        self.assertEqual(
+            data["total_leads"],
+            2,
+        )
+
+        self.assertEqual(
+            data["by_status"]["new"],
+            1,
+        )
+
+        self.assertEqual(
+            data["by_status"]["qualified"],
+            1,
+        )
+
+        self.assertEqual(
+            data["average_lead_score"],
+            90,
+        )
+
+    def test_tool_returns_all_pipeline_statuses(self):
+        result = get_pipeline_summary_tool()
+
+        self.assertTrue(
+            result["success"],
+        )
+
+        by_status = result["data"]["by_status"]
+
+        expected_statuses = {
+            "new",
+            "contacted",
+            "qualified",
+            "proposal",
+            "won",
+            "lost",
+        }
+
+        self.assertEqual(
+            set(by_status.keys()),
+            expected_statuses,
+        )
+
+    def test_tool_handles_empty_pipeline(self):
+        result = get_pipeline_summary_tool()
+
+        self.assertTrue(
+            result["success"],
+        )
+
+        self.assertEqual(
+            result["data"]["total_leads"],
+            0,
+        )
+
+        self.assertIsNone(
+            result["data"]["average_lead_score"],
+        )
+
+    @patch(
+        "apps.ai.tools.crm.pipeline."
+        "lead_services.get_pipeline_summary"
+    )
+    def test_tool_delegates_to_crm_service(
+        self,
+        mock_get_pipeline_summary,
+    ):
+        mock_get_pipeline_summary.return_value = {
+            "total_leads": 0,
+            "by_status": {
+                "new": 0,
+                "contacted": 0,
+                "qualified": 0,
+                "proposal": 0,
+                "won": 0,
+                "lost": 0,
+            },
+            "average_lead_score": None,
+        }
+
+        result = get_pipeline_summary_tool()
+
+        self.assertTrue(
+            result["success"],
+        )
+
+        mock_get_pipeline_summary.assert_called_once_with()

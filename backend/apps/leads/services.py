@@ -112,6 +112,63 @@ def search_leads(
 
 
 # =========================================================
+# GET PIPELINE SUMMARY
+# =========================================================
+
+def get_pipeline_summary():
+    """
+    Return a summary of the current CRM pipeline.
+
+    All ORM aggregation logic remains inside the CRM
+    service layer.
+    """
+
+    leads = Lead.objects.all()
+
+    statuses = [
+        "new",
+        "contacted",
+        "qualified",
+        "proposal",
+        "won",
+        "lost",
+    ]
+
+    by_status = {
+        status: leads.filter(
+            status=status,
+        ).count()
+        for status in statuses
+    }
+
+    total_leads = leads.count()
+
+    scored_leads = leads.filter(
+    lead_score__gt=0,
+    )
+
+    average_lead_score = None
+
+    if scored_leads.exists():
+        scores = list(
+            scored_leads.values_list(
+                "lead_score",
+                flat=True,
+            )
+        )
+
+        average_lead_score = (
+            sum(scores) / len(scores)
+        )
+
+    return {
+        "total_leads": total_leads,
+        "by_status": by_status,
+        "average_lead_score": average_lead_score,
+    }
+
+
+# =========================================================
 # GET LEAD TASKS
 # =========================================================
 
@@ -463,3 +520,21 @@ def get_priority_tasks(
     )
 
     return tasks[:limit]
+
+def test_get_pipeline_summary_ignores_zero_scores(self):
+    Lead.objects.create(
+        company_name="Unscored Lead",
+        lead_score=0,
+    )
+
+    Lead.objects.create(
+        company_name="Scored Lead",
+        lead_score=80,
+    )
+
+    summary = get_pipeline_summary()
+
+    self.assertEqual(
+        summary["average_lead_score"],
+        80,
+    )
