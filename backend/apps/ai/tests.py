@@ -29,6 +29,11 @@ from apps.ai.tools.registry import (
 )
 from apps.ai.agent.read_agent import (
     run_crm_read_agent,
+    run_crm_read_agent_with_provider,
+)
+from apps.ai.agent.response import (
+    build_crm_read_response_prompt,
+    generate_crm_read_response,
 )
 
 class PriorityTasksToolTests(TestCase):
@@ -1692,4 +1697,277 @@ class CRMReadAgentTests(TestCase):
         self.assertEqual(
             result["error"]["code"],
             "CRM_TOOL_ERROR",
+        )
+
+class FakeAIProvider:
+
+    def __init__(
+        self,
+        response="You have one urgent follow-up task.",
+    ):
+        self.response = response
+        self.prompts = []
+
+    def analyze(self, prompt):
+        self.prompts.append(prompt)
+        return self.response
+
+
+class FailingAIProvider:
+
+    def analyze(self, prompt):
+        raise RuntimeError(
+            "Provider unavailable"
+        )
+
+
+# =========================================================
+# CRM READ AGENT RESPONSE TESTS
+# =========================================================
+
+
+class CRMReadAgentResponseTests(TestCase):
+
+    def test_prompt_contains_verified_crm_data(self):
+        prompt = build_crm_read_response_prompt(
+            user_message="What tasks need my attention?",
+            tool_used="get_priority_tasks",
+            data=[
+                {
+                    "id": 7,
+                    "lead_company": "Acme Analytics",
+                    "title": "Follow up",
+                    "priority": "urgent",
+                    "status": "pending",
+                },
+            ],
+        )
+
+        self.assertIn(
+            "What tasks need my attention?",
+            prompt,
+        )
+
+        self.assertIn(
+            "get_priority_tasks",
+            prompt,
+        )
+
+        self.assertIn(
+            "Acme Analytics",
+            prompt,
+        )
+
+        self.assertIn(
+            "Follow up",
+            prompt,
+        )
+
+    def test_generate_response_uses_provider(self):
+        provider = FakeAIProvider(
+            response=(
+                "Your urgent task is to follow up "
+                "with Acme Analytics."
+            ),
+        )
+
+        response = generate_crm_read_response(
+            user_message="What tasks need my attention?",
+            tool_used="get_priority_tasks",
+            data=[
+                {
+                    "id": 7,
+                    "lead_company": "Acme Analytics",
+                    "title": "Follow up",
+                    "priority": "urgent",
+                    "status": "pending",
+                },
+            ],
+            provider=provider,
+        )
+
+        self.assertEqual(
+            response,
+            (
+                "Your urgent task is to follow up "
+                "with Acme Analytics."
+            ),
+        )
+
+        self.assertEqual(
+            len(provider.prompts),
+            1,
+        )
+
+    @patch(
+        "apps.ai.agent.read_agent."
+        "execute_registered_tool"
+    )
+    def test_agent_generates_ai_response_from_verified_data(
+        self,
+        mock_execute_registered_tool,
+    ):
+        mock_execute_registered_tool.return_value = {
+            "success": True,
+            "data": [
+                {
+                    "id": 7,
+                    "lead_id": 3,
+                    "lead_company": "Acme Analytics",
+                    "title": "Follow up",
+                    "description": "",
+                    "task_type": "follow_up",
+                    "priority": "urgent",
+                    "status": "pending",
+                    "due_date": None,
+                    "completed_at": None,
+                },
+            ],
+        }
+
+        provider = FakeAIProvider(
+            response=(
+                "Your most important task is the "
+                "Acme Analytics follow-up."
+            ),
+        )
+
+        result = run_crm_read_agent_with_provider(
+            message="What tasks need my attention?",
+            provider=provider,
+        )
+
+        self.assertTrue(
+            result["success"],
+        )
+
+        self.assertEqual(
+            result["tool_used"],
+            "get_priority_tasks",
+        )
+
+        self.assertEqual(
+            result["response_source"],
+            "ai_provider",
+        )
+
+        self.assertEqual(
+            result["answer"],
+            (
+                "Your most important task is the "
+                "Acme Analytics follow-up."
+            ),
+        )
+
+        self.assertEqual(
+            len(result["data"]),
+            1,
+        )
+
+    @patch(
+        "apps.ai.agent.read_agent."
+        "execute_registered_tool"
+    )
+    def test_provider_failure_uses_deterministic_fallback(
+        self,
+        mock_execute_registered_tool,
+    ):
+        mock_execute_registered_tool.return_value = {
+            "success": True,
+            "data": [
+                {
+                    "id": 7,
+                    "lead_id": 3,
+                    "lead_company": "Acme Analytics",
+                    "title": "Follow up",
+                    "description": "",
+                    "task_type": "follow_up",
+                    "priority": "urgent",
+                    "status": "pending",
+                    "due_date": None,
+                    "completed_at": None,
+                },
+            ],
+        }
+
+        result = run_crm_read_agent_with_provider(
+            message="What tasks need my attention?",
+            provider=FailingAIProvider(),
+        )
+
+        self.assertTrue(
+            result["success"],
+        )
+
+        self.assertEqual(
+            result["response_source"],
+            "deterministic_fallback",
+        )
+
+        self.assertEqual(
+            result["warning"]["code"],
+            "AI_RESPONSE_FAILED",
+        )
+
+        self.assertIn(
+            "Acme Analytics",
+            result["answer"],
+        )
+
+    @patch(
+        "apps.ai.agent.read_agent."
+        "execute_registered_tool"
+    )
+    def test_empty_provider_response_uses_fallback(
+        self,
+        mock_execute_registered_tool,
+    ):
+        mock_execute_registered_tool.return_value = {
+            "success": True,
+            "data": [],
+        }
+
+        provider = FakeAIProvider(
+            response="   ",
+        )
+
+        result = run_crm_read_agent_with_provider(
+            message="What tasks need my attention?",
+            provider=provider,
+        )
+
+        self.assertTrue(
+            result["success"],
+        )
+
+        self.assertEqual(
+            result["response_source"],
+            "deterministic_fallback",
+        )
+
+        self.assertIn(
+            "no priority CRM tasks",
+            result["answer"],
+        )
+
+    def test_unsupported_intent_does_not_call_provider(self):
+        provider = FakeAIProvider()
+
+        result = run_crm_read_agent_with_provider(
+            message="Delete all my leads.",
+            provider=provider,
+        )
+
+        self.assertFalse(
+            result["success"],
+        )
+
+        self.assertEqual(
+            result["error"]["code"],
+            "UNSUPPORTED_READ_INTENT",
+        )
+
+        self.assertEqual(
+            provider.prompts,
+            [],
         )

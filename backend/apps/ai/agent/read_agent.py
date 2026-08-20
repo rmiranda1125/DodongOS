@@ -1,5 +1,7 @@
 from apps.ai.tools.registry import execute_registered_tool
-
+from apps.ai.agent.response import (
+    generate_crm_read_response,
+)
 
 SUPPORTED_PRIORITY_TASK_INTENTS = {
     "what tasks need my attention",
@@ -169,3 +171,54 @@ def run_crm_read_agent(
         ),
         "data": tasks,
     }
+
+def run_crm_read_agent_with_provider(
+    *,
+    message,
+    limit=10,
+    provider=None,
+):
+    """
+    CRM Read Agent v0.1 with AI-generated final response.
+
+    CRM retrieval remains controlled by run_crm_read_agent().
+    The AI provider only receives already-verified read data.
+
+    If the provider fails, return the deterministic answer
+    produced by the core read agent.
+    """
+
+    core_result = run_crm_read_agent(
+        message=message,
+        limit=limit,
+    )
+
+    if not core_result.get("success"):
+        return core_result
+
+    try:
+        ai_answer = generate_crm_read_response(
+            user_message=message,
+            tool_used=core_result["tool_used"],
+            data=core_result["data"],
+            provider=provider,
+        )
+
+        return {
+            **core_result,
+            "answer": ai_answer,
+            "response_source": "ai_provider",
+        }
+
+    except Exception:
+        return {
+            **core_result,
+            "response_source": "deterministic_fallback",
+            "warning": {
+                "code": "AI_RESPONSE_FAILED",
+                "message": (
+                    "CRM data was retrieved successfully, "
+                    "but the AI response could not be generated."
+                ),
+            },
+        }
