@@ -2,6 +2,9 @@ from apps.ai.tools.registry import execute_registered_tool
 from apps.ai.agent.response import (
     generate_crm_read_response,
 )
+from apps.ai.agent.router import (
+    route_crm_read_intent,
+)
 
 SUPPORTED_PRIORITY_TASK_INTENTS = {
     "what tasks need my attention",
@@ -86,17 +89,12 @@ def run_crm_read_agent(
     limit=10,
 ):
     """
-    CRM Read Agent v0.1 core.
+    CRM Read Agent core.
 
-    For this milestone the agent supports exactly one
-    deterministic read intent:
+    Routes supported CRM read questions to registered
+    read-only tools.
 
-        "What tasks need my attention?"
-
-    The runtime may execute only tools exposed through
-    the read-only tool registry.
-
-    It must never query Django models directly.
+    No ORM access is allowed here.
     """
 
     if not isinstance(message, str):
@@ -108,11 +106,7 @@ def run_crm_read_agent(
             },
         }
 
-    normalized_message = _normalize_message(
-        message,
-    )
-
-    if not normalized_message:
+    if not message.strip():
         return {
             "success": False,
             "error": {
@@ -121,55 +115,70 @@ def run_crm_read_agent(
             },
         }
 
-    if (
-        normalized_message
-        not in SUPPORTED_PRIORITY_TASK_INTENTS
-    ):
-        return {
-            "success": False,
-            "error": {
-                "code": "UNSUPPORTED_READ_INTENT",
-                "message": (
-                    "This CRM Read Agent version currently "
-                    "supports only priority-task questions."
-                ),
-            },
-        }
+    route = route_crm_read_intent(
+        message,
+    )
+
+    if not route.get("success"):
+        return route
+
+    tool_name = route["tool_name"]
+
+    arguments = dict(
+        route.get(
+            "arguments",
+            {},
+        )
+    )
+
+    # Apply the read-agent result limit only to tools that
+    # support a limit argument.
+    tools_with_limit = {
+        "get_priority_tasks",
+        "get_overdue_tasks",
+        "get_pending_tasks",
+        "get_lead_tasks",
+        "get_lead_activities",
+    }
+
+    if tool_name in tools_with_limit:
+        arguments["limit"] = limit
 
     tool_result = execute_registered_tool(
-        name="get_priority_tasks",
-        arguments={
-            "limit": limit,
-        },
+        name=tool_name,
+        arguments=arguments,
     )
 
     if not tool_result.get("success"):
         return {
             "success": False,
-            "tool_used": "get_priority_tasks",
+            "intent": route["intent"],
+            "tool_used": tool_name,
             "error": tool_result.get(
                 "error",
                 {
                     "code": "CRM_READ_AGENT_ERROR",
                     "message": (
-                        "Unable to retrieve priority tasks."
+                        "Unable to retrieve CRM data."
                     ),
                 },
             ),
         }
 
-    tasks = tool_result.get(
+    data = tool_result.get(
         "data",
         [],
     )
 
     return {
         "success": True,
-        "tool_used": "get_priority_tasks",
-        "answer": _format_priority_tasks(
-            tasks,
+        "intent": route["intent"],
+        "tool_used": tool_name,
+        "answer": _format_read_result(
+            tool_name=tool_name,
+            data=data,
         ),
-        "data": tasks,
+        "data": data,
     }
 
 def run_crm_read_agent_with_provider(
@@ -222,3 +231,95 @@ def run_crm_read_agent_with_provider(
                 ),
             },
         }
+
+def _format_read_result(
+    *,
+    tool_name,
+    data,
+):
+    """
+    Provide a deterministic fallback response for every
+    currently supported CRM read tool.
+    """
+
+    if tool_name == "get_priority_tasks":
+        return _format_priority_tasks(
+            data,
+        )
+
+    if tool_name == "get_overdue_tasks":
+        if not data:
+            return "You have no overdue CRM tasks."
+
+        return (
+            f"You have {len(data)} overdue CRM "
+            f"task{'s' if len(data) != 1 else ''}."
+        )
+
+    if tool_name == "get_pending_tasks":
+        if not data:
+            return "You have no pending CRM tasks."
+
+        return (
+            f"You have {len(data)} pending or "
+            f"in-progress CRM "
+            f"task{'s' if len(data) != 1 else ''}."
+        )
+
+    if tool_name == "get_pipeline_summary":
+        if not data:
+            return "No CRM pipeline data is available."
+
+        total = data.get(
+            "total_leads",
+            0,
+        )
+
+        return (
+            f"Your CRM pipeline currently contains "
+            f"{total} lead{'s' if total != 1 else ''}."
+        )
+
+    if tool_name == "get_lead":
+        if not data:
+            return "The requested CRM lead was not found."
+
+        company = (
+            data.get("company_name")
+            or "Unknown company"
+        )
+
+        status = (
+            data.get("status")
+            or "unknown"
+        )
+
+        return (
+            f"{company} is currently in CRM status "
+            f"'{status}'."
+        )
+
+    if tool_name == "get_lead_tasks":
+        if not data:
+            return (
+                "This lead currently has no CRM tasks."
+            )
+
+        return (
+            f"This lead has {len(data)} CRM "
+            f"task{'s' if len(data) != 1 else ''}."
+        )
+
+    if tool_name == "get_lead_activities":
+        if not data:
+            return (
+                "This lead currently has no CRM "
+                "activity history."
+            )
+
+        return (
+            f"This lead has {len(data)} recorded CRM "
+            f"activit{'ies' if len(data) != 1 else 'y'}."
+        )
+
+    return "CRM data was retrieved successfully."

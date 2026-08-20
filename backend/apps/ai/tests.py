@@ -5,36 +5,53 @@ from django.test import TestCase
 from django.utils import timezone
 
 from apps.leads.models import Lead, LeadActivity, LeadTask
+
 from apps.ai.tools.crm.tasks import (
     get_lead_tasks_tool,
     get_overdue_tasks_tool,
     get_pending_tasks_tool,
     get_priority_tasks_tool,
 )
+
 from apps.ai.tools.crm.leads import (
     get_lead_tool,
     search_leads_tool,
 )
+
 from apps.ai.tools.crm.activities import (
     get_lead_activities_tool,
 )
+
 from apps.ai.tools.crm.pipeline import (
     get_pipeline_summary_tool,
 )
+
 from apps.ai.tools.registry import (
     TOOL_REGISTRY,
     execute_registered_tool,
     get_registered_tool,
     list_registered_tools,
 )
+
 from apps.ai.agent.read_agent import (
     run_crm_read_agent,
     run_crm_read_agent_with_provider,
 )
+
 from apps.ai.agent.response import (
     build_crm_read_response_prompt,
     generate_crm_read_response,
 )
+
+from apps.ai.agent.router import (
+    extract_lead_id,
+    route_crm_read_intent,
+)
+
+
+# =========================================================
+# PRIORITY TASKS TOOL TESTS
+# =========================================================
 
 class PriorityTasksToolTests(TestCase):
 
@@ -204,6 +221,11 @@ class PriorityTasksToolTests(TestCase):
             limit=3,
         )
 
+
+# =========================================================
+# OVERDUE TASKS TOOL TESTS
+# =========================================================
+
 class OverdueTasksToolTests(TestCase):
 
     def setUp(self):
@@ -225,8 +247,14 @@ class OverdueTasksToolTests(TestCase):
 
         result = get_overdue_tasks_tool()
 
-        self.assertTrue(result["success"])
-        self.assertEqual(len(result["data"]), 1)
+        self.assertTrue(
+            result["success"],
+        )
+
+        self.assertEqual(
+            len(result["data"]),
+            1,
+        )
 
         returned_task = result["data"][0]
 
@@ -256,7 +284,10 @@ class OverdueTasksToolTests(TestCase):
 
         result = get_overdue_tasks_tool()
 
-        self.assertTrue(result["success"])
+        self.assertTrue(
+            result["success"],
+        )
+
         self.assertEqual(
             result["data"],
             [],
@@ -274,7 +305,10 @@ class OverdueTasksToolTests(TestCase):
 
         result = get_overdue_tasks_tool()
 
-        self.assertTrue(result["success"])
+        self.assertTrue(
+            result["success"],
+        )
+
         self.assertEqual(
             result["data"],
             [],
@@ -320,7 +354,10 @@ class OverdueTasksToolTests(TestCase):
             limit=2,
         )
 
-        self.assertTrue(result["success"])
+        self.assertTrue(
+            result["success"],
+        )
+
         self.assertEqual(
             len(result["data"]),
             2,
@@ -358,6 +395,11 @@ class OverdueTasksToolTests(TestCase):
 
         mock_get_overdue_tasks.assert_called_once_with()
 
+
+# =========================================================
+# PENDING TASKS TOOL TESTS
+# =========================================================
+
 class PendingTasksToolTests(TestCase):
 
     def setUp(self):
@@ -378,8 +420,14 @@ class PendingTasksToolTests(TestCase):
 
         result = get_pending_tasks_tool()
 
-        self.assertTrue(result["success"])
-        self.assertEqual(len(result["data"]), 1)
+        self.assertTrue(
+            result["success"],
+        )
+
+        self.assertEqual(
+            len(result["data"]),
+            1,
+        )
 
         returned_task = result["data"][0]
 
@@ -404,7 +452,9 @@ class PendingTasksToolTests(TestCase):
 
         result = get_pending_tasks_tool()
 
-        self.assertTrue(result["success"])
+        self.assertTrue(
+            result["success"],
+        )
 
         self.assertEqual(
             result["data"][0]["status"],
@@ -428,7 +478,10 @@ class PendingTasksToolTests(TestCase):
 
         result = get_pending_tasks_tool()
 
-        self.assertTrue(result["success"])
+        self.assertTrue(
+            result["success"],
+        )
+
         self.assertEqual(
             result["data"],
             [],
@@ -453,7 +506,10 @@ class PendingTasksToolTests(TestCase):
             priority="urgent",
         )
 
-        self.assertTrue(result["success"])
+        self.assertTrue(
+            result["success"],
+        )
+
         self.assertEqual(
             len(result["data"]),
             1,
@@ -481,7 +537,10 @@ class PendingTasksToolTests(TestCase):
             limit=2,
         )
 
-        self.assertTrue(result["success"])
+        self.assertTrue(
+            result["success"],
+        )
+
         self.assertEqual(
             len(result["data"]),
             2,
@@ -492,7 +551,9 @@ class PendingTasksToolTests(TestCase):
             priority="super_important",
         )
 
-        self.assertFalse(result["success"])
+        self.assertFalse(
+            result["success"],
+        )
 
         self.assertEqual(
             result["error"]["code"],
@@ -504,7 +565,9 @@ class PendingTasksToolTests(TestCase):
             limit=0,
         )
 
-        self.assertFalse(result["success"])
+        self.assertFalse(
+            result["success"],
+        )
 
         self.assertEqual(
             result["error"]["code"],
@@ -525,11 +588,18 @@ class PendingTasksToolTests(TestCase):
             priority="high",
         )
 
-        self.assertTrue(result["success"])
+        self.assertTrue(
+            result["success"],
+        )
 
         mock_get_pending_tasks.assert_called_once_with(
             priority="high",
         )
+
+
+# =========================================================
+# LEAD TASKS TOOL TESTS
+# =========================================================
 
 class LeadTasksToolTests(TestCase):
 
@@ -563,7 +633,10 @@ class LeadTasksToolTests(TestCase):
             lead_id=self.lead.id,
         )
 
-        self.assertTrue(result["success"])
+        self.assertTrue(
+            result["success"],
+        )
+
         self.assertEqual(
             len(result["data"]),
             1,
@@ -597,7 +670,10 @@ class LeadTasksToolTests(TestCase):
             status="completed",
         )
 
-        self.assertTrue(result["success"])
+        self.assertTrue(
+            result["success"],
+        )
+
         self.assertEqual(
             len(result["data"]),
             1,
@@ -628,7 +704,10 @@ class LeadTasksToolTests(TestCase):
             priority="urgent",
         )
 
-        self.assertTrue(result["success"])
+        self.assertTrue(
+            result["success"],
+        )
+
         self.assertEqual(
             len(result["data"]),
             1,
@@ -644,7 +723,9 @@ class LeadTasksToolTests(TestCase):
             lead_id=999999,
         )
 
-        self.assertFalse(result["success"])
+        self.assertFalse(
+            result["success"],
+        )
 
         self.assertEqual(
             result["error"]["code"],
@@ -656,7 +737,9 @@ class LeadTasksToolTests(TestCase):
             lead_id=0,
         )
 
-        self.assertFalse(result["success"])
+        self.assertFalse(
+            result["success"],
+        )
 
         self.assertEqual(
             result["error"]["code"],
@@ -669,7 +752,9 @@ class LeadTasksToolTests(TestCase):
             status="waiting_for_magic",
         )
 
-        self.assertFalse(result["success"])
+        self.assertFalse(
+            result["success"],
+        )
 
         self.assertEqual(
             result["error"]["code"],
@@ -690,7 +775,9 @@ class LeadTasksToolTests(TestCase):
             limit=2,
         )
 
-        self.assertTrue(result["success"])
+        self.assertTrue(
+            result["success"],
+        )
 
         self.assertEqual(
             len(result["data"]),
@@ -713,13 +800,20 @@ class LeadTasksToolTests(TestCase):
             priority="high",
         )
 
-        self.assertTrue(result["success"])
+        self.assertTrue(
+            result["success"],
+        )
 
         mock_get_lead_tasks_by_id.assert_called_once_with(
             lead_id=7,
             status="pending",
             priority="high",
         )
+
+
+# =========================================================
+# GET LEAD TOOL TESTS
+# =========================================================
 
 class GetLeadToolTests(TestCase):
 
@@ -851,6 +945,11 @@ class GetLeadToolTests(TestCase):
         mock_get_lead_by_id.assert_called_once_with(
             lead_id=7,
         )
+
+
+# =========================================================
+# SEARCH LEADS TOOL TESTS
+# =========================================================
 
 class SearchLeadsToolTests(TestCase):
 
@@ -1023,6 +1122,11 @@ class SearchLeadsToolTests(TestCase):
             country="Philippines",
             industry="Technology",
         )
+
+
+# =========================================================
+# LEAD ACTIVITIES TOOL TESTS
+# =========================================================
 
 class LeadActivitiesToolTests(TestCase):
 
@@ -1223,6 +1327,11 @@ class LeadActivitiesToolTests(TestCase):
             activity_type="email",
         )
 
+
+# =========================================================
+# PIPELINE SUMMARY TOOL TESTS
+# =========================================================
+
 class PipelineSummaryToolTests(TestCase):
 
     def test_tool_returns_pipeline_summary(self):
@@ -1334,6 +1443,11 @@ class PipelineSummaryToolTests(TestCase):
 
         mock_get_pipeline_summary.assert_called_once_with()
 
+
+# =========================================================
+# CRM TOOL REGISTRY TESTS
+# =========================================================
+
 class CRMToolRegistryTests(TestCase):
 
     def test_registry_contains_expected_tools(self):
@@ -1365,7 +1479,9 @@ class CRMToolRegistryTests(TestCase):
             "get_pipeline_summary",
         )
 
-        self.assertIsNotNone(tool)
+        self.assertIsNotNone(
+            tool,
+        )
 
         self.assertEqual(
             tool.name,
@@ -1377,7 +1493,9 @@ class CRMToolRegistryTests(TestCase):
             "delete_everything",
         )
 
-        self.assertIsNone(tool)
+        self.assertIsNone(
+            tool,
+        )
 
     def test_list_registered_tools_is_json_safe_metadata(self):
         tools = list_registered_tools()
@@ -1506,6 +1624,11 @@ class CRMToolRegistryTests(TestCase):
             "INVALID_TOOL_ARGUMENTS",
         )
 
+
+# =========================================================
+# CRM READ AGENT TESTS
+# =========================================================
+
 class CRMReadAgentTests(TestCase):
 
     @patch(
@@ -1626,28 +1749,26 @@ class CRMReadAgentTests(TestCase):
             result["answer"],
         )
 
-    @patch(
-        "apps.ai.agent.read_agent."
-        "execute_registered_tool"
-    )
-    def test_unsupported_question_does_not_execute_tool(
-        self,
-        mock_execute_registered_tool,
-    ):
-        result = run_crm_read_agent(
-            message="Delete all my leads.",
-        )
+    def test_write_question_does_not_execute_tool(self):
+        with patch(
+            "apps.ai.agent.read_agent."
+            "execute_registered_tool"
+        ) as mock_execute_registered_tool:
 
-        self.assertFalse(
-            result["success"],
-        )
+            result = run_crm_read_agent(
+                message="Delete all my leads.",
+            )
 
-        self.assertEqual(
-            result["error"]["code"],
-            "UNSUPPORTED_READ_INTENT",
-        )
+            self.assertFalse(
+                result["success"],
+            )
 
-        mock_execute_registered_tool.assert_not_called()
+            self.assertEqual(
+                result["error"]["code"],
+                "WRITE_INTENT_NOT_ALLOWED",
+            )
+
+            mock_execute_registered_tool.assert_not_called()
 
     def test_agent_rejects_empty_message(self):
         result = run_crm_read_agent(
@@ -1699,6 +1820,11 @@ class CRMReadAgentTests(TestCase):
             "CRM_TOOL_ERROR",
         )
 
+
+# =========================================================
+# FAKE AI PROVIDERS
+# =========================================================
+
 class FakeAIProvider:
 
     def __init__(
@@ -1724,7 +1850,6 @@ class FailingAIProvider:
 # =========================================================
 # CRM READ AGENT RESPONSE TESTS
 # =========================================================
-
 
 class CRMReadAgentResponseTests(TestCase):
 
@@ -1950,7 +2075,7 @@ class CRMReadAgentResponseTests(TestCase):
             result["answer"],
         )
 
-    def test_unsupported_intent_does_not_call_provider(self):
+    def test_write_intent_does_not_call_provider(self):
         provider = FakeAIProvider()
 
         result = run_crm_read_agent_with_provider(
@@ -1964,10 +2089,301 @@ class CRMReadAgentResponseTests(TestCase):
 
         self.assertEqual(
             result["error"]["code"],
-            "UNSUPPORTED_READ_INTENT",
+            "WRITE_INTENT_NOT_ALLOWED",
         )
 
         self.assertEqual(
             provider.prompts,
             [],
         )
+
+
+# =========================================================
+# CRM READ INTENT ROUTER TESTS
+# =========================================================
+
+class CRMReadIntentRouterTests(TestCase):
+
+    def test_routes_priority_tasks(self):
+        result = route_crm_read_intent(
+            "What tasks need my attention?"
+        )
+
+        self.assertTrue(
+            result["success"],
+        )
+
+        self.assertEqual(
+            result["tool_name"],
+            "get_priority_tasks",
+        )
+
+    def test_routes_overdue_tasks(self):
+        result = route_crm_read_intent(
+            "What tasks are overdue?"
+        )
+
+        self.assertTrue(
+            result["success"],
+        )
+
+        self.assertEqual(
+            result["tool_name"],
+            "get_overdue_tasks",
+        )
+
+    def test_routes_pending_tasks(self):
+        result = route_crm_read_intent(
+            "Show me pending tasks."
+        )
+
+        self.assertTrue(
+            result["success"],
+        )
+
+        self.assertEqual(
+            result["tool_name"],
+            "get_pending_tasks",
+        )
+
+    def test_routes_pipeline_summary(self):
+        result = route_crm_read_intent(
+            "Summarize my pipeline."
+        )
+
+        self.assertTrue(
+            result["success"],
+        )
+
+        self.assertEqual(
+            result["tool_name"],
+            "get_pipeline_summary",
+        )
+
+    def test_extracts_lead_id(self):
+        lead_id = extract_lead_id(
+            "Tell me about lead #12."
+        )
+
+        self.assertEqual(
+            lead_id,
+            12,
+        )
+
+    def test_routes_get_lead(self):
+        result = route_crm_read_intent(
+            "Tell me about lead 12."
+        )
+
+        self.assertTrue(
+            result["success"],
+        )
+
+        self.assertEqual(
+            result["tool_name"],
+            "get_lead",
+        )
+
+        self.assertEqual(
+            result["arguments"]["lead_id"],
+            12,
+        )
+
+    def test_routes_lead_tasks(self):
+        result = route_crm_read_intent(
+            "What tasks belong to lead 12?"
+        )
+
+        self.assertTrue(
+            result["success"],
+        )
+
+        self.assertEqual(
+            result["tool_name"],
+            "get_lead_tasks",
+        )
+
+        self.assertEqual(
+            result["arguments"]["lead_id"],
+            12,
+        )
+
+    def test_routes_lead_activities(self):
+        result = route_crm_read_intent(
+            "What happened with lead 12?"
+        )
+
+        self.assertTrue(
+            result["success"],
+        )
+
+        self.assertEqual(
+            result["tool_name"],
+            "get_lead_activities",
+        )
+
+        self.assertEqual(
+            result["arguments"]["lead_id"],
+            12,
+        )
+
+    def test_rejects_write_intent(self):
+        result = route_crm_read_intent(
+            "Delete lead 12."
+        )
+
+        self.assertFalse(
+            result["success"],
+        )
+
+        self.assertEqual(
+            result["error"]["code"],
+            "WRITE_INTENT_NOT_ALLOWED",
+        )
+
+    def test_rejects_unsupported_read_intent(self):
+        result = route_crm_read_intent(
+            "Which company has the nicest logo?"
+        )
+
+        self.assertFalse(
+            result["success"],
+        )
+
+        self.assertEqual(
+            result["error"]["code"],
+            "UNSUPPORTED_READ_INTENT",
+        )
+
+
+# =========================================================
+# CRM READ AGENT ROUTING TESTS
+# =========================================================
+
+class CRMReadAgentRoutingTests(TestCase):
+
+    @patch(
+        "apps.ai.agent.read_agent."
+        "execute_registered_tool"
+    )
+    def test_overdue_question_executes_overdue_tool(
+        self,
+        mock_execute_registered_tool,
+    ):
+        mock_execute_registered_tool.return_value = {
+            "success": True,
+            "data": [],
+        }
+
+        result = run_crm_read_agent(
+            message="What tasks are overdue?",
+        )
+
+        self.assertTrue(
+            result["success"],
+        )
+
+        self.assertEqual(
+            result["tool_used"],
+            "get_overdue_tasks",
+        )
+
+        mock_execute_registered_tool.assert_called_once_with(
+            name="get_overdue_tasks",
+            arguments={
+                "limit": 10,
+            },
+        )
+
+    @patch(
+        "apps.ai.agent.read_agent."
+        "execute_registered_tool"
+    )
+    def test_pipeline_question_executes_pipeline_tool(
+        self,
+        mock_execute_registered_tool,
+    ):
+        mock_execute_registered_tool.return_value = {
+            "success": True,
+            "data": {
+                "total_leads": 5,
+                "by_status": {},
+                "average_lead_score": None,
+            },
+        }
+
+        result = run_crm_read_agent(
+            message="Summarize my pipeline.",
+        )
+
+        self.assertTrue(
+            result["success"],
+        )
+
+        self.assertEqual(
+            result["tool_used"],
+            "get_pipeline_summary",
+        )
+
+        mock_execute_registered_tool.assert_called_once_with(
+            name="get_pipeline_summary",
+            arguments={},
+        )
+
+    @patch(
+        "apps.ai.agent.read_agent."
+        "execute_registered_tool"
+    )
+    def test_lead_question_passes_lead_id(
+        self,
+        mock_execute_registered_tool,
+    ):
+        mock_execute_registered_tool.return_value = {
+            "success": True,
+            "data": {
+                "id": 12,
+                "company_name": "Acme Analytics",
+                "status": "qualified",
+            },
+        }
+
+        result = run_crm_read_agent(
+            message="Tell me about lead 12.",
+        )
+
+        self.assertTrue(
+            result["success"],
+        )
+
+        self.assertEqual(
+            result["tool_used"],
+            "get_lead",
+        )
+
+        mock_execute_registered_tool.assert_called_once_with(
+            name="get_lead",
+            arguments={
+                "lead_id": 12,
+            },
+        )
+
+    def test_write_request_executes_no_tool(self):
+        with patch(
+            "apps.ai.agent.read_agent."
+            "execute_registered_tool"
+        ) as mock_execute_registered_tool:
+
+            result = run_crm_read_agent(
+                message="Delete lead 12.",
+            )
+
+            self.assertFalse(
+                result["success"],
+            )
+
+            self.assertEqual(
+                result["error"]["code"],
+                "WRITE_INTENT_NOT_ALLOWED",
+            )
+
+            mock_execute_registered_tool.assert_not_called()
