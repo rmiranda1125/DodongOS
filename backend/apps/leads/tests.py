@@ -7,6 +7,8 @@ from .models import Lead, LeadActivity, LeadTask
 from .services import (
     complete_lead_task,
     create_lead_task,
+    get_lead_activities,
+    get_lead_activities_by_id,
     get_lead_by_id,
     get_lead_tasks,
     get_lead_tasks_by_id,
@@ -382,4 +384,70 @@ class LeadTaskServiceTests(TestCase):
         self.assertEqual(
             list(leads),
             [matching_lead],
+        )
+
+    # =====================================================
+    # GET LEAD ACTIVITIES
+    # =====================================================
+
+    def test_get_lead_activities_by_id(self):
+        activity = LeadActivity.objects.create(
+            lead=self.lead,
+            activity_type="call",
+            description="Called the client.",
+        )
+
+        activities = get_lead_activities_by_id(
+            lead_id=self.lead.id,
+        )
+
+        self.assertIsNotNone(
+            activities,
+        )
+
+        self.assertEqual(
+            activities.count(),
+            1,
+        )
+
+        self.assertEqual(
+            activities.first().id,
+            activity.id,
+        )
+
+    def test_get_lead_activities_by_id_filters_activity_type(self):
+        LeadActivity.objects.create(
+            lead=self.lead,
+            activity_type="call",
+            description="Called client.",
+        )
+
+        email_activity = LeadActivity.objects.create(
+            lead=self.lead,
+            activity_type="email",
+            description="Sent email.",
+        )
+
+        activities = get_lead_activities_by_id(
+            lead_id=self.lead.id,
+            activity_type="email",
+        )
+
+        self.assertEqual(
+            activities.count(),
+            1,
+        )
+
+        self.assertEqual(
+            activities.first().id,
+            email_activity.id,
+        )
+
+    def test_get_lead_activities_by_id_returns_none_for_missing_lead(self):
+        activities = get_lead_activities_by_id(
+            lead_id=999999,
+        )
+
+        self.assertIsNone(
+            activities,
         )

@@ -1,10 +1,7 @@
-from datetime import timedelta
-
+from django.db.models import Q
 from django.utils import timezone
 
-from .models import Lead, LeadTask, LeadActivity
-
-from django.db.models import Q
+from .models import Lead, LeadActivity, LeadTask
 
 
 # =========================================================
@@ -60,6 +57,7 @@ def get_lead_by_id(
         pk=lead_id,
     ).first()
 
+
 # =========================================================
 # SEARCH LEADS
 # =========================================================
@@ -111,6 +109,7 @@ def search_leads(
         "-lead_score",
         "-updated_at",
     )
+
 
 # =========================================================
 # GET LEAD TASKS
@@ -185,6 +184,68 @@ def get_lead_tasks_by_id(
         lead=lead,
         status=status,
         priority=priority,
+    )
+
+
+# =========================================================
+# GET LEAD ACTIVITIES
+# =========================================================
+
+def get_lead_activities(
+    *,
+    lead,
+    activity_type=None,
+):
+    """
+    Return activities belonging to a lead.
+
+    Optional filter:
+    - activity_type
+
+    Future AI tools should use this service instead of
+    querying LeadActivity directly.
+    """
+
+    activities = LeadActivity.objects.filter(
+        lead=lead,
+    )
+
+    if activity_type:
+        activities = activities.filter(
+            activity_type=activity_type,
+        )
+
+    return activities.order_by(
+        "-created_at",
+    )
+
+
+# =========================================================
+# GET LEAD ACTIVITIES BY ID
+# =========================================================
+
+def get_lead_activities_by_id(
+    *,
+    lead_id,
+    activity_type=None,
+):
+    """
+    Resolve the lead inside the CRM service layer and
+    return that lead's activities.
+
+    Returns None if the lead does not exist.
+    """
+
+    lead = Lead.objects.filter(
+        pk=lead_id,
+    ).first()
+
+    if lead is None:
+        return None
+
+    return get_lead_activities(
+        lead=lead,
+        activity_type=activity_type,
     )
 
 

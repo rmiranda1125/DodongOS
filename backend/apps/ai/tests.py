@@ -4,7 +4,7 @@ from unittest.mock import patch
 from django.test import TestCase
 from django.utils import timezone
 
-from apps.leads.models import Lead, LeadTask
+from apps.leads.models import Lead, LeadActivity, LeadTask
 from apps.ai.tools.crm.tasks import (
     get_lead_tasks_tool,
     get_overdue_tasks_tool,
@@ -15,7 +15,9 @@ from apps.ai.tools.crm.leads import (
     get_lead_tool,
     search_leads_tool,
 )
-
+from apps.ai.tools.crm.activities import (
+    get_lead_activities_tool,
+)
 
 class PriorityTasksToolTests(TestCase):
 
@@ -1003,4 +1005,203 @@ class SearchLeadsToolTests(TestCase):
             status="qualified",
             country="Philippines",
             industry="Technology",
+        )
+
+class LeadActivitiesToolTests(TestCase):
+
+    def setUp(self):
+        self.lead = Lead.objects.create(
+            company_name="Activity Test Company",
+            job_title="BI Developer",
+        )
+
+    def test_tool_returns_structured_activity(self):
+        activity = LeadActivity.objects.create(
+            lead=self.lead,
+            activity_type="call",
+            description="Called the decision maker.",
+        )
+
+        result = get_lead_activities_tool(
+            lead_id=self.lead.id,
+        )
+
+        self.assertTrue(
+            result["success"],
+        )
+
+        self.assertEqual(
+            len(result["data"]),
+            1,
+        )
+
+        returned_activity = result["data"][0]
+
+        self.assertIsInstance(
+            returned_activity,
+            dict,
+        )
+
+        self.assertEqual(
+            returned_activity["id"],
+            activity.id,
+        )
+
+        self.assertEqual(
+            returned_activity["lead_id"],
+            self.lead.id,
+        )
+
+        self.assertEqual(
+            returned_activity["lead_company"],
+            "Activity Test Company",
+        )
+
+        self.assertEqual(
+            returned_activity["activity_type"],
+            "call",
+        )
+
+        self.assertEqual(
+            returned_activity["description"],
+            "Called the decision maker.",
+        )
+
+        self.assertIsNotNone(
+            returned_activity["created_at"],
+        )
+
+    def test_tool_filters_by_activity_type(self):
+        LeadActivity.objects.create(
+            lead=self.lead,
+            activity_type="call",
+            description="Called client.",
+        )
+
+        LeadActivity.objects.create(
+            lead=self.lead,
+            activity_type="email",
+            description="Sent proposal.",
+        )
+
+        result = get_lead_activities_tool(
+            lead_id=self.lead.id,
+            activity_type="email",
+        )
+
+        self.assertTrue(
+            result["success"],
+        )
+
+        self.assertEqual(
+            len(result["data"]),
+            1,
+        )
+
+        self.assertEqual(
+            result["data"][0]["activity_type"],
+            "email",
+        )
+
+    def test_tool_returns_empty_success(self):
+        result = get_lead_activities_tool(
+            lead_id=self.lead.id,
+        )
+
+        self.assertTrue(
+            result["success"],
+        )
+
+        self.assertEqual(
+            result["data"],
+            [],
+        )
+
+    def test_tool_returns_lead_not_found(self):
+        result = get_lead_activities_tool(
+            lead_id=999999,
+        )
+
+        self.assertFalse(
+            result["success"],
+        )
+
+        self.assertEqual(
+            result["error"]["code"],
+            "LEAD_NOT_FOUND",
+        )
+
+    def test_tool_rejects_invalid_lead_id(self):
+        result = get_lead_activities_tool(
+            lead_id=0,
+        )
+
+        self.assertFalse(
+            result["success"],
+        )
+
+        self.assertEqual(
+            result["error"]["code"],
+            "INVALID_LEAD_ID",
+        )
+
+    def test_tool_rejects_invalid_activity_type(self):
+        result = get_lead_activities_tool(
+            lead_id=self.lead.id,
+            activity_type="magic",
+        )
+
+        self.assertFalse(
+            result["success"],
+        )
+
+        self.assertEqual(
+            result["error"]["code"],
+            "INVALID_ACTIVITY_TYPE",
+        )
+
+    def test_tool_respects_limit(self):
+        for number in range(5):
+            LeadActivity.objects.create(
+                lead=self.lead,
+                activity_type="note",
+                description=f"Activity {number}",
+            )
+
+        result = get_lead_activities_tool(
+            lead_id=self.lead.id,
+            limit=2,
+        )
+
+        self.assertTrue(
+            result["success"],
+        )
+
+        self.assertEqual(
+            len(result["data"]),
+            2,
+        )
+
+    @patch(
+        "apps.ai.tools.crm.activities."
+        "lead_services.get_lead_activities_by_id"
+    )
+    def test_tool_delegates_to_crm_service(
+        self,
+        mock_get_lead_activities_by_id,
+    ):
+        mock_get_lead_activities_by_id.return_value = []
+
+        result = get_lead_activities_tool(
+            lead_id=7,
+            activity_type="email",
+        )
+
+        self.assertTrue(
+            result["success"],
+        )
+
+        mock_get_lead_activities_by_id.assert_called_once_with(
+            lead_id=7,
+            activity_type="email",
         )
