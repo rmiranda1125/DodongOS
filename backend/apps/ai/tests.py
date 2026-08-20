@@ -27,6 +27,9 @@ from apps.ai.tools.registry import (
     get_registered_tool,
     list_registered_tools,
 )
+from apps.ai.agent.read_agent import (
+    run_crm_read_agent,
+)
 
 class PriorityTasksToolTests(TestCase):
 
@@ -1496,4 +1499,197 @@ class CRMToolRegistryTests(TestCase):
         self.assertEqual(
             result["error"]["code"],
             "INVALID_TOOL_ARGUMENTS",
+        )
+
+class CRMReadAgentTests(TestCase):
+
+    @patch(
+        "apps.ai.agent.read_agent."
+        "execute_registered_tool"
+    )
+    def test_priority_question_uses_priority_tool(
+        self,
+        mock_execute_registered_tool,
+    ):
+        mock_execute_registered_tool.return_value = {
+            "success": True,
+            "data": [],
+        }
+
+        result = run_crm_read_agent(
+            message="What tasks need my attention?",
+        )
+
+        self.assertTrue(
+            result["success"],
+        )
+
+        self.assertEqual(
+            result["tool_used"],
+            "get_priority_tasks",
+        )
+
+        mock_execute_registered_tool.assert_called_once_with(
+            name="get_priority_tasks",
+            arguments={
+                "limit": 10,
+            },
+        )
+
+    @patch(
+        "apps.ai.agent.read_agent."
+        "execute_registered_tool"
+    )
+    def test_agent_returns_structured_task_data(
+        self,
+        mock_execute_registered_tool,
+    ):
+        mock_execute_registered_tool.return_value = {
+            "success": True,
+            "data": [
+                {
+                    "id": 7,
+                    "lead_id": 3,
+                    "lead_company": "Acme Analytics",
+                    "title": "Follow up with client",
+                    "description": "",
+                    "task_type": "follow_up",
+                    "priority": "urgent",
+                    "status": "pending",
+                    "due_date": None,
+                    "completed_at": None,
+                },
+            ],
+        }
+
+        result = run_crm_read_agent(
+            message="What tasks need my attention?",
+        )
+
+        self.assertTrue(
+            result["success"],
+        )
+
+        self.assertEqual(
+            len(result["data"]),
+            1,
+        )
+
+        self.assertEqual(
+            result["data"][0]["id"],
+            7,
+        )
+
+        self.assertIn(
+            "Acme Analytics",
+            result["answer"],
+        )
+
+        self.assertIn(
+            "Follow up with client",
+            result["answer"],
+        )
+
+    @patch(
+        "apps.ai.agent.read_agent."
+        "execute_registered_tool"
+    )
+    def test_agent_handles_no_priority_tasks(
+        self,
+        mock_execute_registered_tool,
+    ):
+        mock_execute_registered_tool.return_value = {
+            "success": True,
+            "data": [],
+        }
+
+        result = run_crm_read_agent(
+            message="What tasks need my attention?",
+        )
+
+        self.assertTrue(
+            result["success"],
+        )
+
+        self.assertEqual(
+            result["data"],
+            [],
+        )
+
+        self.assertIn(
+            "no priority CRM tasks",
+            result["answer"],
+        )
+
+    @patch(
+        "apps.ai.agent.read_agent."
+        "execute_registered_tool"
+    )
+    def test_unsupported_question_does_not_execute_tool(
+        self,
+        mock_execute_registered_tool,
+    ):
+        result = run_crm_read_agent(
+            message="Delete all my leads.",
+        )
+
+        self.assertFalse(
+            result["success"],
+        )
+
+        self.assertEqual(
+            result["error"]["code"],
+            "UNSUPPORTED_READ_INTENT",
+        )
+
+        mock_execute_registered_tool.assert_not_called()
+
+    def test_agent_rejects_empty_message(self):
+        result = run_crm_read_agent(
+            message="   ",
+        )
+
+        self.assertFalse(
+            result["success"],
+        )
+
+        self.assertEqual(
+            result["error"]["code"],
+            "INVALID_MESSAGE",
+        )
+
+    @patch(
+        "apps.ai.agent.read_agent."
+        "execute_registered_tool"
+    )
+    def test_agent_propagates_tool_failure(
+        self,
+        mock_execute_registered_tool,
+    ):
+        mock_execute_registered_tool.return_value = {
+            "success": False,
+            "error": {
+                "code": "CRM_TOOL_ERROR",
+                "message": (
+                    "Unable to retrieve priority tasks."
+                ),
+            },
+        }
+
+        result = run_crm_read_agent(
+            message="What tasks need my attention?",
+        )
+
+        self.assertFalse(
+            result["success"],
+        )
+
+        self.assertEqual(
+            result["tool_used"],
+            "get_priority_tasks",
+        )
+
+        self.assertEqual(
+            result["error"]["code"],
+            "CRM_TOOL_ERROR",
         )
