@@ -1,10 +1,13 @@
-from apps.ai.tools.registry import execute_registered_tool
 from apps.ai.agent.response import (
     generate_crm_read_response,
 )
 from apps.ai.agent.router import (
     route_crm_read_intent,
 )
+from apps.ai.tools.registry import (
+    execute_registered_tool,
+)
+
 
 SUPPORTED_PRIORITY_TASK_INTENTS = {
     "what tasks need my attention",
@@ -83,6 +86,54 @@ def _format_priority_tasks(tasks):
     return "\n".join(lines)
 
 
+def _format_search_leads(leads):
+    """
+    Produce a deterministic human-readable answer from
+    structured search_leads tool results.
+
+    This formatter contains no database logic.
+    """
+
+    if not leads:
+        return "No matching CRM leads were found."
+
+    lines = [
+        (
+            f"Found {len(leads)} matching CRM "
+            f"lead{'s' if len(leads) != 1 else ''}:"
+        )
+    ]
+
+    for index, lead in enumerate(
+        leads,
+        start=1,
+    ):
+        company = (
+            lead.get("company_name")
+            or "Unknown company"
+        )
+
+        job_title = (
+            lead.get("job_title")
+            or "Unknown role"
+        )
+
+        status = (
+            lead.get("status")
+            or "unknown"
+        )
+
+        lines.append(
+            (
+                f"{index}. {company} — "
+                f"{job_title} "
+                f"[{status}]"
+            )
+        )
+
+    return "\n".join(lines)
+
+
 def run_crm_read_agent(
     *,
     message,
@@ -139,6 +190,7 @@ def run_crm_read_agent(
         "get_pending_tasks",
         "get_lead_tasks",
         "get_lead_activities",
+        "search_leads",
     }
 
     if tool_name in tools_with_limit:
@@ -180,6 +232,7 @@ def run_crm_read_agent(
         ),
         "data": data,
     }
+
 
 def run_crm_read_agent_with_provider(
     *,
@@ -231,6 +284,7 @@ def run_crm_read_agent_with_provider(
                 ),
             },
         }
+
 
 def _format_read_result(
     *,
@@ -320,6 +374,11 @@ def _format_read_result(
         return (
             f"This lead has {len(data)} recorded CRM "
             f"activit{'ies' if len(data) != 1 else 'y'}."
+        )
+
+    if tool_name == "search_leads":
+        return _format_search_leads(
+            data,
         )
 
     return "CRM data was retrieved successfully."

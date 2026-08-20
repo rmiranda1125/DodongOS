@@ -45,6 +45,7 @@ from apps.ai.agent.response import (
 
 from apps.ai.agent.router import (
     extract_lead_id,
+    extract_lead_search_arguments,
     route_crm_read_intent,
 )
 
@@ -2255,6 +2256,121 @@ class CRMReadIntentRouterTests(TestCase):
             "UNSUPPORTED_READ_INTENT",
         )
 
+    # =====================================================
+    # SEARCH PARSER TESTS
+    # =====================================================
+
+    def test_extracts_company_search(self):
+        arguments = extract_lead_search_arguments(
+            "Find Acme Analytics"
+        )
+
+        self.assertEqual(
+            arguments,
+            {
+                "query": "acme analytics",
+            },
+        )
+
+    def test_extracts_job_search(self):
+        arguments = extract_lead_search_arguments(
+            "Search for Power BI leads"
+        )
+
+        self.assertEqual(
+            arguments,
+            {
+                "query": "power bi",
+            },
+        )
+
+    def test_extracts_status_search(self):
+        arguments = extract_lead_search_arguments(
+            "Find qualified leads"
+        )
+
+        self.assertEqual(
+            arguments,
+            {
+                "status": "qualified",
+            },
+        )
+
+    def test_extracts_country_search(self):
+        arguments = extract_lead_search_arguments(
+            "Find leads in the Philippines"
+        )
+
+        self.assertEqual(
+            arguments,
+            {
+                "country": "philippines",
+            },
+        )
+
+    def test_extracts_combined_search(self):
+        arguments = extract_lead_search_arguments(
+            (
+                "Find qualified Power BI leads "
+                "in the Philippines"
+            )
+        )
+
+        self.assertEqual(
+            arguments,
+            {
+                "query": "power bi",
+                "status": "qualified",
+                "country": "philippines",
+            },
+        )
+
+    # =====================================================
+    # SEARCH ROUTING TESTS
+    # =====================================================
+
+    def test_routes_company_search(self):
+        result = route_crm_read_intent(
+            "Find Acme Analytics"
+        )
+
+        self.assertTrue(
+            result["success"],
+        )
+
+        self.assertEqual(
+            result["tool_name"],
+            "search_leads",
+        )
+
+        self.assertEqual(
+            result["arguments"],
+            {
+                "query": "acme analytics",
+            },
+        )
+
+    def test_routes_qualified_leads(self):
+        result = route_crm_read_intent(
+            "Find qualified leads"
+        )
+
+        self.assertTrue(
+            result["success"],
+        )
+
+        self.assertEqual(
+            result["tool_name"],
+            "search_leads",
+        )
+
+        self.assertEqual(
+            result["arguments"],
+            {
+                "status": "qualified",
+            },
+        )
+
 
 # =========================================================
 # CRM READ AGENT ROUTING TESTS
@@ -2387,3 +2503,94 @@ class CRMReadAgentRoutingTests(TestCase):
             )
 
             mock_execute_registered_tool.assert_not_called()
+
+    # =====================================================
+    # END-TO-END SEARCH ROUTING
+    # =====================================================
+
+    @patch(
+        "apps.ai.agent.read_agent."
+        "execute_registered_tool"
+    )
+    def test_search_question_executes_search_tool(
+        self,
+        mock_execute_registered_tool,
+    ):
+        mock_execute_registered_tool.return_value = {
+            "success": True,
+            "data": [
+                {
+                    "id": 5,
+                    "company_name": "Acme Analytics",
+                    "job_title": "Power BI Developer",
+                    "status": "qualified",
+                },
+            ],
+        }
+
+        result = run_crm_read_agent(
+            message="Find Acme Analytics",
+        )
+
+        self.assertTrue(
+            result["success"],
+        )
+
+        self.assertEqual(
+            result["tool_used"],
+            "search_leads",
+        )
+
+        self.assertEqual(
+            result["intent"],
+            "search_leads",
+        )
+
+        mock_execute_registered_tool.assert_called_once_with(
+            name="search_leads",
+            arguments={
+                "query": "acme analytics",
+                "limit": 10,
+            },
+        )
+
+        self.assertIn(
+            "Acme Analytics",
+            result["answer"],
+        )
+
+    @patch(
+        "apps.ai.agent.read_agent."
+        "execute_registered_tool"
+    )
+    def test_search_with_no_results_returns_safe_answer(
+        self,
+        mock_execute_registered_tool,
+    ):
+        mock_execute_registered_tool.return_value = {
+            "success": True,
+            "data": [],
+        }
+
+        result = run_crm_read_agent(
+            message="Find Company That Does Not Exist",
+        )
+
+        self.assertTrue(
+            result["success"],
+        )
+
+        self.assertEqual(
+            result["tool_used"],
+            "search_leads",
+        )
+
+        self.assertEqual(
+            result["data"],
+            [],
+        )
+
+        self.assertIn(
+            "No matching CRM leads",
+            result["answer"],
+        )
