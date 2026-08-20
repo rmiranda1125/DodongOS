@@ -21,6 +21,12 @@ from apps.ai.tools.crm.activities import (
 from apps.ai.tools.crm.pipeline import (
     get_pipeline_summary_tool,
 )
+from apps.ai.tools.registry import (
+    TOOL_REGISTRY,
+    execute_registered_tool,
+    get_registered_tool,
+    list_registered_tools,
+)
 
 class PriorityTasksToolTests(TestCase):
 
@@ -1319,3 +1325,175 @@ class PipelineSummaryToolTests(TestCase):
         )
 
         mock_get_pipeline_summary.assert_called_once_with()
+
+class CRMToolRegistryTests(TestCase):
+
+    def test_registry_contains_expected_tools(self):
+        expected_tools = {
+            "get_priority_tasks",
+            "get_overdue_tasks",
+            "get_pending_tasks",
+            "get_lead_tasks",
+            "get_lead",
+            "search_leads",
+            "get_lead_activities",
+            "get_pipeline_summary",
+        }
+
+        self.assertEqual(
+            set(TOOL_REGISTRY.keys()),
+            expected_tools,
+        )
+
+    def test_all_registered_tools_are_read_only(self):
+        for tool in TOOL_REGISTRY.values():
+            self.assertEqual(
+                tool.access_level,
+                "read",
+            )
+
+    def test_get_registered_tool(self):
+        tool = get_registered_tool(
+            "get_pipeline_summary",
+        )
+
+        self.assertIsNotNone(tool)
+
+        self.assertEqual(
+            tool.name,
+            "get_pipeline_summary",
+        )
+
+    def test_unknown_tool_returns_none(self):
+        tool = get_registered_tool(
+            "delete_everything",
+        )
+
+        self.assertIsNone(tool)
+
+    def test_list_registered_tools_is_json_safe_metadata(self):
+        tools = list_registered_tools()
+
+        self.assertEqual(
+            len(tools),
+            8,
+        )
+
+        for tool in tools:
+            self.assertIn(
+                "name",
+                tool,
+            )
+
+            self.assertIn(
+                "description",
+                tool,
+            )
+
+            self.assertIn(
+                "access_level",
+                tool,
+            )
+
+            self.assertIn(
+                "input_schema",
+                tool,
+            )
+
+            self.assertNotIn(
+                "function",
+                tool,
+            )
+
+    def test_execute_pipeline_summary_through_registry(self):
+        Lead.objects.create(
+            company_name="Registry Test Lead",
+            status="qualified",
+            lead_score=90,
+        )
+
+        result = execute_registered_tool(
+            name="get_pipeline_summary",
+        )
+
+        self.assertTrue(
+            result["success"],
+        )
+
+        self.assertEqual(
+            result["data"]["total_leads"],
+            1,
+        )
+
+        self.assertEqual(
+            result["data"]["by_status"]["qualified"],
+            1,
+        )
+
+    def test_execute_get_lead_through_registry(self):
+        lead = Lead.objects.create(
+            company_name="Registry Lead",
+            status="new",
+        )
+
+        result = execute_registered_tool(
+            name="get_lead",
+            arguments={
+                "lead_id": lead.id,
+            },
+        )
+
+        self.assertTrue(
+            result["success"],
+        )
+
+        self.assertEqual(
+            result["data"]["id"],
+            lead.id,
+        )
+
+    def test_unknown_tool_is_rejected(self):
+        result = execute_registered_tool(
+            name="destroy_database",
+        )
+
+        self.assertFalse(
+            result["success"],
+        )
+
+        self.assertEqual(
+            result["error"]["code"],
+            "TOOL_NOT_FOUND",
+        )
+
+    def test_non_dict_arguments_are_rejected(self):
+        result = execute_registered_tool(
+            name="get_pipeline_summary",
+            arguments="bad arguments",
+        )
+
+        self.assertFalse(
+            result["success"],
+        )
+
+        self.assertEqual(
+            result["error"]["code"],
+            "INVALID_TOOL_ARGUMENTS",
+        )
+
+    def test_invalid_function_arguments_are_structured(self):
+        result = execute_registered_tool(
+            name="get_lead",
+            arguments={
+                "wrong_parameter": 123,
+            },
+        )
+
+        self.assertFalse(
+            result["success"],
+        )
+
+        self.assertEqual(
+            result["error"]["code"],
+            "INVALID_TOOL_ARGUMENTS",
+        )
