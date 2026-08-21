@@ -43,4 +43,9 @@ urlpatterns = [
     include("apps.leadfinder.urls"),
     ),
 
+    path(
+    "assistant/",
+    include("apps.ai.urls"),
+    ),
+
 ]

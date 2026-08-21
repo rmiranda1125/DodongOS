@@ -1,6 +1,6 @@
 from datetime import timedelta
 from unittest.mock import patch
-
+from django.urls import reverse
 from django.test import TestCase
 from django.utils import timezone
 
@@ -2593,4 +2593,211 @@ class CRMReadAgentRoutingTests(TestCase):
         self.assertIn(
             "No matching CRM leads",
             result["answer"],
+        )
+
+class CRMAssistantUITests(TestCase):
+
+    def test_assistant_page_loads(self):
+        response = self.client.get(
+            reverse(
+                "ai:crm_assistant",
+            )
+        )
+
+        self.assertEqual(
+            response.status_code,
+            200,
+        )
+
+        self.assertContains(
+            response,
+            "Dodong CRM Assistant",
+        )
+
+        self.assertContains(
+            response,
+            "Read-only mode",
+        )
+
+    def test_assistant_page_contains_htmx_form(self):
+        response = self.client.get(
+            reverse(
+                "ai:crm_assistant",
+            )
+        )
+
+        self.assertContains(
+            response,
+            reverse(
+                "ai:crm_assistant_ask",
+            ),
+        )
+
+        self.assertContains(
+            response,
+            'hx-target="#assistant-response"',
+        )
+
+    def test_empty_question_returns_validation_error(self):
+        response = self.client.post(
+            reverse(
+                "ai:crm_assistant_ask",
+            ),
+            {
+                "message": "   ",
+            },
+        )
+
+        self.assertEqual(
+            response.status_code,
+            200,
+        )
+
+        self.assertContains(
+            response,
+            "Please enter a CRM question.",
+        )
+
+    @patch(
+        "apps.ai.views."
+        "run_crm_read_agent_with_provider"
+    )
+    def test_question_calls_read_agent(
+        self,
+        mock_run_agent,
+    ):
+        mock_run_agent.return_value = {
+            "success": True,
+            "tool_used": "get_priority_tasks",
+            "answer": (
+                "You have one urgent task "
+                "requiring attention."
+            ),
+            "data": [],
+            "response_source": "ai_provider",
+        }
+
+        response = self.client.post(
+            reverse(
+                "ai:crm_assistant_ask",
+            ),
+            {
+                "message": (
+                    "What tasks need my attention?"
+                ),
+            },
+        )
+
+        self.assertEqual(
+            response.status_code,
+            200,
+        )
+
+        mock_run_agent.assert_called_once_with(
+            message=(
+                "What tasks need my attention?"
+            ),
+        )
+
+        self.assertContains(
+            response,
+            "You have one urgent task",
+        )
+
+        self.assertContains(
+            response,
+            "get_priority_tasks",
+        )
+
+    @patch(
+        "apps.ai.views."
+        "run_crm_read_agent_with_provider"
+    )
+    def test_write_request_error_is_rendered(
+        self,
+        mock_run_agent,
+    ):
+        mock_run_agent.return_value = {
+            "success": False,
+            "error": {
+                "code": "WRITE_INTENT_NOT_ALLOWED",
+                "message": (
+                    "CRM write requests are not available "
+                    "in the read-only agent."
+                ),
+            },
+        }
+
+        response = self.client.post(
+            reverse(
+                "ai:crm_assistant_ask",
+            ),
+            {
+                "message": "Delete lead 12.",
+            },
+        )
+
+        self.assertEqual(
+            response.status_code,
+            200,
+        )
+
+        self.assertContains(
+            response,
+            "WRITE_INTENT_NOT_ALLOWED",
+        )
+
+        self.assertContains(
+            response,
+            "CRM write requests are not available",
+        )
+
+    @patch(
+        "apps.ai.views."
+        "run_crm_read_agent_with_provider"
+    )
+    def test_provider_fallback_is_rendered(
+        self,
+        mock_run_agent,
+    ):
+        mock_run_agent.return_value = {
+            "success": True,
+            "tool_used": "get_priority_tasks",
+            "answer": (
+                "You have no priority CRM tasks "
+                "requiring attention."
+            ),
+            "data": [],
+            "response_source": (
+                "deterministic_fallback"
+            ),
+            "warning": {
+                "code": "AI_RESPONSE_FAILED",
+                "message": (
+                    "CRM data was retrieved successfully, "
+                    "but the AI response could not "
+                    "be generated."
+                ),
+            },
+        }
+
+        response = self.client.post(
+            reverse(
+                "ai:crm_assistant_ask",
+            ),
+            {
+                "message": (
+                    "What tasks need my attention?"
+                ),
+            },
+        )
+
+        self.assertContains(
+            response,
+            "Fallback response",
+        )
+
+        self.assertContains(
+            response,
+            "CRM data was retrieved successfully",
         )

@@ -1,0 +1,187 @@
+{% extends "base.html" %}
+
+{% block title %}
+    Dodong CRM Assistant
+{% endblock %}
+
+
+{% block content %}
+
+<div class="container-fluid">
+
+    <div class="row justify-content-center">
+
+        <div class="col-xl-9 col-lg-10">
+
+            <!-- ================================================= -->
+            <!-- HEADER -->
+            <!-- ================================================= -->
+
+            <div class="mb-4">
+
+                <h2 class="mb-1">
+                    🤖 Dodong CRM Assistant
+                </h2>
+
+                <p class="text-muted mb-0">
+                    Ask Dodong questions about your CRM.
+                    The assistant is currently read-only.
+                </p>
+
+            </div>
+
+
+            <!-- ================================================= -->
+            <!-- SAFETY NOTICE -->
+            <!-- ================================================= -->
+
+            <div
+                class="alert alert-info"
+                role="alert"
+            >
+                <strong>Read-only mode.</strong>
+
+                Dodong can inspect leads, tasks,
+                activities, and pipeline information,
+                but cannot modify CRM records.
+            </div>
+
+
+            <!-- ================================================= -->
+            <!-- QUESTION CARD -->
+            <!-- ================================================= -->
+
+            <div class="card shadow-sm mb-4">
+
+                <div class="card-body">
+
+                    <form
+                        hx-post="{% url 'ai:crm_assistant_ask' %}"
+                        hx-target="#assistant-response"
+                        hx-swap="innerHTML"
+                        hx-indicator="#assistant-loading"
+                    >
+
+                        {% csrf_token %}
+
+                        <label
+                            for="crm-assistant-message"
+                            class="form-label fw-semibold"
+                        >
+                            Ask Dodong
+                        </label>
+
+                        <div class="input-group">
+
+                            <input
+                                type="text"
+                                id="crm-assistant-message"
+                                name="message"
+                                class="form-control"
+                                placeholder="What tasks need my attention?"
+                                autocomplete="off"
+                                required
+                            >
+
+                            <button
+                                type="submit"
+                                class="btn btn-primary"
+                            >
+                                Ask Dodong
+                            </button>
+
+                        </div>
+
+                    </form>
+
+
+                    <div
+                        id="assistant-loading"
+                        class="htmx-indicator mt-3 text-muted"
+                    >
+                        Dodong is checking your CRM...
+                    </div>
+
+                </div>
+
+            </div>
+
+
+            <!-- ================================================= -->
+            <!-- EXAMPLES -->
+            <!-- ================================================= -->
+
+            <div class="card shadow-sm mb-4">
+
+                <div class="card-body">
+
+                    <h6>
+                        Example questions
+                    </h6>
+
+                    <ul class="mb-0">
+
+                        <li>
+                            What tasks need my attention?
+                        </li>
+
+                        <li>
+                            What tasks are overdue?
+                        </li>
+
+                        <li>
+                            Show me pending tasks.
+                        </li>
+
+                        <li>
+                            Summarize my pipeline.
+                        </li>
+
+                        <li>
+                            Tell me about lead 12.
+                        </li>
+
+                        <li>
+                            What happened with lead 12?
+                        </li>
+
+                        <li>
+                            Find qualified leads.
+                        </li>
+
+                        <li>
+                            Find Power BI leads.
+                        </li>
+
+                    </ul>
+
+                </div>
+
+            </div>
+
+
+            <!-- ================================================= -->
+            <!-- RESPONSE -->
+            <!-- ================================================= -->
+
+            <div id="assistant-response">
+
+                <div class="card shadow-sm">
+
+                    <div class="card-body text-muted">
+
+                        Ask a CRM question above to begin.
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+{% endblock %}
