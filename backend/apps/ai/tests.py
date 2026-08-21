@@ -1,4 +1,5 @@
 from datetime import timedelta
+import token
 from unittest.mock import patch
 from django.urls import reverse
 from django.test import TestCase
@@ -58,6 +59,10 @@ from apps.ai.agent.write_executor import (
     execute_confirmed_proposal,
 )
 
+from apps.ai.agent.proposal_tokens import (
+    load_action_proposal,
+    sign_action_proposal,
+)
 
 # =========================================================
 # PRIORITY TASKS TOOL TESTS
@@ -3693,3 +3698,450 @@ class ConfirmedWriteExecutorTests(TestCase):
             LeadTask.objects.count(),
             0,
         )
+
+class CRMActionProposalTokenTests(TestCase):
+
+    def test_signed_proposal_round_trip(self):
+        proposal = {
+            "action": "create_lead_task",
+            "status": "awaiting_confirmation",
+            "requires_confirmation": True,
+            "arguments": {
+                "lead_id": 12,
+                "title": "Follow up",
+            },
+        }
+
+        token = sign_action_proposal(
+            proposal,
+        )
+
+        result = load_action_proposal(
+            token,
+        )
+
+        self.assertTrue(
+            result["success"],
+        )
+
+        self.assertEqual(
+            result["proposal"],
+            proposal,
+        )
+
+    def test_modified_token_is_rejected(self):
+        proposal = {
+            "action": "create_lead_task",
+            "arguments": {
+                "lead_id": 12,
+                "title": "Follow up",
+            },
+        }
+
+        token = sign_action_proposal(
+            proposal,
+        )
+
+        tampered_token = (
+            token[:-1]
+            + (
+                "A"
+                if token[-1] != "A"
+                else "B"
+            )
+        )
+
+        result = load_action_proposal(
+            tampered_token,
+        )
+
+        self.assertFalse(
+            result["success"],
+        )
+
+        self.assertEqual(
+            result["error"]["code"],
+            "INVALID_PROPOSAL_TOKEN",
+        )
+
+class CRMTaskProposalViewTests(TestCase):
+
+    def setUp(self):
+        self.lead = Lead.objects.create(
+            company_name="Acme Analytics",
+            job_title="Power BI Developer",
+        )
+
+    def test_proposal_endpoint_returns_review_card(self):
+        response = self.client.post(
+            reverse(
+                "ai:crm_assistant_task_proposal",
+            ),
+            {
+                "lead_id": self.lead.id,
+                "title": "Follow up with Acme",
+                "description": (
+                    "Discuss Power BI requirements."
+                ),
+                "priority": "high",
+            },
+        )
+
+        self.assertEqual(
+            response.status_code,
+            200,
+        )
+
+        self.assertContains(
+            response,
+            "Proposed CRM Change",
+        )
+
+        self.assertContains(
+            response,
+            "Acme Analytics",
+        )
+
+        self.assertContains(
+            response,
+            "Follow up with Acme",
+        )
+
+        self.assertContains(
+            response,
+            "No CRM change has been made yet.",
+        )
+
+    def test_proposal_endpoint_does_not_create_task(self):
+        before_count = LeadTask.objects.count()
+
+        response = self.client.post(
+            reverse(
+                "ai:crm_assistant_task_proposal",
+            ),
+            {
+                "lead_id": self.lead.id,
+                "title": "Follow up with Acme",
+                "priority": "medium",
+            },
+        )
+
+        after_count = LeadTask.objects.count()
+
+        self.assertEqual(
+            response.status_code,
+            200,
+        )
+
+        self.assertEqual(
+            before_count,
+            after_count,
+        )
+
+    def test_proposal_endpoint_returns_signed_token(self):
+        response = self.client.post(
+            reverse(
+                "ai:crm_assistant_task_proposal",
+            ),
+            {
+                "lead_id": self.lead.id,
+                "title": "Follow up with Acme",
+                "priority": "medium",
+            },
+        )
+
+        token = response.context[
+            "proposal_token"
+        ]
+
+        result = load_action_proposal(
+            token,
+        )
+
+        self.assertTrue(
+            result["success"],
+        )
+
+        proposal = result["proposal"]
+
+        self.assertEqual(
+            proposal["action"],
+            "create_lead_task",
+        )
+
+        self.assertEqual(
+            proposal["arguments"]["lead_id"],
+            self.lead.id,
+        )
+
+        self.assertEqual(
+            proposal["arguments"]["title"],
+            "Follow up with Acme",
+        )
+
+    def test_invalid_proposal_does_not_return_token(self):
+        response = self.client.post(
+            reverse(
+                "ai:crm_assistant_task_proposal",
+            ),
+            {
+                "lead_id": self.lead.id,
+                "title": "",
+            },
+        )
+
+        self.assertContains(
+            response,
+            "INVALID_TASK_TITLE",
+        )
+
+        self.assertNotIn(
+            "proposal_token",
+            response.context,
+        )
+
+        self.assertEqual(
+            LeadTask.objects.count(),
+            0,
+        )
+
+    def test_proposal_contains_explicit_confirm_control(self):
+        response = self.client.post(
+            reverse(
+                "ai:crm_assistant_task_proposal",
+            ),
+            {
+                "lead_id": self.lead.id,
+                "title": "Follow up",
+                "priority": "medium",
+            },
+        )
+
+        self.assertContains(
+            response,
+            "Confirm Create Task",
+        )
+
+        self.assertContains(
+            response,
+            reverse(
+                "ai:crm_assistant_task_confirm",
+            ),
+        ),
+
+        self.assertEqual(
+            LeadTask.objects.count(),
+            0,
+        )
+
+class CRMTaskConfirmationViewTests(TestCase):
+
+    def setUp(self):
+        self.lead = Lead.objects.create(
+            company_name="Acme Analytics",
+            job_title="Power BI Developer",
+        )
+
+    def _build_token(
+        self,
+        *,
+        title="Follow up with Acme",
+    ):
+        result = build_create_lead_task_proposal(
+            lead_id=self.lead.id,
+            title=title,
+            priority="high",
+        )
+
+        self.assertTrue(
+            result["success"],
+        )
+
+        return sign_action_proposal(
+            result["proposal"],
+        )
+
+    def test_confirm_valid_proposal_creates_task(self):
+        token = self._build_token()
+
+        before_count = LeadTask.objects.count()
+
+        response = self.client.post(
+            reverse(
+                "ai:crm_assistant_task_confirm",
+            ),
+            {
+                "proposal_token": token,
+            },
+        )
+
+        after_count = LeadTask.objects.count()
+
+        self.assertEqual(
+            response.status_code,
+            200,
+        )
+
+        self.assertEqual(
+            after_count,
+            before_count + 1,
+        )
+
+        self.assertContains(
+            response,
+            "CRM Task Created",
+        )
+
+        self.assertContains(
+            response,
+            "Follow up with Acme",
+        )
+
+    def test_missing_token_does_not_write(self):
+        before_count = LeadTask.objects.count()
+
+        response = self.client.post(
+            reverse(
+                "ai:crm_assistant_task_confirm",
+            ),
+            {},
+        )
+
+        after_count = LeadTask.objects.count()
+
+        self.assertEqual(
+            response.status_code,
+            200,
+        )
+
+        self.assertEqual(
+            before_count,
+            after_count,
+        )
+
+        self.assertContains(
+            response,
+            "MISSING_PROPOSAL_TOKEN",
+        )
+
+    def test_tampered_token_does_not_write(self):
+        token = self._build_token()
+
+        tampered_token = (
+            token[:-1]
+            + (
+                "A"
+                if token[-1] != "A"
+                else "B"
+            )
+        )
+
+        before_count = LeadTask.objects.count()
+
+        response = self.client.post(
+            reverse(
+                "ai:crm_assistant_task_confirm",
+            ),
+            {
+                "proposal_token": tampered_token,
+            },
+        )
+
+        after_count = LeadTask.objects.count()
+
+        self.assertEqual(
+            response.status_code,
+            200,
+        )
+
+        self.assertEqual(
+            before_count,
+            after_count,
+        )
+
+        self.assertContains(
+            response,
+            "INVALID_PROPOSAL_TOKEN",
+        )
+
+    def test_confirm_uses_signed_values_not_forged_post_fields(
+        self,
+    ):
+        token = self._build_token(
+            title="Approved signed task",
+        )
+
+        response = self.client.post(
+            reverse(
+                "ai:crm_assistant_task_confirm",
+            ),
+            {
+                "proposal_token": token,
+
+                # These fields must be ignored.
+                "lead_id": 999999,
+                "title": "FORGED TASK",
+                "priority": "urgent",
+            },
+        )
+
+        self.assertEqual(
+            response.status_code,
+            200,
+        )
+
+        self.assertEqual(
+            LeadTask.objects.count(),
+            1,
+        )
+
+        task = LeadTask.objects.get()
+
+        self.assertEqual(
+            task.lead_id,
+            self.lead.id,
+        )
+
+        self.assertEqual(
+            task.title,
+            "Approved signed task",
+        )
+
+        self.assertNotEqual(
+            task.title,
+            "FORGED TASK",
+        )
+
+    def test_assistant_page_contains_controlled_task_form(self):
+        response = self.client.get(
+            reverse(
+                "ai:crm_assistant",
+            )
+        )
+
+        self.assertEqual(
+            response.status_code,
+            200,
+        )
+
+        self.assertContains(
+            response,
+            "Create Follow-Up Task",
+        )
+
+        self.assertContains(
+            response,
+            "Controlled write action.",
+        )
+
+        self.assertContains(
+            response,
+            "Review Task Proposal",
+        )
+
+        self.assertContains(
+            response,
+            reverse(
+                "ai:crm_assistant_task_proposal",
+            ),
+        ),

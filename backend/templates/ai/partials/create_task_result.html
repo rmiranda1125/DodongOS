@@ -1,0 +1,124 @@
+{% if result.success %}
+
+    <div class="card shadow-sm border-success">
+
+        <div class="card-header">
+
+            <strong>
+                ✅ CRM Task Created
+            </strong>
+
+        </div>
+
+        <div class="card-body">
+
+            <div
+                class="alert alert-success"
+                role="alert"
+            >
+                The task was created and verified successfully.
+            </div>
+
+
+            <dl class="row mb-0">
+
+                <dt class="col-sm-3">
+                    Task ID
+                </dt>
+
+                <dd class="col-sm-9">
+                    {{ result.data.id }}
+                </dd>
+
+
+                <dt class="col-sm-3">
+                    Lead ID
+                </dt>
+
+                <dd class="col-sm-9">
+                    {{ result.data.lead_id }}
+                </dd>
+
+
+                <dt class="col-sm-3">
+                    Task
+                </dt>
+
+                <dd class="col-sm-9">
+                    {{ result.data.title }}
+                </dd>
+
+
+                <dt class="col-sm-3">
+                    Type
+                </dt>
+
+                <dd class="col-sm-9">
+                    {{ result.data.task_type }}
+                </dd>
+
+
+                <dt class="col-sm-3">
+                    Priority
+                </dt>
+
+                <dd class="col-sm-9">
+                    {{ result.data.priority }}
+                </dd>
+
+
+                <dt class="col-sm-3">
+                    Status
+                </dt>
+
+                <dd class="col-sm-9">
+                    {{ result.data.status }}
+                </dd>
+
+            </dl>
+
+        </div>
+
+    </div>
+
+{% else %}
+
+    <div
+        class="alert alert-danger shadow-sm"
+        role="alert"
+    >
+
+        <strong>
+            CRM action was not executed.
+        </strong>
+
+        <div class="mt-1">
+
+            {% if result.error.message %}
+
+                {{ result.error.message }}
+
+            {% else %}
+
+                The CRM action could not be completed.
+
+            {% endif %}
+
+        </div>
+
+        {% if result.error.code %}
+
+            <div class="small mt-2">
+
+                Code:
+                <code>
+                    {{ result.error.code }}
+                </code>
+
+            </div>
+
+        {% endif %}
+
+    </div>
+
+{% endif %}

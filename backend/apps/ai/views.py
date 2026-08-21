@@ -7,7 +7,16 @@ from django.views.decorators.http import (
 from apps.ai.agent.read_agent import (
     run_crm_read_agent_with_provider,
 )
-
+from apps.ai.agent.proposal_tokens import (
+    load_action_proposal,
+    sign_action_proposal,
+)
+from apps.ai.agent.write_proposals import (
+    build_create_lead_task_proposal,
+)
+from apps.ai.agent.write_executor import (
+    execute_confirmed_proposal,
+)
 
 @require_GET
 def crm_assistant(request):
@@ -64,5 +73,132 @@ def crm_assistant_ask(request):
         {
             "result": result,
             "user_message": message,
+        },
+    )
+
+@require_POST
+def crm_assistant_task_proposal(request):
+    """
+    Prepare one follow-up task proposal.
+
+    IMPORTANT:
+    This endpoint performs no CRM write.
+    """
+
+    raw_lead_id = request.POST.get(
+        "lead_id",
+        "",
+    ).strip()
+
+    title = request.POST.get(
+        "title",
+        "",
+    ).strip()
+
+    description = request.POST.get(
+        "description",
+        "",
+    )
+
+    priority = request.POST.get(
+        "priority",
+        "medium",
+    ).strip()
+
+    due_date = request.POST.get(
+        "due_date",
+        "",
+    ).strip()
+
+    try:
+        lead_id = int(
+            raw_lead_id,
+        )
+    except (TypeError, ValueError):
+        lead_id = None
+
+    result = build_create_lead_task_proposal(
+        lead_id=lead_id,
+        title=title,
+        description=description,
+        priority=priority,
+        due_date=due_date or None,
+    )
+
+    context = {
+        "result": result,
+    }
+
+    if result.get("success"):
+        context["proposal_token"] = (
+            sign_action_proposal(
+                result["proposal"],
+            )
+        )
+
+    return render(
+        request,
+        "ai/partials/create_task_proposal.html",
+        context,
+    )
+
+@require_POST
+def crm_assistant_task_confirm(request):
+    """
+    Confirm and execute one signed CRM action proposal.
+
+    The request is not trusted to provide task fields.
+    Only the verified signed proposal token may determine
+    what CRM mutation is performed.
+    """
+
+    proposal_token = request.POST.get(
+        "proposal_token",
+        "",
+    ).strip()
+
+    if not proposal_token:
+        result = {
+            "success": False,
+            "error": {
+                "code": "MISSING_PROPOSAL_TOKEN",
+                "message": (
+                    "A signed CRM action proposal "
+                    "is required."
+                ),
+            },
+        }
+
+        return render(
+            request,
+            "ai/partials/create_task_result.html",
+            {
+                "result": result,
+            },
+        )
+
+    loaded = load_action_proposal(
+        proposal_token,
+    )
+
+    if not loaded.get("success"):
+        return render(
+            request,
+            "ai/partials/create_task_result.html",
+            {
+                "result": loaded,
+            },
+        )
+
+    result = execute_confirmed_proposal(
+        proposal=loaded["proposal"],
+        confirmed=True,
+    )
+
+    return render(
+        request,
+        "ai/partials/create_task_result.html",
+        {
+            "result": result,
         },
     )

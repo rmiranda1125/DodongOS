@@ -1,0 +1,175 @@
+{% if result.success %}
+
+    <div class="card shadow-sm border-warning">
+
+        <div class="card-header">
+
+            <strong>
+                Proposed CRM Change
+            </strong>
+
+        </div>
+
+        <div class="card-body">
+
+            <div
+                class="alert alert-warning"
+                role="alert"
+            >
+                <strong>No CRM change has been made yet.</strong>
+                Review this proposal before confirming it.
+            </div>
+
+
+            <!-- ================================================= -->
+            <!-- PROPOSED TASK DETAILS -->
+            <!-- ================================================= -->
+
+            <dl class="row mb-0">
+
+                <dt class="col-sm-3">
+                    Lead
+                </dt>
+
+                <dd class="col-sm-9">
+                    {{ result.proposal.lead.company_name }}
+                    (#{{ result.proposal.lead.id }})
+                </dd>
+
+
+                <dt class="col-sm-3">
+                    Task
+                </dt>
+
+                <dd class="col-sm-9">
+                    {{ result.proposal.arguments.title }}
+                </dd>
+
+
+                <dt class="col-sm-3">
+                    Type
+                </dt>
+
+                <dd class="col-sm-9">
+                    {{ result.proposal.arguments.task_type }}
+                </dd>
+
+
+                <dt class="col-sm-3">
+                    Priority
+                </dt>
+
+                <dd class="col-sm-9">
+                    {{ result.proposal.arguments.priority }}
+                </dd>
+
+
+                {% if result.proposal.arguments.description %}
+
+                    <dt class="col-sm-3">
+                        Description
+                    </dt>
+
+                    <dd class="col-sm-9">
+                        {{ result.proposal.arguments.description }}
+                    </dd>
+
+                {% endif %}
+
+
+                {% if result.proposal.arguments.due_date %}
+
+                    <dt class="col-sm-3">
+                        Due
+                    </dt>
+
+                    <dd class="col-sm-9">
+                        {{ result.proposal.arguments.due_date }}
+                    </dd>
+
+                {% endif %}
+
+            </dl>
+
+
+            <!-- ================================================= -->
+            <!-- CONFIRMATION CONTROLS -->
+            <!-- ================================================= -->
+
+            <hr>
+
+            <div class="d-flex justify-content-end gap-2">
+
+                <!-- Cancel -->
+
+                <a
+                    href="{% url 'ai:crm_assistant' %}"
+                    class="btn btn-outline-secondary"
+                >
+                    Cancel
+                </a>
+
+
+                <!-- Confirm -->
+
+                <form
+                    hx-post="{% url 'ai:crm_assistant_task_confirm' %}"
+                    hx-target="#task-action-area"
+                    hx-swap="innerHTML"
+                    hx-disabled-elt="find button"
+                >
+
+                    {% csrf_token %}
+
+                    <input
+                        type="hidden"
+                        name="proposal_token"
+                        value="{{ proposal_token }}"
+                    >
+
+                    <button
+                        type="submit"
+                        class="btn btn-warning"
+                    >
+                        Confirm Create Task
+                    </button>
+
+                </form>
+
+            </div>
+
+        </div>
+
+    </div>
+
+{% else %}
+
+    <div
+        class="alert alert-warning"
+        role="alert"
+    >
+
+        <strong>
+            Could not prepare this CRM action.
+        </strong>
+
+        <div class="mt-1">
+            {{ result.error.message }}
+        </div>
+
+        {% if result.error.code %}
+
+            <div class="small text-muted mt-2">
+
+                Code:
+                <code>
+                    {{ result.error.code }}
+                </code>
+
+            </div>
+
+        {% endif %}
+
+    </div>
+
+{% endif %}

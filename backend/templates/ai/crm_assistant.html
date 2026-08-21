@@ -25,7 +25,8 @@
 
                 <p class="text-muted mb-0">
                     Ask Dodong questions about your CRM.
-                    The assistant is currently read-only.
+                    The assistant is currently read-only for
+                    natural-language requests.
                 </p>
 
             </div>
@@ -39,11 +40,14 @@
                 class="alert alert-info"
                 role="alert"
             >
+
                 <strong>Read-only mode.</strong>
 
                 Dodong can inspect leads, tasks,
                 activities, and pipeline information,
-                but cannot modify CRM records.
+                but natural-language CRM changes
+                require an explicit review and confirmation.
+
             </div>
 
 
@@ -372,6 +376,247 @@
 
                 </div>
 
+            </div>
+
+
+            <!-- ================================================= -->
+            <!-- CONTROLLED CRM TASK CREATION -->
+            <!-- ================================================= -->
+
+            <div class="card shadow-sm mt-4">
+
+                <div class="card-header bg-light">
+
+                    <strong>
+                        Create Follow-Up Task
+                    </strong>
+
+                </div>
+
+                <div class="card-body">
+
+                    <div
+                        class="alert alert-warning"
+                        role="alert"
+                    >
+
+                        <strong>
+                            Controlled write action.
+                        </strong>
+
+                        Nothing will be written to the CRM
+                        until you review the proposal and
+                        explicitly confirm it.
+
+                    </div>
+
+
+                    <form
+                        hx-post="{% url 'ai:crm_assistant_task_proposal' %}"
+                        hx-target="#task-action-area"
+                        hx-swap="innerHTML"
+                        hx-indicator="#task-proposal-loading"
+                        hx-disabled-elt="find button"
+                    >
+
+                        {% csrf_token %}
+
+
+                        <!-- Lead -->
+
+                        <div class="mb-3">
+
+                            <label
+                                for="task-lead-id"
+                                class="form-label fw-semibold"
+                            >
+                                Lead ID
+                            </label>
+
+                            <input
+                                type="number"
+                                id="task-lead-id"
+                                name="lead_id"
+                                class="form-control"
+                                min="1"
+                                placeholder="e.g. 12"
+                                required
+                            >
+
+                            <div class="form-text">
+                                Enter the CRM lead ID for the
+                                follow-up task.
+                            </div>
+
+                        </div>
+
+
+                        <!-- Task Title -->
+
+                        <div class="mb-3">
+
+                            <label
+                                for="task-title"
+                                class="form-label fw-semibold"
+                            >
+                                Task title
+                            </label>
+
+                            <input
+                                type="text"
+                                id="task-title"
+                                name="title"
+                                class="form-control"
+                                maxlength="255"
+                                placeholder="Follow up with client"
+                                required
+                            >
+
+                        </div>
+
+
+                        <!-- Description -->
+
+                        <div class="mb-3">
+
+                            <label
+                                for="task-description"
+                                class="form-label fw-semibold"
+                            >
+                                Description
+                            </label>
+
+                            <textarea
+                                id="task-description"
+                                name="description"
+                                class="form-control"
+                                rows="3"
+                                placeholder="Describe what needs to be done..."
+                            ></textarea>
+
+                        </div>
+
+
+                        <!-- Task Type -->
+
+                        <div class="mb-3">
+
+                            <label
+                                for="task-type"
+                                class="form-label fw-semibold"
+                            >
+                                Task type
+                            </label>
+
+                            <select
+                                id="task-type"
+                                name="task_type"
+                                class="form-select"
+                            >
+
+                                <option value="follow_up" selected>
+                                    Follow-up
+                                </option>
+
+                                <option value="research">
+                                    Research
+                                </option>
+
+                                <option value="meeting">
+                                    Meeting
+                                </option>
+
+                                <option value="email">
+                                    Email
+                                </option>
+
+                                <option value="other">
+                                    Other
+                                </option>
+
+                            </select>
+
+                        </div>
+
+
+                        <!-- Priority -->
+
+                        <div class="mb-3">
+
+                            <label
+                                for="task-priority"
+                                class="form-label fw-semibold"
+                            >
+                                Priority
+                            </label>
+
+                            <select
+                                id="task-priority"
+                                name="priority"
+                                class="form-select"
+                            >
+
+                                <option value="low">
+                                    Low
+                                </option>
+
+                                <option
+                                    value="medium"
+                                    selected
+                                >
+                                    Medium
+                                </option>
+
+                                <option value="high">
+                                    High
+                                </option>
+
+                                <option value="urgent">
+                                    Urgent
+                                </option>
+
+                            </select>
+
+                        </div>
+
+
+                        <!-- Submit -->
+
+                        <div class="mt-3">
+
+                            <button
+                                type="submit"
+                                class="btn btn-outline-primary"
+                            >
+                                Review Task Proposal
+                            </button>
+
+                        </div>
+
+                    </form>
+
+
+                    <div
+                        id="task-proposal-loading"
+                        class="htmx-indicator mt-3 text-muted"
+                    >
+                        Preparing the task proposal...
+                    </div>
+
+                </div>
+
+            </div>
+
+
+            <!-- ================================================= -->
+            <!-- TASK ACTION AREA -->
+            <!-- ================================================= -->
+
+            <div
+                id="task-action-area"
+                class="mt-3"
+                aria-live="polite"
+            >
             </div>
 
         </div>

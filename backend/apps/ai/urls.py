@@ -17,4 +17,14 @@ urlpatterns = [
         views.crm_assistant_ask,
         name="crm_assistant_ask",
     ),
+    path(
+    "task/propose/",
+    views.crm_assistant_task_proposal,
+    name="crm_assistant_task_proposal",
+    ),
+    path(
+    "task/confirm/",
+    views.crm_assistant_task_confirm,
+    name="crm_assistant_task_confirm",
+    ),
 ]
