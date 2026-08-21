@@ -1,3 +1,5 @@
+from django.utils.dateparse import parse_datetime
+
 from apps.leads import services as lead_services
 
 
@@ -316,4 +318,102 @@ def get_lead_tasks_tool(
                 "message": "Unable to retrieve lead tasks.",
             },
         }
-    
+
+def create_lead_task_tool(
+    *,
+    lead_id,
+    title,
+    description="",
+    task_type="follow_up",
+    priority="medium",
+    due_date=None,
+):
+    """
+    Create one CRM task through the CRM service layer.
+
+    This is a WRITE tool.
+
+    It must only be called through the confirmed-write
+    execution path.
+    """
+
+    lead = lead_services.get_lead_by_id(
+        lead_id=lead_id,
+    )
+
+    if lead is None:
+        return {
+            "success": False,
+            "error": {
+                "code": "LEAD_NOT_FOUND",
+                "message": f"Lead {lead_id} was not found.",
+            },
+        }
+
+    parsed_due_date = None
+
+    if due_date:
+        parsed_due_date = parse_datetime(
+            due_date,
+        )
+
+        if parsed_due_date is None:
+            return {
+                "success": False,
+                "error": {
+                    "code": "INVALID_DUE_DATE",
+                    "message": (
+                        "due_date must be an ISO "
+                        "datetime string."
+                    ),
+                },
+            }
+
+    task = lead_services.create_lead_task(
+        lead=lead,
+        title=title,
+        description=description,
+        task_type=task_type,
+        priority=priority,
+        status="pending",
+        due_date=parsed_due_date,
+    )
+
+    #
+    # Verification step:
+    # Re-read through the CRM service layer.
+    #
+
+    verified_tasks = (
+        lead_services.get_lead_tasks_by_id(
+            lead_id=lead_id,
+        )
+    )
+
+    verified_task = next(
+        (
+            candidate
+            for candidate in verified_tasks
+            if candidate.id == task.id
+        ),
+        None,
+    )
+
+    if verified_task is None:
+        return {
+            "success": False,
+            "error": {
+                "code": "TASK_VERIFICATION_FAILED",
+                "message": (
+                    "The task was created but could "
+                    "not be verified."
+                ),
+            },
+        }
+
+    return {
+        "success": True,
+        "data": _serialize_task(
+            verified_task,
+        ),
+    }

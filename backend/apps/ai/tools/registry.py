@@ -16,6 +16,7 @@ from apps.ai.tools.crm.tasks import (
     get_overdue_tasks_tool,
     get_pending_tasks_tool,
     get_priority_tasks_tool,
+    create_lead_task_tool,
 )
 
 
@@ -259,6 +260,24 @@ TOOL_REGISTRY = {
             "additionalProperties": False,
         },
     ),
+
+    "create_lead_task": ToolDefinition(
+        name="create_lead_task",
+        description=(
+            "Create one confirmed follow-up task "
+            "for an existing CRM lead."
+        ),
+        access_level="write",
+        function=create_lead_task_tool,
+        input_schema={
+            "lead_id": "integer",
+            "title": "string",
+            "description": "string",
+            "task_type": "string",
+            "priority": "string",
+        "due_date": "string|null",
+        },
+    ),
 }
 
 def get_registered_tool(name):
@@ -373,5 +392,87 @@ def execute_registered_tool(
                 "message": (
                     f"Unable to execute tool '{name}'."
                 ),
+            },
+        }
+
+def execute_confirmed_write_tool(
+    *,
+    name,
+    arguments=None,
+    confirmed=False,
+):
+    """
+    Execute a registered WRITE tool only after explicit
+    confirmation.
+
+    This path is intentionally separate from the normal
+    read-only tool executor.
+    """
+
+    tool = get_registered_tool(
+        name,
+    )
+
+    if tool is None:
+        return {
+            "success": False,
+            "error": {
+                "code": "TOOL_NOT_FOUND",
+                "message": (
+                    f"Tool '{name}' is not registered."
+                ),
+            },
+        }
+
+    if tool.access_level != "write":
+        return {
+            "success": False,
+            "error": {
+                "code": "WRITE_TOOL_REQUIRED",
+                "message": (
+                    "Confirmed write execution may only "
+                    "run registered write tools."
+                ),
+            },
+        }
+
+    if confirmed is not True:
+        return {
+            "success": False,
+            "error": {
+                "code": "CONFIRMATION_REQUIRED",
+                "message": (
+                    "Explicit confirmation is required "
+                    "before executing this CRM action."
+                ),
+            },
+        }
+
+    if arguments is None:
+        arguments = {}
+
+    if not isinstance(arguments, dict):
+        return {
+            "success": False,
+            "error": {
+                "code": "INVALID_TOOL_ARGUMENTS",
+                "message": (
+                    "Tool arguments must be provided "
+                    "as a dictionary."
+                ),
+            },
+        }
+
+    try:
+        return tool.function(
+            **arguments,
+        )
+
+    except TypeError as exc:
+        return {
+            "success": False,
+            "error": {
+                "code": "INVALID_TOOL_ARGUMENTS",
+                "message": str(exc),
             },
         }

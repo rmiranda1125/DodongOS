@@ -5,7 +5,7 @@ from django.test import TestCase
 from django.utils import timezone
 from pathlib import Path
 from apps.leads.models import Lead, LeadActivity, LeadTask
-
+from apps.leads import services as lead_services
 from apps.ai.tools.crm.tasks import (
     get_lead_tasks_tool,
     get_overdue_tasks_tool,
@@ -28,6 +28,7 @@ from apps.ai.tools.crm.pipeline import (
 
 from apps.ai.tools.registry import (
     TOOL_REGISTRY,
+    execute_confirmed_write_tool,
     execute_registered_tool,
     get_registered_tool,
     list_registered_tools,
@@ -51,6 +52,10 @@ from apps.ai.agent.router import (
 
 from apps.ai.agent.write_proposals import (
     build_create_lead_task_proposal,
+)
+
+from apps.ai.agent.write_executor import (
+    execute_confirmed_proposal,
 )
 
 
@@ -1465,6 +1470,7 @@ class CRMToolRegistryTests(TestCase):
             "search_leads",
             "get_lead_activities",
             "get_pipeline_summary",
+            "create_lead_task",
         }
 
         self.assertEqual(
@@ -1472,12 +1478,28 @@ class CRMToolRegistryTests(TestCase):
             expected_tools,
         )
 
-    def test_all_registered_tools_are_read_only(self):
-        for tool in TOOL_REGISTRY.values():
-            self.assertEqual(
-                tool.access_level,
-                "read",
-            )
+    def test_registered_tools_have_expected_access_levels(self):
+        expected_access_levels = {
+            "get_priority_tasks": "read",
+            "get_overdue_tasks": "read",
+            "get_pending_tasks": "read",
+            "get_lead_tasks": "read",
+            "get_lead": "read",
+            "search_leads": "read",
+            "get_lead_activities": "read",
+            "get_pipeline_summary": "read",
+            "create_lead_task": "write",
+        }
+
+        actual_access_levels = {
+            name: tool.access_level
+            for name, tool in TOOL_REGISTRY.items()
+        }
+
+        self.assertEqual(
+            actual_access_levels,
+            expected_access_levels,
+        )
 
     def test_get_registered_tool(self):
         tool = get_registered_tool(
@@ -1507,7 +1529,7 @@ class CRMToolRegistryTests(TestCase):
 
         self.assertEqual(
             len(tools),
-            8,
+            9,
         )
 
         for tool in tools:
@@ -3171,16 +3193,23 @@ class CRMReadAgentWriteSafetyTests(TestCase):
 
 class CRMReadAgentRegistrySafetyTests(TestCase):
 
-    def test_registry_contains_only_read_tools(self):
-        for tool in TOOL_REGISTRY.values():
-            self.assertEqual(
-                tool.access_level,
-                "read",
-            )
+    def test_registry_contains_expected_access_levels(self):
+        write_tools = {
+            name
+            for name, tool
+            in TOOL_REGISTRY.items()
+            if tool.access_level == "write"
+        }
 
-    def test_registry_contains_no_known_write_tools(self):
+        self.assertEqual(
+            write_tools,
+            {
+                "create_lead_task",
+        },
+     )
+
+    def test_registry_contains_no_unapproved_write_tools(self):
         prohibited_tools = {
-            "create_lead_task",
             "complete_lead_task",
             "update_lead_status",
             "create_activity",
@@ -3242,6 +3271,24 @@ class CRMReadAgentArchitectureSafetyTests(TestCase):
                 f"Django ORM directly: {violations}"
             ),
         )
+
+    def test_read_executor_cannot_execute_write_tool(self):
+        result = execute_registered_tool(
+            name="create_lead_task",
+            arguments={
+                "lead_id": 1,
+                "title": "Should never execute",
+            },
+        )
+
+        self.assertFalse(
+            result["success"],
+        )
+
+        self.assertEqual(
+            result["error"]["code"],
+            "TOOL_ACCESS_DENIED",
+     )
 
 class CRMReadAgentProviderSafetyTests(TestCase):
 
@@ -3471,4 +3518,178 @@ class CreateLeadTaskProposalTests(TestCase):
         self.assertEqual(
             result["error"]["code"],
             "INVALID_DUE_DATE",
+        )
+
+class ConfirmedWriteExecutorTests(TestCase):
+
+    def setUp(self):
+        self.lead = Lead.objects.create(
+            company_name="Acme Analytics",
+            job_title="Power BI Developer",
+        )
+
+    def _build_proposal(self):
+        result = build_create_lead_task_proposal(
+            lead_id=self.lead.id,
+            title="Follow up with Acme",
+            description=(
+                "Discuss Power BI requirements."
+            ),
+            priority="high",
+        )
+
+        self.assertTrue(
+            result["success"],
+        )
+
+        return result["proposal"]
+
+    def test_unconfirmed_proposal_does_not_write(self):
+        proposal = self._build_proposal()
+
+        before_count = LeadTask.objects.count()
+
+        result = execute_confirmed_proposal(
+            proposal=proposal,
+            confirmed=False,
+        )
+
+        after_count = LeadTask.objects.count()
+
+        self.assertFalse(
+            result["success"],
+        )
+
+        self.assertEqual(
+            result["error"]["code"],
+            "CONFIRMATION_REQUIRED",
+        )
+
+        self.assertEqual(
+            before_count,
+            after_count,
+        )
+
+    def test_confirmed_proposal_creates_task(self):
+        proposal = self._build_proposal()
+
+        before_count = LeadTask.objects.count()
+
+        result = execute_confirmed_proposal(
+            proposal=proposal,
+            confirmed=True,
+        )
+
+        after_count = LeadTask.objects.count()
+
+        self.assertTrue(
+            result["success"],
+        )
+
+        self.assertEqual(
+            after_count,
+            before_count + 1,
+        )
+
+        self.assertEqual(
+            result["action"],
+            "create_lead_task",
+        )
+
+        self.assertEqual(
+            result["status"],
+            "executed",
+        )
+
+        self.assertEqual(
+            result["data"]["lead_id"],
+            self.lead.id,
+        )
+
+        self.assertEqual(
+            result["data"]["title"],
+            "Follow up with Acme",
+        )
+
+    def test_created_task_is_verified(self):
+        proposal = self._build_proposal()
+
+        result = execute_confirmed_proposal(
+            proposal=proposal,
+            confirmed=True,
+        )
+
+        self.assertTrue(
+            result["success"],
+        )
+
+        task_id = result["data"]["id"]
+
+        tasks = (
+            lead_services.get_lead_tasks_by_id(
+                lead_id=self.lead.id,
+            )
+        )
+
+        matching_tasks = [
+            task
+            for task in tasks
+            if task.id == task_id
+        ]
+
+        self.assertEqual(
+            len(matching_tasks),
+            1,
+        )
+
+    def test_only_enabled_write_action_is_allowed(self):
+        proposal = self._build_proposal()
+
+        proposal["action"] = "delete_lead"
+
+        before_count = LeadTask.objects.count()
+
+        result = execute_confirmed_proposal(
+            proposal=proposal,
+            confirmed=True,
+        )
+
+        after_count = LeadTask.objects.count()
+
+        self.assertFalse(
+            result["success"],
+        )
+
+        self.assertEqual(
+            result["error"]["code"],
+            "UNSUPPORTED_WRITE_ACTION",
+        )
+
+        self.assertEqual(
+            before_count,
+            after_count,
+        )   
+
+    def test_write_registry_requires_confirmation(self):
+        result = execute_confirmed_write_tool(
+            name="create_lead_task",
+            arguments={
+                "lead_id": self.lead.id,
+                "title": "Follow up",
+            },
+            confirmed=False,
+        )
+
+        self.assertFalse(
+            result["success"],
+        )
+
+        self.assertEqual(
+            result["error"]["code"],
+            "CONFIRMATION_REQUIRED",
+        )
+
+        self.assertEqual(
+            LeadTask.objects.count(),
+            0,
         )
