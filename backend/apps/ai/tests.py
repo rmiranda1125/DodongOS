@@ -49,6 +49,10 @@ from apps.ai.agent.router import (
     route_crm_read_intent,
 )
 
+from apps.ai.agent.write_proposals import (
+    build_create_lead_task_proposal,
+)
+
 
 # =========================================================
 # PRIORITY TASKS TOOL TESTS
@@ -2371,6 +2375,20 @@ class CRMReadIntentRouterTests(TestCase):
             },
         )
 
+    def test_unknown_read_request_is_rejected(self):
+        result = route_crm_read_intent(
+            "Which lead has the prettiest website?"
+        )
+
+        self.assertFalse(
+            result["success"],
+        )
+
+        self.assertEqual(
+            result["error"]["code"],
+            "UNSUPPORTED_READ_INTENT",
+        )
+
 
 # =========================================================
 # CRM READ AGENT ROUTING TESTS
@@ -3280,4 +3298,177 @@ class CRMReadAgentProviderSafetyTests(TestCase):
         self.assertIn(
             "Acme",
             result["answer"],
+        )
+
+class CreateLeadTaskProposalTests(TestCase):
+
+    def setUp(self):
+        self.lead = Lead.objects.create(
+            company_name="Acme Analytics",
+            job_title="Power BI Developer",
+        )
+
+    def test_builds_follow_up_task_proposal(self):
+        result = build_create_lead_task_proposal(
+            lead_id=self.lead.id,
+            title="Follow up with Acme",
+            description="Discuss Power BI requirements.",
+            priority="high",
+        )
+
+        self.assertTrue(
+            result["success"],
+        )
+
+        proposal = result["proposal"]
+
+        self.assertEqual(
+            proposal["action"],
+            "create_lead_task",
+        )
+
+        self.assertEqual(
+            proposal["access_level"],
+            "write",
+        )
+
+        self.assertEqual(
+            proposal["status"],
+            "awaiting_confirmation",
+        )
+
+        self.assertTrue(
+            proposal["requires_confirmation"],
+        )
+
+        self.assertEqual(
+            proposal["lead"]["id"],
+            self.lead.id,
+        )
+
+        self.assertEqual(
+            proposal["lead"]["company_name"],
+            "Acme Analytics",
+        )
+
+        self.assertEqual(
+            proposal["arguments"]["task_type"],
+            "follow_up",
+        )
+
+        self.assertEqual(
+            proposal["arguments"]["priority"],
+            "high",
+        )
+
+    def test_proposal_does_not_create_task(self):
+        before_count = LeadTask.objects.count()
+
+        result = build_create_lead_task_proposal(
+            lead_id=self.lead.id,
+            title="Follow up tomorrow",
+        )
+
+        after_count = LeadTask.objects.count()
+
+        self.assertTrue(
+            result["success"],
+        )
+
+        self.assertEqual(
+            before_count,
+            after_count,
+        )
+
+    def test_missing_lead_is_rejected(self):
+        result = build_create_lead_task_proposal(
+            lead_id=999999,
+            title="Follow up",
+        )
+
+        self.assertFalse(
+            result["success"],
+        )
+
+        self.assertEqual(
+            result["error"]["code"],
+            "LEAD_NOT_FOUND",
+        )
+
+    def test_invalid_lead_id_is_rejected(self):
+        result = build_create_lead_task_proposal(
+            lead_id=0,
+            title="Follow up",
+        )
+
+        self.assertFalse(
+            result["success"],
+        )
+
+        self.assertEqual(
+            result["error"]["code"],
+            "INVALID_LEAD_ID",
+        )
+
+    def test_empty_title_is_rejected(self):
+        result = build_create_lead_task_proposal(
+            lead_id=self.lead.id,
+            title="   ",
+        )
+
+        self.assertFalse(
+            result["success"],
+        )
+
+        self.assertEqual(
+            result["error"]["code"],
+            "INVALID_TASK_TITLE",
+        )
+
+    def test_invalid_priority_is_rejected(self):
+        result = build_create_lead_task_proposal(
+            lead_id=self.lead.id,
+            title="Follow up",
+            priority="extreme",
+        )
+
+        self.assertFalse(
+            result["success"],
+        )
+
+        self.assertEqual(
+            result["error"]["code"],
+            "INVALID_PRIORITY",
+        )
+
+    def test_valid_due_date_is_normalized(self):
+        result = build_create_lead_task_proposal(
+            lead_id=self.lead.id,
+            title="Scheduled follow up",
+            due_date="2026-08-25T09:00:00+08:00",
+        )
+
+        self.assertTrue(
+            result["success"],
+        )
+
+        self.assertEqual(
+            result["proposal"]["arguments"]["due_date"],
+            "2026-08-25T09:00:00+08:00",
+        )
+
+    def test_invalid_due_date_is_rejected(self):
+        result = build_create_lead_task_proposal(
+            lead_id=self.lead.id,
+            title="Follow up",
+            due_date="next Tuesday maybe",
+        )
+
+        self.assertFalse(
+            result["success"],
+        )
+
+        self.assertEqual(
+            result["error"]["code"],
+            "INVALID_DUE_DATE",
         )
