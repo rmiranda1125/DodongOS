@@ -3,7 +3,7 @@ from unittest.mock import patch
 from django.urls import reverse
 from django.test import TestCase
 from django.utils import timezone
-
+from pathlib import Path
 from apps.leads.models import Lead, LeadActivity, LeadTask
 
 from apps.ai.tools.crm.tasks import (
@@ -2869,4 +2869,415 @@ class CRMAssistantUITests(TestCase):
         self.assertContains(
             response,
             "ai_provider",
+        )
+
+class CRMReadAgentAcceptanceTests(TestCase):
+
+    @patch(
+        "apps.ai.agent.read_agent."
+        "execute_registered_tool"
+    )
+    def test_acceptance_priority_tasks(
+        self,
+        mock_execute_registered_tool,
+    ):
+        mock_execute_registered_tool.return_value = {
+            "success": True,
+            "data": [],
+        }
+
+        result = run_crm_read_agent(
+            message="What tasks need my attention?",
+        )
+
+        self.assertTrue(result["success"])
+        self.assertEqual(
+            result["tool_used"],
+            "get_priority_tasks",
+        )
+
+    @patch(
+        "apps.ai.agent.read_agent."
+        "execute_registered_tool"
+    )
+    def test_acceptance_overdue_tasks(
+        self,
+        mock_execute_registered_tool,
+    ):
+        mock_execute_registered_tool.return_value = {
+            "success": True,
+            "data": [],
+        }
+
+        result = run_crm_read_agent(
+            message="What tasks are overdue?",
+        )
+
+        self.assertTrue(result["success"])
+        self.assertEqual(
+            result["tool_used"],
+            "get_overdue_tasks",
+        )
+
+    @patch(
+        "apps.ai.agent.read_agent."
+        "execute_registered_tool"
+    )
+    def test_acceptance_pending_tasks(
+        self,
+        mock_execute_registered_tool,
+    ):
+        mock_execute_registered_tool.return_value = {
+            "success": True,
+            "data": [],
+        }
+
+        result = run_crm_read_agent(
+            message="Show me pending tasks.",
+        )
+
+        self.assertTrue(result["success"])
+        self.assertEqual(
+            result["tool_used"],
+            "get_pending_tasks",
+        )
+
+    @patch(
+        "apps.ai.agent.read_agent."
+        "execute_registered_tool"
+    )
+    def test_acceptance_pipeline_summary(
+        self,
+        mock_execute_registered_tool,
+    ):
+        mock_execute_registered_tool.return_value = {
+            "success": True,
+            "data": {
+                "total_leads": 0,
+                "by_status": {},
+                "average_lead_score": None,
+            },
+        }
+
+        result = run_crm_read_agent(
+            message="Summarize my pipeline.",
+        )
+
+        self.assertTrue(result["success"])
+        self.assertEqual(
+            result["tool_used"],
+            "get_pipeline_summary",
+        )
+
+    @patch(
+        "apps.ai.agent.read_agent."
+        "execute_registered_tool"
+    )
+    def test_acceptance_get_lead(
+        self,
+        mock_execute_registered_tool,
+    ):
+        mock_execute_registered_tool.return_value = {
+            "success": True,
+            "data": {
+                "id": 12,
+                "company_name": "Acme",
+                "status": "qualified",
+            },
+        }
+
+        result = run_crm_read_agent(
+            message="Tell me about lead 12.",
+        )
+
+        self.assertTrue(result["success"])
+        self.assertEqual(
+            result["tool_used"],
+            "get_lead",
+        )
+
+    @patch(
+        "apps.ai.agent.read_agent."
+        "execute_registered_tool"
+    )
+    def test_acceptance_lead_tasks(
+        self,
+        mock_execute_registered_tool,
+    ):
+        mock_execute_registered_tool.return_value = {
+            "success": True,
+            "data": [],
+        }
+
+        result = run_crm_read_agent(
+            message="What tasks belong to lead 12?",
+        )
+
+        self.assertTrue(result["success"])
+        self.assertEqual(
+            result["tool_used"],
+            "get_lead_tasks",
+        )
+
+    @patch(
+        "apps.ai.agent.read_agent."
+        "execute_registered_tool"
+    )
+    def test_acceptance_lead_activities(
+        self,
+        mock_execute_registered_tool,
+    ):
+        mock_execute_registered_tool.return_value = {
+            "success": True,
+            "data": [],
+        }
+
+        result = run_crm_read_agent(
+            message="What happened with lead 12?",
+        )
+
+        self.assertTrue(result["success"])
+        self.assertEqual(
+            result["tool_used"],
+            "get_lead_activities",
+        )
+
+    @patch(
+        "apps.ai.agent.read_agent."
+        "execute_registered_tool"
+    )
+    def test_acceptance_search_leads(
+        self,
+        mock_execute_registered_tool,
+    ):
+        mock_execute_registered_tool.return_value = {
+            "success": True,
+            "data": [],
+        }
+
+        result = run_crm_read_agent(
+            message="Find qualified leads.",
+        )
+
+        self.assertTrue(result["success"])
+        self.assertEqual(
+            result["tool_used"],
+            "search_leads",
+        )
+
+class CRMReadAgentWriteSafetyTests(TestCase):
+
+    @patch(
+        "apps.ai.agent.read_agent."
+        "execute_registered_tool"
+    )
+    def test_delete_lead_is_blocked(
+        self,
+        mock_execute_registered_tool,
+    ):
+        result = run_crm_read_agent(
+            message="Delete lead 12.",
+        )
+
+        self.assertFalse(result["success"])
+
+        self.assertEqual(
+            result["error"]["code"],
+            "WRITE_INTENT_NOT_ALLOWED",
+        )
+
+        mock_execute_registered_tool.assert_not_called()
+
+    @patch(
+        "apps.ai.agent.read_agent."
+        "execute_registered_tool"
+    )
+    def test_complete_task_is_blocked(
+        self,
+        mock_execute_registered_tool,
+    ):
+        result = run_crm_read_agent(
+            message="Complete task 15.",
+        )
+
+        self.assertFalse(result["success"])
+
+        self.assertEqual(
+            result["error"]["code"],
+            "WRITE_INTENT_NOT_ALLOWED",
+        )
+
+        mock_execute_registered_tool.assert_not_called()
+
+    @patch(
+        "apps.ai.agent.read_agent."
+        "execute_registered_tool"
+    )
+    def test_create_task_is_blocked(
+        self,
+        mock_execute_registered_tool,
+    ):
+        result = run_crm_read_agent(
+            message="Create a follow-up task.",
+        )
+
+        self.assertFalse(result["success"])
+
+        self.assertEqual(
+            result["error"]["code"],
+            "WRITE_INTENT_NOT_ALLOWED",
+        )
+
+        mock_execute_registered_tool.assert_not_called()
+
+    @patch(
+        "apps.ai.agent.read_agent."
+        "execute_registered_tool"
+    )
+    def test_change_status_is_blocked(
+        self,
+        mock_execute_registered_tool,
+    ):
+        result = run_crm_read_agent(
+            message="Change status of lead 12 to won.",
+        )
+
+        self.assertFalse(result["success"])
+
+        self.assertEqual(
+            result["error"]["code"],
+            "WRITE_INTENT_NOT_ALLOWED",
+        )
+
+        mock_execute_registered_tool.assert_not_called()
+
+class CRMReadAgentRegistrySafetyTests(TestCase):
+
+    def test_registry_contains_only_read_tools(self):
+        for tool in TOOL_REGISTRY.values():
+            self.assertEqual(
+                tool.access_level,
+                "read",
+            )
+
+    def test_registry_contains_no_known_write_tools(self):
+        prohibited_tools = {
+            "create_lead_task",
+            "complete_lead_task",
+            "update_lead_status",
+            "create_activity",
+            "delete_lead",
+        }
+
+        registered = set(
+            TOOL_REGISTRY.keys()
+        )
+
+        self.assertTrue(
+            prohibited_tools.isdisjoint(
+                registered,
+            )
+        )
+
+class CRMReadAgentArchitectureSafetyTests(TestCase):
+
+    def test_agent_modules_do_not_access_django_orm(self):
+        agent_directory = (
+            Path(__file__).resolve().parent
+            / "agent"
+        )
+
+        forbidden_patterns = (
+            "Lead.objects",
+            "LeadTask.objects",
+            "LeadActivity.objects",
+            ".objects.filter(",
+            ".objects.create(",
+            ".objects.get(",
+            ".objects.update(",
+            ".objects.delete(",
+        )
+
+        violations = []
+
+        for file_path in agent_directory.glob(
+            "*.py"
+        ):
+            source = file_path.read_text(
+                encoding="utf-8",
+            )
+
+            for pattern in forbidden_patterns:
+                if pattern in source:
+                    violations.append(
+                        (
+                            file_path.name,
+                            pattern,
+                        )
+                    )
+
+        self.assertEqual(
+            violations,
+            [],
+            msg=(
+                "CRM Read Agent must not access "
+                f"Django ORM directly: {violations}"
+            ),
+        )
+
+class CRMReadAgentProviderSafetyTests(TestCase):
+
+    @patch(
+        "apps.ai.agent.read_agent."
+        "execute_registered_tool"
+    )
+    def test_provider_failure_preserves_verified_crm_result(
+        self,
+        mock_execute_registered_tool,
+    ):
+        mock_execute_registered_tool.return_value = {
+            "success": True,
+            "data": [
+                {
+                    "id": 1,
+                    "lead_id": 2,
+                    "lead_company": "Acme",
+                    "title": "Follow up",
+                    "description": "",
+                    "task_type": "follow_up",
+                    "priority": "urgent",
+                    "status": "pending",
+                    "due_date": None,
+                    "completed_at": None,
+                },
+            ],
+        }
+
+        result = run_crm_read_agent_with_provider(
+            message="What tasks need my attention?",
+            provider=FailingAIProvider(),
+        )
+
+        self.assertTrue(
+            result["success"],
+        )
+
+        self.assertEqual(
+            result["response_source"],
+            "deterministic_fallback",
+        )
+
+        self.assertEqual(
+            len(result["data"]),
+            1,
+        )
+
+        self.assertEqual(
+            result["data"][0]["id"],
+            1,
+        )
+
+        self.assertIn(
+            "Acme",
+            result["answer"],
         )
