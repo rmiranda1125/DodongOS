@@ -22,10 +22,41 @@
 
         <div class="card-body">
 
+            <!-- ================================================= -->
+            <!-- USER QUESTION -->
+            <!-- ================================================= -->
+
+            {% if user_message %}
+
+                <div class="mb-3">
+
+                    <div class="small text-muted mb-1">
+                        You asked
+                    </div>
+
+                    <div class="border-start border-3 ps-3">
+                        {{ user_message }}
+                    </div>
+
+                </div>
+
+                <hr>
+
+            {% endif %}
+
+
+            <!-- ================================================= -->
+            <!-- DODONG ANSWER -->
+            <!-- ================================================= -->
+
             <div
                 style="white-space: pre-wrap;"
             >{{ result.answer }}</div>
 
+
+            <!-- ================================================= -->
+            <!-- WARNING -->
+            <!-- ================================================= -->
 
             {% if result.warning %}
 
@@ -40,22 +71,42 @@
 
         </div>
 
-        {% if result.tool_used %}
 
-            <div class="card-footer text-muted small">
+        <!-- ================================================= -->
+        <!-- RESPONSE METADATA -->
+        <!-- ================================================= -->
+
+        <div class="card-footer text-muted small">
+
+            {% if result.tool_used %}
 
                 Read operation:
                 <code>
                     {{ result.tool_used }}
                 </code>
 
-            </div>
+            {% endif %}
 
-        {% endif %}
+            {% if result.response_source %}
+
+                <span class="ms-3">
+                    Response:
+                    <code>
+                        {{ result.response_source }}
+                    </code>
+                </span>
+
+            {% endif %}
+
+        </div>
 
     </div>
 
 {% else %}
+
+    <!-- ===================================================== -->
+    <!-- ERROR RESPONSE -->
+    <!-- ===================================================== -->
 
     <div
         class="alert alert-warning shadow-sm"
@@ -79,6 +130,7 @@
             {% endif %}
 
         </div>
+
 
         {% if result.error.code %}
 

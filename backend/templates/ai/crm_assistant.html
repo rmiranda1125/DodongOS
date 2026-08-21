@@ -60,6 +60,7 @@
                         hx-target="#assistant-response"
                         hx-swap="innerHTML"
                         hx-indicator="#assistant-loading"
+                        hx-disabled-elt="find button"
                     >
 
                         {% csrf_token %}
@@ -78,7 +79,7 @@
                                 id="crm-assistant-message"
                                 name="message"
                                 class="form-control"
-                                placeholder="What tasks need my attention?"
+                                placeholder="Ask about tasks, leads, activities, or your pipeline..."
                                 autocomplete="off"
                                 required
                             >
@@ -115,45 +116,236 @@
 
                 <div class="card-body">
 
-                    <h6>
+                    <h6 class="mb-3">
                         Example questions
                     </h6>
 
-                    <ul class="mb-0">
+                    <div class="d-flex flex-wrap gap-2">
 
-                        <li>
-                            What tasks need my attention?
-                        </li>
+                        <!-- Priority Tasks -->
 
-                        <li>
-                            What tasks are overdue?
-                        </li>
+                        <form
+                            hx-post="{% url 'ai:crm_assistant_ask' %}"
+                            hx-target="#assistant-response"
+                            hx-swap="innerHTML"
+                            hx-indicator="#assistant-loading"
+                            hx-disabled-elt="find button"
+                        >
 
-                        <li>
-                            Show me pending tasks.
-                        </li>
+                            {% csrf_token %}
 
-                        <li>
-                            Summarize my pipeline.
-                        </li>
+                            <input
+                                type="hidden"
+                                name="message"
+                                value="What tasks need my attention?"
+                            >
 
-                        <li>
-                            Tell me about lead 12.
-                        </li>
+                            <button
+                                type="submit"
+                                class="btn btn-outline-secondary btn-sm"
+                            >
+                                What tasks need my attention?
+                            </button>
 
-                        <li>
-                            What happened with lead 12?
-                        </li>
+                        </form>
 
-                        <li>
-                            Find qualified leads.
-                        </li>
 
-                        <li>
-                            Find Power BI leads.
-                        </li>
+                        <!-- Overdue Tasks -->
 
-                    </ul>
+                        <form
+                            hx-post="{% url 'ai:crm_assistant_ask' %}"
+                            hx-target="#assistant-response"
+                            hx-swap="innerHTML"
+                            hx-indicator="#assistant-loading"
+                            hx-disabled-elt="find button"
+                        >
+
+                            {% csrf_token %}
+
+                            <input
+                                type="hidden"
+                                name="message"
+                                value="What tasks are overdue?"
+                            >
+
+                            <button
+                                type="submit"
+                                class="btn btn-outline-secondary btn-sm"
+                            >
+                                What tasks are overdue?
+                            </button>
+
+                        </form>
+
+
+                        <!-- Pending Tasks -->
+
+                        <form
+                            hx-post="{% url 'ai:crm_assistant_ask' %}"
+                            hx-target="#assistant-response"
+                            hx-swap="innerHTML"
+                            hx-indicator="#assistant-loading"
+                            hx-disabled-elt="find button"
+                        >
+
+                            {% csrf_token %}
+
+                            <input
+                                type="hidden"
+                                name="message"
+                                value="Show me pending tasks."
+                            >
+
+                            <button
+                                type="submit"
+                                class="btn btn-outline-secondary btn-sm"
+                            >
+                                Show me pending tasks.
+                            </button>
+
+                        </form>
+
+
+                        <!-- Pipeline -->
+
+                        <form
+                            hx-post="{% url 'ai:crm_assistant_ask' %}"
+                            hx-target="#assistant-response"
+                            hx-swap="innerHTML"
+                            hx-indicator="#assistant-loading"
+                            hx-disabled-elt="find button"
+                        >
+
+                            {% csrf_token %}
+
+                            <input
+                                type="hidden"
+                                name="message"
+                                value="Summarize my pipeline."
+                            >
+
+                            <button
+                                type="submit"
+                                class="btn btn-outline-secondary btn-sm"
+                            >
+                                Summarize my pipeline.
+                            </button>
+
+                        </form>
+
+
+                        <!-- Get Lead -->
+
+                        <form
+                            hx-post="{% url 'ai:crm_assistant_ask' %}"
+                            hx-target="#assistant-response"
+                            hx-swap="innerHTML"
+                            hx-indicator="#assistant-loading"
+                            hx-disabled-elt="find button"
+                        >
+
+                            {% csrf_token %}
+
+                            <input
+                                type="hidden"
+                                name="message"
+                                value="Tell me about lead 12."
+                            >
+
+                            <button
+                                type="submit"
+                                class="btn btn-outline-secondary btn-sm"
+                            >
+                                Tell me about lead 12.
+                            </button>
+
+                        </form>
+
+
+                        <!-- Lead Activities -->
+
+                        <form
+                            hx-post="{% url 'ai:crm_assistant_ask' %}"
+                            hx-target="#assistant-response"
+                            hx-swap="innerHTML"
+                            hx-indicator="#assistant-loading"
+                            hx-disabled-elt="find button"
+                        >
+
+                            {% csrf_token %}
+
+                            <input
+                                type="hidden"
+                                name="message"
+                                value="What happened with lead 12?"
+                            >
+
+                            <button
+                                type="submit"
+                                class="btn btn-outline-secondary btn-sm"
+                            >
+                                What happened with lead 12?
+                            </button>
+
+                        </form>
+
+
+                        <!-- Qualified Leads -->
+
+                        <form
+                            hx-post="{% url 'ai:crm_assistant_ask' %}"
+                            hx-target="#assistant-response"
+                            hx-swap="innerHTML"
+                            hx-indicator="#assistant-loading"
+                            hx-disabled-elt="find button"
+                        >
+
+                            {% csrf_token %}
+
+                            <input
+                                type="hidden"
+                                name="message"
+                                value="Find qualified leads."
+                            >
+
+                            <button
+                                type="submit"
+                                class="btn btn-outline-secondary btn-sm"
+                            >
+                                Find qualified leads.
+                            </button>
+
+                        </form>
+
+
+                        <!-- Power BI Leads -->
+
+                        <form
+                            hx-post="{% url 'ai:crm_assistant_ask' %}"
+                            hx-target="#assistant-response"
+                            hx-swap="innerHTML"
+                            hx-indicator="#assistant-loading"
+                            hx-disabled-elt="find button"
+                        >
+
+                            {% csrf_token %}
+
+                            <input
+                                type="hidden"
+                                name="message"
+                                value="Find Power BI leads."
+                            >
+
+                            <button
+                                type="submit"
+                                class="btn btn-outline-secondary btn-sm"
+                            >
+                                Find Power BI leads.
+                            </button>
+
+                        </form>
+
+                    </div>
 
                 </div>
 
@@ -164,7 +356,11 @@
             <!-- RESPONSE -->
             <!-- ================================================= -->
 
-            <div id="assistant-response">
+            <div
+                id="assistant-response"
+                aria-live="polite"
+                aria-busy="false"
+            >
 
                 <div class="card shadow-sm">
 

@@ -2801,3 +2801,72 @@ class CRMAssistantUITests(TestCase):
             response,
             "CRM data was retrieved successfully",
         )
+
+    def test_assistant_page_contains_example_questions(self):
+        response = self.client.get(
+            reverse("ai:crm_assistant")
+        )
+
+        self.assertContains(
+            response,
+            "What tasks need my attention?"
+        )
+
+        self.assertContains(
+            response,
+            "What tasks are overdue?"
+        )
+
+        self.assertContains(
+            response,
+            "Summarize my pipeline."
+        )
+
+        self.assertContains(
+            response,
+            "Find qualified leads."
+     )
+
+
+    @patch(
+        "apps.ai.views."
+        "run_crm_read_agent_with_provider"
+    )
+    def test_response_displays_user_question(
+        self,
+        mock_run_agent,
+    ):
+        mock_run_agent.return_value = {
+            "success": True,
+            "tool_used": "get_pipeline_summary",
+            "answer": "Your CRM currently contains 10 leads.",
+            "data": {},
+            "response_source": "ai_provider",
+        }
+
+        response = self.client.post(
+            reverse("ai:crm_assistant_ask"),
+            {
+            "message": "Summarize my pipeline.",
+            },
+        )
+
+        self.assertContains(
+            response,
+            "You asked",
+        )
+
+        self.assertContains(
+            response,
+            "Summarize my pipeline.",
+        )
+
+        self.assertContains(
+            response,
+            "get_pipeline_summary",
+        )
+
+        self.assertContains(
+            response,
+            "ai_provider",
+        )
