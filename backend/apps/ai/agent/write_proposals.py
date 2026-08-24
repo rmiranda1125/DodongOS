@@ -1,5 +1,5 @@
 from django.utils.dateparse import parse_datetime
-
+import uuid
 from apps.leads import services as lead_services
 
 
@@ -118,6 +118,7 @@ def build_create_lead_task_proposal(
     return {
         "success": True,
         "proposal": {
+            "proposal_id": str(uuid.uuid4()),
             "action": "create_lead_task",
             "access_level": "write",
             "status": "awaiting_confirmation",

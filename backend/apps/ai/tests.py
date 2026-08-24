@@ -63,6 +63,7 @@ from apps.ai.agent.proposal_tokens import (
     load_action_proposal,
     sign_action_proposal,
 )
+from apps.ai.models import AIActionAudit
 
 # =========================================================
 # PRIORITY TASKS TOOL TESTS
@@ -3525,6 +3526,38 @@ class CreateLeadTaskProposalTests(TestCase):
             "INVALID_DUE_DATE",
         )
 
+    def test_each_proposal_has_unique_proposal_id(self):
+        first = build_create_lead_task_proposal(
+            lead_id=self.lead.id,
+            title="First follow up",
+        )
+
+        second = build_create_lead_task_proposal(
+            lead_id=self.lead.id,
+            title="Second follow up",
+        )
+
+        self.assertTrue(
+            first["success"],
+        )
+
+        self.assertTrue(
+            second["success"],
+        )
+
+        first_id = first["proposal"][
+            "proposal_id"
+        ]
+
+        second_id = second["proposal"][
+            "proposal_id"
+        ]
+
+        self.assertNotEqual(
+            first_id,
+            second_id,
+        )
+
 class ConfirmedWriteExecutorTests(TestCase):
 
     def setUp(self):
@@ -3698,6 +3731,154 @@ class ConfirmedWriteExecutorTests(TestCase):
             LeadTask.objects.count(),
             0,
         )
+
+    def test_confirmed_execution_creates_audit_record(self):
+        proposal = self._build_proposal()
+
+        result = execute_confirmed_proposal(
+            proposal=proposal,
+            confirmed=True,
+        )
+
+        self.assertTrue(
+            result["success"],
+        )
+
+        self.assertEqual(
+            AIActionAudit.objects.count(),
+            1,
+        )
+
+        audit = AIActionAudit.objects.get()
+
+        self.assertEqual(
+            str(audit.proposal_id),
+            proposal["proposal_id"],
+        )
+
+        self.assertEqual(
+            audit.action,
+            "create_lead_task",
+        )
+
+        self.assertEqual(
+            audit.status,
+            "executed",
+        )
+
+        self.assertEqual(
+            audit.lead_id,
+            self.lead.id,
+        )
+
+        self.assertEqual(
+            audit.result_task_id,
+            result["data"]["id"],
+        )
+
+        self.assertEqual(
+            audit.proposal_data["title"],
+            "Follow up with Acme",
+        )
+
+    def test_same_proposal_cannot_execute_twice(self):
+        proposal = self._build_proposal()
+
+        first_result = execute_confirmed_proposal(
+            proposal=proposal,
+            confirmed=True,
+        )
+
+        self.assertTrue(
+            first_result["success"],
+        )
+
+        task_count_after_first = (
+            LeadTask.objects.count()
+        )
+
+        second_result = execute_confirmed_proposal(
+            proposal=proposal,
+            confirmed=True,
+        )
+
+        self.assertFalse(
+            second_result["success"],
+        )
+
+        self.assertEqual(
+            second_result["error"]["code"],
+            "PROPOSAL_ALREADY_USED",
+        )
+
+        self.assertEqual(
+            LeadTask.objects.count(),
+            task_count_after_first,
+        )
+
+        self.assertEqual(
+            AIActionAudit.objects.count(),
+            1,
+        )
+
+    def test_confirmed_proposal_requires_valid_proposal_id(self):
+        proposal = self._build_proposal()
+
+        proposal["proposal_id"] = "not-a-uuid"
+
+        result = execute_confirmed_proposal(
+            proposal=proposal,
+            confirmed=True,
+        )
+
+        self.assertFalse(
+            result["success"],
+        )
+
+        self.assertEqual(
+            result["error"]["code"],
+            "INVALID_PROPOSAL_ID",
+        )
+
+        self.assertEqual(
+            LeadTask.objects.count(),
+            0,
+        )
+
+        self.assertEqual(
+            AIActionAudit.objects.count(),
+            0,
+        )
+
+    def test_audit_points_to_verified_created_task(self):
+        proposal = self._build_proposal()
+
+        result = execute_confirmed_proposal(
+            proposal=proposal,
+            confirmed=True,
+        )   
+
+        self.assertTrue(
+            result["success"],
+        )
+
+        audit = AIActionAudit.objects.get(
+            id=result["audit_id"],
+        )
+
+        task = LeadTask.objects.get(
+            id=result["data"]["id"],
+        )
+
+        self.assertEqual(
+            audit.result_task_id,
+            task.id,
+        )
+
+        self.assertEqual(
+            audit.lead_id,
+            task.lead_id,
+        )    
 
 class CRMActionProposalTokenTests(TestCase):
 
@@ -4145,3 +4326,51 @@ class CRMTaskConfirmationViewTests(TestCase):
                 "ai:crm_assistant_task_proposal",
             ),
         ),
+
+    def test_same_confirmation_token_cannot_create_two_tasks(self):
+        token = self._build_token(
+            title="One-time task",
+        )
+
+        first_response = self.client.post(
+            reverse(
+                "ai:crm_assistant_task_confirm",
+            ),
+            {
+                "proposal_token": token,
+            },
+        )
+
+        self.assertEqual(
+            first_response.status_code,
+            200,
+        )
+
+        self.assertEqual(
+            LeadTask.objects.count(),
+            1,
+        )
+
+        second_response = self.client.post(
+            reverse(
+                "ai:crm_assistant_task_confirm",
+            ),
+            {
+                "proposal_token": token,
+            },
+        )
+
+        self.assertEqual(
+            second_response.status_code,
+            200,
+        )
+
+        self.assertEqual(
+            LeadTask.objects.count(),
+            1,
+        )
+
+        self.assertContains(
+            second_response,
+            "PROPOSAL_ALREADY_USED",
+        )
