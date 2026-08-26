@@ -69,6 +69,13 @@ from django.contrib.auth import get_user_model
 import uuid
 
 from apps.ai import audit_services
+from apps.ai.agent.write_router import (
+    route_crm_write_proposal_intent,
+)
+from apps.ai.agent.write_proposals import (
+    build_create_lead_task_proposal,
+    build_write_proposal_from_message,
+)
 
 
 # =========================================================
@@ -4525,4 +4532,191 @@ class CRMActionAuditViewTests(TestCase):
         self.assertContains(
             response,
             "Executed",
+        )
+
+class CRMWriteProposalRouterTests(TestCase):
+
+    def test_routes_basic_follow_up_task_request(self):
+        result = route_crm_write_proposal_intent(
+            "Create a follow-up task for lead 12."
+        )
+
+        self.assertTrue(
+            result["success"],
+        )
+
+        self.assertEqual(
+            result["intent"],
+            "create_lead_task_proposal",
+        )
+
+        self.assertEqual(
+            result["action"],
+            "create_lead_task",
+        )
+
+        self.assertEqual(
+            result["arguments"]["lead_id"],
+            12,
+        )
+
+        self.assertEqual(
+            result["arguments"]["priority"],
+            "medium",
+        )
+
+    def test_extracts_priority(self):
+        result = route_crm_write_proposal_intent(
+            "Create a high priority follow-up "
+            "task for lead 12."
+        )
+
+        self.assertTrue(
+            result["success"],
+        )
+
+        self.assertEqual(
+            result["arguments"]["priority"],
+            "high",
+        )
+
+    def test_extracts_requested_task_title(self):
+        result = route_crm_write_proposal_intent(
+            "Create a follow-up task for lead 12 "
+            "to Send the proposal."
+        )
+
+        self.assertTrue(
+            result["success"],
+        )
+
+        self.assertEqual(
+            result["arguments"]["title"],
+            "Send the proposal",
+        )
+
+    def test_unsupported_write_request_is_rejected(self):
+        result = route_crm_write_proposal_intent(
+            "Delete lead 12."
+        )
+
+        self.assertFalse(
+            result["success"],
+        )
+
+        self.assertEqual(
+            result["error"]["code"],
+            "UNSUPPORTED_WRITE_PROPOSAL_INTENT",
+        )
+
+class CRMNaturalLanguageTaskProposalTests(TestCase):
+
+    def setUp(self):
+        self.lead = Lead.objects.create(
+            company_name="Acme Analytics",
+            job_title="Power BI Developer",
+        )
+
+    def test_natural_language_builds_task_proposal(self):
+        result = build_write_proposal_from_message(
+            (
+                "Create a high priority follow-up "
+                f"task for lead {self.lead.id}."
+            )
+        )
+
+        self.assertTrue(
+            result["success"],
+        )
+
+        proposal = result["proposal"]
+
+        self.assertEqual(
+            proposal["action"],
+            "create_lead_task",
+        )
+
+        self.assertEqual(
+            proposal["lead"]["id"],
+            self.lead.id,
+        )
+
+        self.assertEqual(
+            proposal["arguments"]["priority"],
+            "high",
+        )
+
+        self.assertTrue(
+            proposal["requires_confirmation"],
+        )
+
+        self.assertEqual(
+            proposal["status"],
+            "awaiting_confirmation",
+        )
+
+        self.assertIn(
+            "proposal_id",
+            proposal,
+        )
+
+    def test_natural_language_proposal_does_not_write(self):
+        before_count = LeadTask.objects.count()
+
+        result = build_write_proposal_from_message(
+            (
+                "Create a follow-up task "
+                f"for lead {self.lead.id}."
+            )
+        )
+
+        after_count = LeadTask.objects.count()
+
+        self.assertTrue(
+            result["success"],
+        )
+
+        self.assertEqual(
+            before_count,
+            after_count,
+        )
+
+        self.assertEqual(
+            AIActionAudit.objects.count(),
+            0,
+        )
+
+    def test_missing_lead_is_rejected_without_write(self):
+        result = build_write_proposal_from_message(
+            "Create a follow-up task for lead 999999."
+        )
+
+        self.assertFalse(
+            result["success"],
+        )
+
+        self.assertEqual(
+            result["error"]["code"],
+            "LEAD_NOT_FOUND",
+        )
+
+        self.assertEqual(
+            LeadTask.objects.count(),
+            0,
+        )
+
+    def test_read_agent_still_blocks_write_request(self):
+        result = run_crm_read_agent(
+            message=(
+                "Create a follow-up task for lead 12."
+            ),
+        )
+
+        self.assertFalse(
+            result["success"],
+        )
+
+        self.assertEqual(
+            result["error"]["code"],
+            "WRITE_INTENT_NOT_ALLOWED",
         )

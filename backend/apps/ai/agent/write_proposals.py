@@ -1,7 +1,9 @@
 from django.utils.dateparse import parse_datetime
 import uuid
 from apps.leads import services as lead_services
-
+from apps.ai.agent.write_router import (
+    route_crm_write_proposal_intent,
+)
 
 ALLOWED_TASK_PRIORITIES = {
     "low",
@@ -136,4 +138,54 @@ def build_create_lead_task_proposal(
                 "due_date": normalized_due_date,
             },
         },
+    }
+
+def build_write_proposal_from_message(
+    message,
+):
+    """
+    Convert one supported natural-language CRM write
+    request into a validated proposal.
+
+    No CRM mutation occurs here.
+    """
+
+    route = route_crm_write_proposal_intent(
+        message,
+    )
+
+    if not route.get("success"):
+        return route
+
+    if (
+        route.get("action")
+        != "create_lead_task"
+    ):
+        return {
+            "success": False,
+            "error": {
+                "code": "UNSUPPORTED_WRITE_ACTION",
+                "message": (
+                    "This CRM write action is not enabled."
+                ),
+            },
+        }
+
+    proposal_result = (
+        build_create_lead_task_proposal(
+            **route["arguments"]
+        )
+    )
+
+    if not proposal_result.get(
+        "success"
+    ):
+        return proposal_result
+
+    return {
+        "success": True,
+        "intent": route["intent"],
+        "proposal": proposal_result[
+            "proposal"
+        ],
     }
