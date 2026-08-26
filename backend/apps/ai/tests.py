@@ -4720,3 +4720,347 @@ class CRMNaturalLanguageTaskProposalTests(TestCase):
             result["error"]["code"],
             "WRITE_INTENT_NOT_ALLOWED",
         )
+
+class CRMAssistantNaturalLanguageWriteTests(TestCase):
+
+    def setUp(self):
+        self.lead = Lead.objects.create(
+            company_name="Acme Analytics",
+            job_title="Power BI Developer",
+        )
+
+    def test_supported_write_request_returns_proposal_card(self):
+        response = self.client.post(
+            reverse(
+                "ai:crm_assistant_ask",
+            ),
+            {
+                "message": (
+                    "Create a high priority "
+                    "follow-up task for lead "
+                    f"{self.lead.id}."
+                ),
+            },
+        )
+
+        self.assertEqual(
+            response.status_code,
+            200,
+        )
+
+        self.assertContains(
+            response,
+            "Proposed CRM Change",
+        )
+
+        self.assertContains(
+            response,
+            "Acme Analytics",
+        )
+
+        self.assertContains(
+            response,
+            "Confirm Create Task",
+        )
+
+        self.assertEqual(
+            LeadTask.objects.count(),
+            0,
+        )
+
+        self.assertEqual(
+            AIActionAudit.objects.count(),
+            0,
+        )
+
+    @patch(
+        "apps.ai.views."
+        "run_crm_read_agent_with_provider"
+    )
+    def test_supported_write_proposal_does_not_call_read_agent(
+        self,
+        mock_read_agent,
+    ):
+        response = self.client.post(
+            reverse(
+                "ai:crm_assistant_ask",
+            ),
+            {
+                "message": (
+                    "Create a follow-up task "
+                    f"for lead {self.lead.id}."
+                ),
+            },
+        )
+
+        self.assertEqual(
+            response.status_code,
+            200,
+        )
+
+        mock_read_agent.assert_not_called()
+
+        self.assertEqual(
+            LeadTask.objects.count(),
+            0,
+        )
+
+    def test_natural_language_proposal_returns_signed_token(self):
+        response = self.client.post(
+            reverse(
+                "ai:crm_assistant_ask",
+            ),
+            {
+                "message": (
+                    "Create a follow-up task "
+                    f"for lead {self.lead.id}."
+                ),
+            },
+        )
+
+        token = response.context[
+            "proposal_token"
+        ]
+
+        loaded = load_action_proposal(
+            token,
+        )
+
+        self.assertTrue(
+            loaded["success"],
+        )
+
+        proposal = loaded[
+            "proposal"
+        ]
+
+        self.assertEqual(
+            proposal["action"],
+            "create_lead_task",
+        )
+
+        self.assertEqual(
+            proposal["arguments"]["lead_id"],
+            self.lead.id,
+        )
+
+        self.assertTrue(
+            proposal["requires_confirmation"],
+        )
+
+    def test_missing_lead_returns_proposal_error_without_write(
+        self,
+    ):
+        response = self.client.post(
+            reverse(
+                "ai:crm_assistant_ask",
+            ),
+            {
+                "message": (
+                    "Create a follow-up task "
+                    "for lead 999999."
+                ),
+            },
+        )
+
+        self.assertEqual(
+            response.status_code,
+            200,
+        )
+
+        self.assertContains(
+            response,
+            "LEAD_NOT_FOUND",
+        )
+
+        self.assertEqual(
+            LeadTask.objects.count(),
+            0,
+        )
+
+        self.assertEqual(
+            AIActionAudit.objects.count(),
+            0,
+        )
+
+    def test_unsupported_write_request_remains_blocked(self):
+        response = self.client.post(
+            reverse(
+                "ai:crm_assistant_ask",
+            ),
+            {
+                "message": (
+                    f"Delete lead {self.lead.id}."
+                ),
+            },
+        )
+
+        self.assertEqual(
+            response.status_code,
+            200,
+        )
+
+        self.assertContains(
+            response,
+            "WRITE_INTENT_NOT_ALLOWED",
+        )
+
+        self.assertEqual(
+            LeadTask.objects.count(),
+            0,
+        )
+
+    @patch(
+        "apps.ai.views."
+        "run_crm_read_agent_with_provider"
+    )
+    def test_read_request_still_uses_read_agent(
+        self,
+        mock_read_agent,
+    ):
+        mock_read_agent.return_value = {
+            "success": True,
+            "tool_used": "get_pipeline_summary",
+            "answer": (
+                "Your CRM pipeline contains 5 leads."
+            ),
+            "data": {
+                "total_leads": 5,
+            },
+            "response_source": "ai_provider",
+        }
+
+        response = self.client.post(
+            reverse(
+                "ai:crm_assistant_ask",
+            ),
+            {
+                "message": (
+                    "Summarize my pipeline."
+                ),
+            },
+        )
+
+        mock_read_agent.assert_called_once_with(
+            message="Summarize my pipeline.",
+        )
+
+        self.assertContains(
+            response,
+            "Your CRM pipeline contains 5 leads.",
+        )
+
+    def test_natural_language_proposal_requires_separate_confirmation(
+        self,
+    ):
+        #
+        # Step 1:
+        # Natural language creates proposal only.
+        #
+
+        proposal_response = self.client.post(
+            reverse(
+                "ai:crm_assistant_ask",
+            ),
+            {
+                "message": (
+                    "Create a follow-up task "
+                    f"for lead {self.lead.id} "
+                    "to Send proposal."
+                ),
+            },
+        )
+
+        self.assertEqual(
+            LeadTask.objects.count(),
+            0,
+        )
+
+        token = proposal_response.context[
+            "proposal_token"
+        ]
+
+        #
+        # Step 2:
+        # Explicit confirmation executes it.
+        #
+
+        confirm_response = self.client.post(
+            reverse(
+                "ai:crm_assistant_task_confirm",
+            ),
+            {
+                "proposal_token": token,
+            },
+        )
+
+        self.assertEqual(
+            confirm_response.status_code,
+            200,
+        )
+
+        self.assertEqual(
+            LeadTask.objects.count(),
+            1,
+        )
+
+        self.assertEqual(
+            AIActionAudit.objects.count(),
+            1,
+        )
+
+        task = LeadTask.objects.get()
+
+        self.assertEqual(
+            task.title,
+            "Send proposal",
+        )
+
+        self.assertContains(
+            confirm_response,
+            "CRM Task Created",
+        )
+
+    def test_typing_yes_does_not_confirm_previous_proposal(
+        self,
+    ):
+        proposal_response = self.client.post(
+            reverse(
+                "ai:crm_assistant_ask",
+            ),
+            {
+                "message": (
+                    "Create a follow-up task "
+                    f"for lead {self.lead.id}."
+                ),
+            },
+        )
+
+        self.assertEqual(
+            proposal_response.status_code,
+            200,
+        )
+
+        self.assertEqual(
+            LeadTask.objects.count(),
+            0,
+        )
+
+        self.client.post(
+            reverse(
+                "ai:crm_assistant_ask",
+            ),
+            {
+                "message": "Yes.",
+            },
+        )
+
+        self.assertEqual(
+            LeadTask.objects.count(),
+            0,
+        )
+
+        self.assertEqual(
+            AIActionAudit.objects.count(),
+            0,
+        )

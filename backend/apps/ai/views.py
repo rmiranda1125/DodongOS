@@ -3,6 +3,9 @@ from django.views.decorators.http import (
     require_GET,
     require_POST,
 )
+from django.contrib.admin.views.decorators import (
+    staff_member_required,
+)
 
 from apps.ai.agent.read_agent import (
     run_crm_read_agent_with_provider,
@@ -13,15 +16,13 @@ from apps.ai.agent.proposal_tokens import (
 )
 from apps.ai.agent.write_proposals import (
     build_create_lead_task_proposal,
+    build_write_proposal_from_message,
 )
 from apps.ai.agent.write_executor import (
     execute_confirmed_proposal,
 )
-from django.contrib.admin.views.decorators import (
-    staff_member_required,
-)
-
 from apps.ai import audit_services
+
 
 @require_GET
 def crm_assistant(request):
@@ -40,10 +41,10 @@ def crm_assistant(request):
 @require_POST
 def crm_assistant_ask(request):
     """
-    Handle one CRM Read Agent question.
+    Handle one CRM Assistant request.
 
-    The view delegates all routing, tool execution, and
-    provider behavior to the CRM Read Agent.
+    Supported controlled write requests may prepare a
+    proposal, but this endpoint never executes a CRM write.
     """
 
     message = request.POST.get(
@@ -68,6 +69,82 @@ def crm_assistant_ask(request):
             },
         )
 
+    #
+    # -----------------------------------------------------
+    # CONTROLLED WRITE PROPOSAL
+    # -----------------------------------------------------
+    #
+    # Try the deterministic write-proposal parser first.
+    #
+    # A successful result creates only a proposal.
+    # No CRM write is executed here.
+    #
+
+    proposal_result = (
+        build_write_proposal_from_message(
+            message
+        )
+    )
+
+    if proposal_result.get("success"):
+
+        proposal = proposal_result[
+            "proposal"
+        ]
+
+        proposal_token = (
+            sign_action_proposal(
+                proposal
+            )
+        )
+
+        return render(
+            request,
+            "ai/partials/create_task_proposal.html",
+            {
+                "result": {
+                    "success": True,
+                    "proposal": proposal,
+                },
+                "proposal_token": proposal_token,
+                "user_message": message,
+            },
+        )
+
+    proposal_error_code = (
+        proposal_result
+        .get("error", {})
+        .get("code")
+    )
+
+    #
+    # If the sentence WAS recognized as a supported
+    # write proposal but proposal validation failed
+    # (for example, lead not found), show that error.
+    #
+    # Only UNSUPPORTED_WRITE_PROPOSAL_INTENT falls
+    # through to the existing read agent.
+    #
+
+    if (
+        proposal_error_code
+        != "UNSUPPORTED_WRITE_PROPOSAL_INTENT"
+    ):
+        return render(
+            request,
+            "ai/partials/create_task_proposal.html",
+            {
+                "result": proposal_result,
+                "user_message": message,
+            },
+        )
+
+    #
+    # -----------------------------------------------------
+    # EXISTING READ AGENT
+    # -----------------------------------------------------
+    #
+
     result = run_crm_read_agent_with_provider(
         message=message,
     )
@@ -80,6 +157,7 @@ def crm_assistant_ask(request):
             "user_message": message,
         },
     )
+
 
 @require_POST
 def crm_assistant_task_proposal(request):
@@ -147,6 +225,7 @@ def crm_assistant_task_proposal(request):
         context,
     )
 
+
 @require_POST
 def crm_assistant_task_confirm(request):
     """
@@ -207,6 +286,7 @@ def crm_assistant_task_confirm(request):
             "result": result,
         },
     )
+
 
 @staff_member_required
 @require_GET

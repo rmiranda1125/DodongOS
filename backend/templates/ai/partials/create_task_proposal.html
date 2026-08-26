@@ -22,6 +22,27 @@
 
 
             <!-- ================================================= -->
+            <!-- ORIGINAL USER REQUEST -->
+            <!-- ================================================= -->
+
+            {% if user_message %}
+
+                <div class="mb-3">
+
+                    <div class="small text-muted mb-1">
+                        You asked
+                    </div>
+
+                    <div class="border-start border-3 ps-3">
+                        {{ user_message }}
+                    </div>
+
+                </div>
+
+            {% endif %}
+
+
+            <!-- ================================================= -->
             <!-- PROPOSED TASK DETAILS -->
             <!-- ================================================= -->
 
