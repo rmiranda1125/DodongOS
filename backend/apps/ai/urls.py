@@ -27,4 +27,9 @@ urlpatterns = [
     views.crm_assistant_task_confirm,
     name="crm_assistant_task_confirm",
     ),
+    path(
+    "audit/",
+    views.crm_action_audit,
+    name="crm_action_audit",
+    ),
 ]

@@ -29,6 +29,19 @@
                     natural-language requests.
                 </p>
 
+                <!-- Staff-only Audit Link -->
+
+                {% if request.user.is_staff %}
+
+                    <a
+                        href="{% url 'ai:crm_action_audit' %}"
+                        class="btn btn-outline-secondary btn-sm mt-2"
+                    >
+                        View Action Audit
+                    </a>
+
+                {% endif %}
+
             </div>
 
 

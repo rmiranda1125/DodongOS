@@ -59,3 +59,47 @@ def mark_action_audit_executed(
     )
 
     return audit
+
+def get_recent_action_audits(
+    *,
+    limit=50,
+):
+    """
+    Return recent AI CRM action audits as
+    JSON-safe dictionaries.
+    """
+
+    if (
+        not isinstance(limit, int)
+        or isinstance(limit, bool)
+        or limit < 1
+    ):
+        limit = 50
+
+    audits = (
+        AIActionAudit.objects
+        .order_by("-confirmed_at")[:limit]
+    )
+
+    return [
+        {
+            "id": audit.id,
+            "proposal_id": str(
+                audit.proposal_id
+            ),
+            "action": audit.action,
+            "status": audit.status,
+            "lead_id": audit.lead_id,
+            "result_task_id": (
+                audit.result_task_id
+            ),
+            "error_code": audit.error_code,
+            "proposal_data": (
+                audit.proposal_data
+            ),
+            "confirmed_at": (
+                audit.confirmed_at
+            ),
+        }
+        for audit in audits
+    ]

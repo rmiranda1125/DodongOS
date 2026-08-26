@@ -64,6 +64,12 @@ from apps.ai.agent.proposal_tokens import (
     sign_action_proposal,
 )
 from apps.ai.models import AIActionAudit
+from django.contrib.admin.sites import site
+from django.contrib.auth import get_user_model
+import uuid
+
+from apps.ai import audit_services
+
 
 # =========================================================
 # PRIORITY TASKS TOOL TESTS
@@ -4373,4 +4379,150 @@ class CRMTaskConfirmationViewTests(TestCase):
         self.assertContains(
             second_response,
             "PROPOSAL_ALREADY_USED",
+        )
+
+class AIActionAuditAdminTests(TestCase):
+
+    def test_action_audit_is_registered_with_admin(self):
+        self.assertIn(
+            AIActionAudit,
+            site._registry,
+        )
+
+    def test_action_audit_admin_disallows_add(self):
+        model_admin = site._registry[
+            AIActionAudit
+        ]
+
+        request = self.client.request()
+
+        self.assertFalse(
+            model_admin.has_add_permission(
+                request,
+            )
+        )
+
+    def test_recent_action_audits_returns_json_safe_data(self):
+        proposal_id = uuid.uuid4()
+
+        audit_services.create_action_audit(
+            proposal_id=proposal_id,
+            action="create_lead_task",
+            lead_id=12,
+            proposal_data={
+                "title": "Follow up",
+            },
+        )
+
+        audits = (
+            audit_services.get_recent_action_audits()
+        )
+
+        self.assertEqual(
+            len(audits),
+            1,
+        )
+
+        self.assertEqual(
+            audits[0]["proposal_id"],
+            str(proposal_id),
+        )
+
+        self.assertEqual(
+            audits[0]["action"],
+            "create_lead_task",
+        )    
+
+class CRMActionAuditViewTests(TestCase):
+
+    def setUp(self):
+        User = get_user_model()
+
+        self.staff_user = User.objects.create_user(
+            username="auditstaff",
+            password="test-password",
+            is_staff=True,
+        )
+
+    def test_non_staff_user_cannot_view_audit_page(self):
+        response = self.client.get(
+            reverse(
+                "ai:crm_action_audit",
+            )
+        )
+
+        self.assertNotEqual(
+            response.status_code,
+            200,
+        )
+
+    def test_staff_user_can_view_audit_page(self):
+        self.client.force_login(
+            self.staff_user,
+        )
+
+        response = self.client.get(
+            reverse(
+                "ai:crm_action_audit",
+            )
+        )
+
+        self.assertEqual(
+            response.status_code,
+            200,
+        )
+
+        self.assertContains(
+            response,
+            "Dodong Action Audit",
+        )
+
+    def test_audit_page_displays_execution_record(self):
+        proposal = {
+            "lead_id": 12,
+            "title": "Follow up",
+        }
+
+        audit_services.create_action_audit(
+            proposal_id=uuid.uuid4(),
+            action="create_lead_task",
+            lead_id=12,
+            proposal_data=proposal,
+        )
+
+        audit = AIActionAudit.objects.get()
+
+        audit_services.mark_action_audit_executed(
+            audit=audit,
+            result_task_id=99,
+        )
+
+        self.client.force_login(
+            self.staff_user,
+        )
+
+        response = self.client.get(
+            reverse(
+                "ai:crm_action_audit",
+            )
+        )
+
+        self.assertContains(
+            response,
+            "create_lead_task",
+        )
+
+        self.assertContains(
+            response,
+            "12",
+        )
+
+        self.assertContains(
+            response,
+            "99",
+        )
+
+        self.assertContains(
+            response,
+            "Executed",
         )

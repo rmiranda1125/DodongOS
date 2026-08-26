@@ -17,6 +17,11 @@ from apps.ai.agent.write_proposals import (
 from apps.ai.agent.write_executor import (
     execute_confirmed_proposal,
 )
+from django.contrib.admin.views.decorators import (
+    staff_member_required,
+)
+
+from apps.ai import audit_services
 
 @require_GET
 def crm_assistant(request):
@@ -200,5 +205,27 @@ def crm_assistant_task_confirm(request):
         "ai/partials/create_task_result.html",
         {
             "result": result,
+        },
+    )
+
+@staff_member_required
+@require_GET
+def crm_action_audit(request):
+    """
+    Staff-only visibility into confirmed
+    AI-assisted CRM actions.
+    """
+
+    audits = (
+        audit_services.get_recent_action_audits(
+            limit=50,
+        )
+    )
+
+    return render(
+        request,
+        "ai/crm_action_audit.html",
+        {
+            "audits": audits,
         },
     )
