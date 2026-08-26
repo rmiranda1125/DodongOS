@@ -230,3 +230,83 @@ def build_write_proposal_from_message(
         "intent": route["intent"],
         "proposal": proposal,
     }
+
+def build_complete_lead_task_proposal(
+    *,
+    task_id,
+):
+    """
+    Build a proposal to complete one CRM task.
+
+    This performs no CRM mutation.
+    """
+
+    if (
+        not isinstance(task_id, int)
+        or isinstance(task_id, bool)
+        or task_id < 1
+    ):
+        return {
+            "success": False,
+            "error": {
+                "code": "INVALID_TASK_ID",
+                "message": (
+                    "task_id must be a positive integer."
+                ),
+            },
+        }
+
+    task = lead_services.get_lead_task_by_id(
+        task_id=task_id,
+    )
+
+    if task is None:
+        return {
+            "success": False,
+            "error": {
+                "code": "TASK_NOT_FOUND",
+                "message": (
+                    f"Task {task_id} was not found."
+                ),
+            },
+        }
+
+    if task.status == "completed":
+        return {
+            "success": False,
+            "error": {
+                "code": "TASK_ALREADY_COMPLETED",
+                "message": (
+                    f"Task {task_id} is already completed."
+                ),
+            },
+        }
+
+    return {
+        "success": True,
+        "proposal": {
+            "proposal_id": str(
+                uuid.uuid4()
+            ),
+            "action": "complete_lead_task",
+            "access_level": "write",
+            "status": "awaiting_confirmation",
+            "requires_confirmation": True,
+            "task": {
+                "id": task.id,
+                "title": task.title,
+                "status": task.status,
+                "priority": task.priority,
+                "task_type": task.task_type,
+            },
+            "lead": {
+                "id": task.lead_id,
+                "company_name": (
+                    task.lead.company_name
+                ),
+            },
+            "arguments": {
+                "task_id": task.id,
+            },
+        },
+    }

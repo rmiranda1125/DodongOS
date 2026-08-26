@@ -499,6 +499,7 @@ def get_priority_tasks(
         if task.due_date is None:
             overdue_rank = 1
             due_rank = now
+
         else:
             overdue_rank = (
                 0
@@ -521,6 +522,7 @@ def get_priority_tasks(
 
     return tasks[:limit]
 
+
 def test_get_pipeline_summary_ignores_zero_scores(self):
     Lead.objects.create(
         company_name="Unscored Lead",
@@ -538,3 +540,22 @@ def test_get_pipeline_summary_ignores_zero_scores(self):
         summary["average_lead_score"],
         80,
     )
+
+def get_lead_task_by_id(
+    *,
+    task_id,
+):
+    """
+    Return one CRM task by ID.
+
+    AI layers should use this service rather than
+    accessing LeadTask.objects directly.
+    """
+
+    try:
+        return LeadTask.objects.get(
+            id=task_id,
+        )
+
+    except LeadTask.DoesNotExist:
+        return None

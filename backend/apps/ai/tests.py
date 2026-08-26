@@ -52,7 +52,9 @@ from apps.ai.agent.router import (
 )
 
 from apps.ai.agent.write_proposals import (
+    build_complete_lead_task_proposal,
     build_create_lead_task_proposal,
+    build_write_proposal_from_message,
 )
 
 from apps.ai.agent.write_executor import (
@@ -72,10 +74,7 @@ from apps.ai import audit_services
 from apps.ai.agent.write_router import (
     route_crm_write_proposal_intent,
 )
-from apps.ai.agent.write_proposals import (
-    build_create_lead_task_proposal,
-    build_write_proposal_from_message,
-)
+
 
 
 # =========================================================
@@ -5658,4 +5657,204 @@ class CRMNaturalLanguageWriteAcceptanceTests(TestCase):
         self.assertEqual(
             LeadTask.objects.count(),
             0,
+        )
+
+class CompleteLeadTaskProposalTests(TestCase):
+
+    def setUp(self):
+        self.lead = Lead.objects.create(
+            company_name="Acme Analytics",
+            job_title="Power BI Developer",
+        )
+
+        self.task = LeadTask.objects.create(
+            lead=self.lead,
+            title="Send pricing proposal",
+            task_type="follow_up",
+            priority="high",
+            status="pending",
+        )
+
+    def test_builds_task_completion_proposal(self):
+        result = build_complete_lead_task_proposal(
+            task_id=self.task.id,
+        )
+
+        self.assertTrue(
+            result["success"],
+        )
+
+        proposal = result["proposal"]
+
+        self.assertEqual(
+            proposal["action"],
+            "complete_lead_task",
+        )
+
+        self.assertEqual(
+            proposal["access_level"],
+            "write",
+        )
+
+        self.assertEqual(
+            proposal["status"],
+            "awaiting_confirmation",
+        )
+
+        self.assertTrue(
+            proposal["requires_confirmation"],
+        )
+
+        self.assertEqual(
+            proposal["task"]["id"],
+            self.task.id,
+        )
+
+        self.assertEqual(
+            proposal["task"]["title"],
+            "Send pricing proposal",
+        )
+
+        self.assertEqual(
+            proposal["lead"]["id"],
+            self.lead.id,
+        )
+
+        self.assertEqual(
+            proposal["arguments"]["task_id"],
+            self.task.id,
+        )
+
+        self.assertIn(
+            "proposal_id",
+            proposal,
+        )
+
+    def test_proposal_does_not_complete_task(self):
+        before_activity_count = (
+            LeadActivity.objects.count()
+        )
+
+        result = build_complete_lead_task_proposal(
+            task_id=self.task.id,
+        )
+
+        self.assertTrue(
+            result["success"],
+        )
+
+        self.task.refresh_from_db()
+
+        self.assertEqual(
+            self.task.status,
+            "pending",
+        )
+
+        self.assertIsNone(
+            self.task.completed_at,
+        )
+
+        self.assertEqual(
+            LeadActivity.objects.count(),
+            before_activity_count,
+        )
+
+        self.assertEqual(
+            AIActionAudit.objects.count(),
+            0,
+        )
+
+    def test_proposal_contains_task_and_lead_snapshot(self):
+        result = build_complete_lead_task_proposal(
+            task_id=self.task.id,
+        )
+
+        proposal = result["proposal"]
+
+        self.assertEqual(
+            proposal["task"]["priority"],
+            "high",
+        )
+
+        self.assertEqual(
+            proposal["task"]["task_type"],
+            "follow_up",
+        )
+
+        self.assertEqual(
+            proposal["task"]["status"],
+            "pending",
+        )
+
+        self.assertEqual(
+            proposal["lead"]["company_name"],
+            "Acme Analytics",
+        )
+
+    def test_missing_task_is_rejected(self):
+        result = build_complete_lead_task_proposal(
+            task_id=999999,
+        )
+
+        self.assertFalse(
+            result["success"],
+        )
+
+        self.assertEqual(
+            result["error"]["code"],
+            "TASK_NOT_FOUND",
+        )
+
+        self.assertEqual(
+            LeadActivity.objects.count(),
+            0,
+        )
+
+    def test_invalid_task_id_is_rejected(self):
+        result = build_complete_lead_task_proposal(
+            task_id=0,
+        )
+
+        self.assertFalse(
+            result["success"],
+        )
+
+        self.assertEqual(
+            result["error"]["code"],
+            "INVALID_TASK_ID",
+        )
+
+    def test_already_completed_task_is_rejected(self):
+        self.task.status = "completed"
+        self.task.save(
+            update_fields=[
+                "status",
+            ]
+        )
+
+        result = build_complete_lead_task_proposal(
+            task_id=self.task.id,
+        )
+
+        self.assertFalse(
+            result["success"],
+        )
+
+        self.assertEqual(
+            result["error"]["code"],
+            "TASK_ALREADY_COMPLETED",
+        )
+
+    def test_completion_proposals_have_unique_ids(self):
+        first = build_complete_lead_task_proposal(
+            task_id=self.task.id,
+        )
+
+        second = build_complete_lead_task_proposal(
+            task_id=self.task.id,
+        )
+
+        self.assertNotEqual(
+            first["proposal"]["proposal_id"],
+            second["proposal"]["proposal_id"],
         )
