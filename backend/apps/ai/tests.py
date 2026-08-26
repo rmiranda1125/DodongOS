@@ -4506,7 +4506,7 @@ class CRMTaskConfirmationViewTests(TestCase):
             LeadTask.objects.count(),
             0,
         )
-        
+
 class AIActionAuditAdminTests(TestCase):
 
     def test_action_audit_is_registered_with_admin(self):
@@ -5314,5 +5314,348 @@ class CRMAssistantNaturalLanguageWriteTests(TestCase):
 
         self.assertEqual(
             AIActionAudit.objects.count(),
+            0,
+        )
+
+class CRMNaturalLanguageWriteAcceptanceTests(TestCase):
+
+    def setUp(self):
+        self.lead = Lead.objects.create(
+            company_name="Acme Analytics",
+            job_title="Power BI Developer",
+        )
+
+    def _ask_for_task(
+        self,
+        message=None,
+    ):
+        if message is None:
+            message = (
+                "Create a high priority follow-up task "
+                f"for lead {self.lead.id} "
+                "to Send pricing proposal."
+            )
+
+        return self.client.post(
+            reverse(
+                "ai:crm_assistant_ask",
+            ),
+            {
+                "message": message,
+            },
+        )
+
+    def test_acceptance_proposal_stage_performs_no_write(self):
+        response = self._ask_for_task()
+
+        self.assertEqual(
+            response.status_code,
+            200,
+        )
+
+        self.assertContains(
+            response,
+            "Proposed CRM Change",
+        )
+
+        self.assertContains(
+            response,
+            "Confirm Create Task",
+        )
+
+        self.assertEqual(
+            LeadTask.objects.count(),
+            0,
+        )
+
+        self.assertEqual(
+            AIActionAudit.objects.count(),
+            0,
+        )
+
+    def test_acceptance_confirmation_creates_one_verified_task_and_audit(
+        self,
+    ):
+        proposal_response = self._ask_for_task()
+
+        token = proposal_response.context[
+            "proposal_token"
+        ]
+
+        confirm_response = self.client.post(
+            reverse(
+                "ai:crm_assistant_task_confirm",
+            ),
+            {
+                "proposal_token": token,
+            },
+        )
+
+        self.assertEqual(
+            confirm_response.status_code,
+            200,
+        )
+
+        self.assertEqual(
+            LeadTask.objects.count(),
+            1,
+        )
+
+        self.assertEqual(
+            AIActionAudit.objects.count(),
+            1,
+        )
+
+        task = LeadTask.objects.get()
+
+        self.assertEqual(
+            task.lead_id,
+            self.lead.id,
+        )
+
+        self.assertEqual(
+            task.title,
+            "Send pricing proposal",
+        )
+
+        self.assertEqual(
+            task.priority,
+            "high",
+        )
+
+        audit = AIActionAudit.objects.get()
+
+        self.assertEqual(
+            audit.status,
+            "executed",
+        )
+
+        self.assertEqual(
+            audit.result_task_id,
+            task.id,
+        )
+
+        self.assertContains(
+            confirm_response,
+            "CRM Task Created",
+        )
+
+    def test_acceptance_same_token_cannot_execute_twice(self):
+        proposal_response = self._ask_for_task()
+
+        token = proposal_response.context[
+            "proposal_token"
+        ]
+
+        first = self.client.post(
+            reverse(
+                "ai:crm_assistant_task_confirm",
+            ),
+            {
+                "proposal_token": token,
+            },
+        )
+
+        self.assertEqual(
+            first.status_code,
+            200,
+        )
+
+        second = self.client.post(
+            reverse(
+                "ai:crm_assistant_task_confirm",
+            ),
+            {
+                "proposal_token": token,
+            },
+        )
+
+        self.assertEqual(
+            second.status_code,
+            200,
+        )
+
+        self.assertEqual(
+            LeadTask.objects.count(),
+            1,
+        )
+
+        self.assertEqual(
+            AIActionAudit.objects.count(),
+            1,
+        )
+
+        self.assertContains(
+            second,
+            "PROPOSAL_ALREADY_USED",
+        )
+
+    def test_acceptance_tampered_token_cannot_write(self):
+        proposal_response = self._ask_for_task()
+
+        token = proposal_response.context[
+            "proposal_token"
+        ]
+
+        tampered = (
+            token[:-1]
+            + (
+                "A"
+                if token[-1] != "A"
+                else "B"
+            )
+        )
+
+        response = self.client.post(
+            reverse(
+                "ai:crm_assistant_task_confirm",
+            ),
+            {
+                "proposal_token": tampered,
+            },
+        )
+
+        self.assertEqual(
+            response.status_code,
+            200,
+        )
+
+        self.assertEqual(
+            LeadTask.objects.count(),
+            0,
+        )
+
+        self.assertEqual(
+            AIActionAudit.objects.count(),
+            0,
+        )
+
+        self.assertContains(
+            response,
+            "INVALID_PROPOSAL_TOKEN",
+        )
+
+    def test_acceptance_delete_request_remains_blocked(self):
+        response = self.client.post(
+            reverse(
+                "ai:crm_assistant_ask",
+            ),
+            {
+                "message": (
+                    f"Delete lead {self.lead.id}."
+                ),
+            },
+        )
+
+        self.assertContains(
+            response,
+            "WRITE_INTENT_NOT_ALLOWED",
+        )
+
+        self.assertEqual(
+            LeadTask.objects.count(),
+            0,
+        )
+
+        self.assertEqual(
+            AIActionAudit.objects.count(),
+            0,
+        )
+
+    def test_acceptance_status_change_remains_blocked(self):
+        response = self.client.post(
+            reverse(
+                "ai:crm_assistant_ask",
+            ),
+            {
+                "message": (
+                    f"Change status of lead "
+                    f"{self.lead.id} to won."
+                ),
+            },
+        )
+
+        self.assertContains(
+            response,
+            "WRITE_INTENT_NOT_ALLOWED",
+        )
+
+        self.assertEqual(
+            LeadTask.objects.count(),
+            0,
+        )
+
+    def test_acceptance_chat_confirmation_words_never_execute(
+        self,
+    ):
+        self._ask_for_task()
+
+        for message in (
+            "Yes.",
+            "Confirm.",
+            "Go ahead.",
+            "Do it.",
+        ):
+            self.client.post(
+                reverse(
+                    "ai:crm_assistant_ask",
+                ),
+                {
+                    "message": message,
+                },
+            )
+
+        self.assertEqual(
+            LeadTask.objects.count(),
+            0,
+        )
+
+        self.assertEqual(
+            AIActionAudit.objects.count(),
+            0,
+        )
+
+    @patch(
+        "apps.ai.views."
+        "run_crm_read_agent_with_provider"
+    )
+    def test_acceptance_read_requests_still_use_read_agent(
+        self,
+        mock_read_agent,
+    ):
+        mock_read_agent.return_value = {
+            "success": True,
+            "tool_used": "get_pipeline_summary",
+            "answer": (
+                "Your CRM pipeline contains 5 leads."
+            ),
+            "data": {
+                "total_leads": 5,
+            },
+            "response_source": "ai_provider",
+        }
+
+        response = self.client.post(
+            reverse(
+                "ai:crm_assistant_ask",
+            ),
+            {
+                "message": (
+                    "Summarize my pipeline."
+                ),
+            },
+        )
+
+        mock_read_agent.assert_called_once_with(
+            message="Summarize my pipeline.",
+        )
+
+        self.assertContains(
+            response,
+            "Your CRM pipeline contains 5 leads.",
+        )
+
+        self.assertEqual(
+            LeadTask.objects.count(),
             0,
         )
