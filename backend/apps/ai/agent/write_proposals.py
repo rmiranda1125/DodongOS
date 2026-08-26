@@ -171,9 +171,28 @@ def build_write_proposal_from_message(
             },
         }
 
+    #
+    # Copy the parser arguments so we do not mutate
+    # the router result.
+    #
+
+    arguments = dict(
+        route["arguments"]
+    )
+
+    #
+    # This is parser metadata only.
+    # It must NOT be passed to the CRM proposal builder.
+    #
+
+    title_is_default = arguments.pop(
+        "title_is_default",
+        False,
+    )
+
     proposal_result = (
         build_create_lead_task_proposal(
-            **route["arguments"]
+            **arguments
         )
     )
 
@@ -182,10 +201,32 @@ def build_write_proposal_from_message(
     ):
         return proposal_result
 
+    proposal = proposal_result[
+        "proposal"
+    ]
+
+    #
+    # Only replace the generated fallback title.
+    #
+    # Explicit user titles such as:
+    #
+    # "to Send pricing proposal"
+    #
+    # must remain untouched.
+    #
+
+    if title_is_default is True:
+
+        company_name = proposal[
+            "lead"
+        ]["company_name"]
+
+        proposal["arguments"]["title"] = (
+            f"Follow up with {company_name}"
+        )
+
     return {
         "success": True,
         "intent": route["intent"],
-        "proposal": proposal_result[
-            "proposal"
-        ],
+        "proposal": proposal,
     }

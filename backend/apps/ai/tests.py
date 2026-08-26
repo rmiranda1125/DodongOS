@@ -4388,6 +4388,125 @@ class CRMTaskConfirmationViewTests(TestCase):
             "PROPOSAL_ALREADY_USED",
         )
 
+    def test_successful_confirmation_shows_verified_message(self):
+        token = self._build_token(
+            title="Follow up with Acme",
+        )
+
+        response = self.client.post(
+            reverse(
+                "ai:crm_assistant_task_confirm",
+            ),
+            {
+                "proposal_token": token,
+            },
+        )
+
+        self.assertEqual(
+            response.status_code,
+            200,
+        )
+
+        self.assertContains(
+            response,
+            "CRM Task Created",
+        )
+
+        self.assertContains(
+            response,
+            "Dodong verified that the new task",
+        )
+
+        self.assertContains(
+            response,
+            "Follow up with Acme",
+        )
+
+        self.assertEqual(
+            LeadTask.objects.count(),
+            1,
+        )
+
+    def test_replayed_confirmation_has_clear_message(self):
+        token = self._build_token(
+            title="One-time follow up",
+        )
+
+        first_response = self.client.post(
+            reverse(
+                "ai:crm_assistant_task_confirm",
+            ),
+            {
+                "proposal_token": token,
+            },
+        )
+
+        self.assertEqual(
+            first_response.status_code,
+            200,
+        )
+
+        self.assertEqual(
+            LeadTask.objects.count(),
+            1,
+        )
+
+        second_response = self.client.post(
+            reverse(
+                "ai:crm_assistant_task_confirm",
+            ),
+            {
+                "proposal_token": token,
+            },
+        )
+
+        self.assertContains(
+            second_response,
+            "This action was already processed.",
+        )
+
+        self.assertContains(
+            second_response,
+            "Dodong did not create another task.",
+        )
+
+        self.assertEqual(
+            LeadTask.objects.count(),
+            1,
+        )
+
+    def test_invalid_confirmation_token_has_safe_message(self):
+        response = self.client.post(
+            reverse(
+                "ai:crm_assistant_task_confirm",
+            ),
+            {
+                "proposal_token": (
+                    "this-is-not-a-valid-token"
+                ),
+            },
+        )
+
+        self.assertEqual(
+            response.status_code,
+            200,
+        )
+
+        self.assertContains(
+            response,
+            "This proposal could not be verified.",
+        )
+
+        self.assertContains(
+            response,
+            "No CRM change was made.",
+        )
+
+        self.assertEqual(
+            LeadTask.objects.count(),
+            0,
+        )
+        
 class AIActionAuditAdminTests(TestCase):
 
     def test_action_audit_is_registered_with_admin(self):
@@ -4609,6 +4728,40 @@ class CRMWriteProposalRouterTests(TestCase):
             "UNSUPPORTED_WRITE_PROPOSAL_INTENT",
         )
 
+    def test_accepts_follow_up_with_space(self):
+        result = route_crm_write_proposal_intent(
+            "Create a follow up task for lead 12."
+        )
+
+        self.assertTrue(
+            result["success"],
+        )
+
+        self.assertEqual(
+            result["arguments"]["lead_id"],
+            12,
+        )
+
+
+    def test_accepts_followup_as_one_word(self):
+        result = route_crm_write_proposal_intent(
+            "Create a followup task for lead 12."
+        )
+
+        self.assertTrue(
+            result["success"],
+        )
+
+
+    def test_accepts_polite_create_request(self):
+        result = route_crm_write_proposal_intent(
+            "Please create a follow-up task for lead 12."
+        )
+
+        self.assertTrue(
+            result["success"],
+        )
+
 class CRMNaturalLanguageTaskProposalTests(TestCase):
 
     def setUp(self):
@@ -4719,6 +4872,41 @@ class CRMNaturalLanguageTaskProposalTests(TestCase):
         self.assertEqual(
             result["error"]["code"],
             "WRITE_INTENT_NOT_ALLOWED",
+        )
+
+    def test_default_task_title_uses_company_name(self):
+        result = build_write_proposal_from_message(
+            (
+                "Create a follow-up task "
+                f"for lead {self.lead.id}."
+            )
+        )
+
+        self.assertTrue(
+            result["success"],
+        )
+
+        self.assertEqual(
+            result["proposal"]["arguments"]["title"],
+            "Follow up with Acme Analytics",
+        )
+
+    def test_explicit_task_title_is_preserved(self):
+        result = build_write_proposal_from_message(
+            (
+                "Create a follow-up task "
+                f"for lead {self.lead.id} "
+                "to Send pricing proposal."
+            )
+        )
+
+        self.assertTrue(
+            result["success"],
+        )
+
+        self.assertEqual(
+            result["proposal"]["arguments"]["title"],
+            "Send pricing proposal",
         )
 
 class CRMAssistantNaturalLanguageWriteTests(TestCase):
@@ -5052,6 +5240,70 @@ class CRMAssistantNaturalLanguageWriteTests(TestCase):
             ),
             {
                 "message": "Yes.",
+            },
+        )
+
+        self.assertEqual(
+            LeadTask.objects.count(),
+            0,
+        )
+
+        self.assertEqual(
+            AIActionAudit.objects.count(),
+            0,
+        )
+
+    def test_go_ahead_does_not_execute_write(self):
+        self.client.post(
+            reverse(
+                "ai:crm_assistant_ask",
+            ),
+            {
+                "message": (
+                    "Create a follow-up task "
+                    f"for lead {self.lead.id}."
+                ),
+            },
+        )
+
+        self.client.post(
+            reverse(
+                "ai:crm_assistant_ask",
+            ),
+            {
+                "message": "Go ahead.",
+            },
+        )
+
+        self.assertEqual(
+            LeadTask.objects.count(),
+            0,
+        )
+
+        self.assertEqual(
+            AIActionAudit.objects.count(),
+            0,
+        )
+
+    def test_do_it_does_not_execute_write(self):
+        self.client.post(
+            reverse(
+                "ai:crm_assistant_ask",
+            ),
+            {
+                "message": (
+                    "Create a follow-up task "
+                    f"for lead {self.lead.id}."
+                ),
+            },
+        )
+
+        self.client.post(
+            reverse(
+                "ai:crm_assistant_ask",
+            ),
+            {
+                "message": "Do it.",
             },
         )
 

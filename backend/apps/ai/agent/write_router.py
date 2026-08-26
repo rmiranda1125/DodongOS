@@ -4,6 +4,7 @@ import re
 CREATE_FOLLOW_UP_TASK_PATTERN = re.compile(
     r"""
     ^\s*
+    (?:please\s+)?
     create
     \s+
     (?:a\s+)?
@@ -12,7 +13,7 @@ CREATE_FOLLOW_UP_TASK_PATTERN = re.compile(
         \s+
         (?:priority\s+)?
     )?
-    follow[-\s]up
+    follow(?:[-\s]?up)
     \s+
     task
     \s+
@@ -87,10 +88,13 @@ def route_crm_write_proposal_intent(message):
         title = requested_title.strip().rstrip(
             ".!?"
         )
+        title_is_default = False
+
     else:
         title = (
             f"Follow up with lead {lead_id}"
         )
+        title_is_default = True
 
     return {
         "success": True,
@@ -101,5 +105,6 @@ def route_crm_write_proposal_intent(message):
             "title": title,
             "description": "",
             "priority": priority,
+            "title_is_default": title_is_default,
         },
     }
