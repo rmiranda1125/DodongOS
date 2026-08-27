@@ -6227,3 +6227,507 @@ class CRMNaturalLanguageTaskCompletionTests(TestCase):
             ).status,
             "pending",
         )
+
+    def test_completion_requires_explicit_confirm_post(self):
+        proposal_response = self.client.post(
+            reverse(
+                "ai:crm_assistant_ask",
+            ),
+            {
+                "message": (
+                    f"Complete task {self.task.id}."
+                ),
+            },
+        )
+
+        self.task.refresh_from_db()
+
+        self.assertEqual(
+            self.task.status,
+            "pending",
+        )
+
+        token = proposal_response.context[
+            "proposal_token"
+        ]
+
+        confirm_response = self.client.post(
+            reverse(
+                "ai:crm_assistant_task_confirm",
+            ),
+            {
+                "proposal_token": token,
+            },
+        )
+
+        self.assertEqual(
+            confirm_response.status_code,
+            200,
+        )
+
+        self.task.refresh_from_db()
+
+        self.assertEqual(
+            self.task.status,
+            "completed",
+        )
+
+        self.assertIsNotNone(
+            self.task.completed_at,
+        )
+
+        self.assertEqual(
+            AIActionAudit.objects.count(),
+            1,
+        )
+
+        self.assertContains(
+            confirm_response,
+            "CRM Task Completed",
+        )
+
+    def test_complete_it_does_not_confirm_previous_proposal(self):
+        self.client.post(
+            reverse(
+                "ai:crm_assistant_ask",
+            ),
+            {
+                "message": (
+                    f"Complete task {self.task.id}."
+                ),
+            },
+        )
+
+        self.client.post(
+            reverse(
+                "ai:crm_assistant_ask",
+            ),
+            {
+                "message": "Complete it.",
+            },
+        )
+
+        self.task.refresh_from_db()
+
+        self.assertEqual(
+            self.task.status,
+            "pending",
+        )
+
+        self.assertEqual(
+            AIActionAudit.objects.count(),
+            0,
+        )
+
+    def test_already_completed_task_returns_safe_error(self):
+        self.task.status = "completed"
+
+        self.task.save(
+            update_fields=[
+                "status",
+            ]
+        )
+
+        response = self.client.post(
+            reverse(
+                "ai:crm_assistant_ask",
+            ),
+            {
+                "message": (
+                    f"Complete task {self.task.id}."
+                ),
+            },
+        )
+
+        self.assertContains(
+            response,
+            "TASK_ALREADY_COMPLETED",
+        )
+
+        self.assertEqual(
+            AIActionAudit.objects.count(),
+            0,
+        )
+
+class CRMTaskCompletionAcceptanceTests(TestCase):
+
+    def setUp(self):
+        self.lead = Lead.objects.create(
+            company_name="Acme Analytics",
+            job_title="Power BI Developer",
+        )
+
+        self.task = LeadTask.objects.create(
+            lead=self.lead,
+            title="Send pricing proposal",
+            task_type="follow_up",
+            priority="high",
+            status="pending",
+        )
+
+    def _request_completion(self):
+        return self.client.post(
+            reverse(
+                "ai:crm_assistant_ask",
+            ),
+            {
+                "message": (
+                    f"Complete task {self.task.id}."
+                ),
+            },
+        )
+
+    def test_acceptance_completion_proposal_performs_no_write(
+        self,
+    ):
+        response = self._request_completion()
+
+        self.assertEqual(
+            response.status_code,
+            200,
+        )
+
+        self.assertContains(
+            response,
+            "Confirm Complete Task",
+        )
+
+        self.task.refresh_from_db()
+
+        self.assertEqual(
+            self.task.status,
+            "pending",
+        )
+
+        self.assertIsNone(
+            self.task.completed_at,
+        )
+
+        self.assertEqual(
+            LeadActivity.objects.count(),
+            0,
+        )
+
+        self.assertEqual(
+            AIActionAudit.objects.count(),
+            0,
+        )
+
+    def test_acceptance_confirm_completes_verified_task(
+        self,
+    ):
+        proposal_response = (
+            self._request_completion()
+        )
+
+        token = proposal_response.context[
+            "proposal_token"
+        ]
+
+        response = self.client.post(
+            reverse(
+                "ai:crm_assistant_task_confirm",
+            ),
+            {
+                "proposal_token": token,
+            },
+        )
+
+        self.assertEqual(
+            response.status_code,
+            200,
+        )
+
+        self.task.refresh_from_db()
+
+        self.assertEqual(
+            self.task.status,
+            "completed",
+        )
+
+        self.assertIsNotNone(
+            self.task.completed_at,
+        )
+
+        self.assertContains(
+            response,
+            "CRM Task Completed",
+        )
+
+    def test_acceptance_completion_creates_activity_and_audit(
+        self,
+    ):
+        proposal_response = (
+            self._request_completion()
+        )
+
+        token = proposal_response.context[
+            "proposal_token"
+        ]
+
+        self.client.post(
+            reverse(
+                "ai:crm_assistant_task_confirm",
+            ),
+            {
+                "proposal_token": token,
+            },
+        )
+
+        self.assertEqual(
+            LeadActivity.objects.count(),
+            1,
+        )
+
+        self.assertEqual(
+            AIActionAudit.objects.count(),
+            1,
+        )
+
+        audit = AIActionAudit.objects.get()
+
+        self.assertEqual(
+            audit.action,
+            "complete_lead_task",
+        )
+
+        self.assertEqual(
+            audit.status,
+            "executed",
+        )
+
+        self.assertEqual(
+            audit.result_task_id,
+            self.task.id,
+        )
+
+    def test_acceptance_completion_replay_is_blocked(
+        self,
+    ):
+        proposal_response = (
+            self._request_completion()
+        )
+
+        token = proposal_response.context[
+            "proposal_token"
+        ]
+
+        first = self.client.post(
+            reverse(
+                "ai:crm_assistant_task_confirm",
+            ),
+            {
+                "proposal_token": token,
+            },
+        )
+
+        self.assertEqual(
+            first.status_code,
+            200,
+        )
+
+        activity_count = (
+            LeadActivity.objects.count()
+        )
+
+        second = self.client.post(
+            reverse(
+                "ai:crm_assistant_task_confirm",
+            ),
+            {
+                "proposal_token": token,
+            },
+        )
+
+        self.assertEqual(
+            second.status_code,
+            200,
+        )
+
+        self.assertContains(
+            second,
+            "PROPOSAL_ALREADY_USED",
+        )
+
+        self.assertEqual(
+            LeadActivity.objects.count(),
+            activity_count,
+        )
+
+        self.assertEqual(
+            AIActionAudit.objects.count(),
+            1,
+        )   
+
+    def test_acceptance_tampered_completion_token_is_blocked(
+        self,
+    ):
+        proposal_response = (
+            self._request_completion()
+        )
+
+        token = proposal_response.context[
+            "proposal_token"
+        ]
+
+        tampered = (
+            token[:-1]
+            + (
+                "A"
+                if token[-1] != "A"
+                else "B"
+            )
+        )
+
+        response = self.client.post(
+            reverse(
+                "ai:crm_assistant_task_confirm",
+            ),
+            {
+                "proposal_token": tampered,
+            },
+        )
+
+        self.task.refresh_from_db()
+
+        self.assertEqual(
+            self.task.status,
+            "pending",
+        )
+
+        self.assertIsNone(
+            self.task.completed_at,
+        )
+
+        self.assertEqual(
+            LeadActivity.objects.count(),
+            0,
+        )
+
+        self.assertEqual(
+            AIActionAudit.objects.count(),
+            0,
+        )
+
+        self.assertContains(
+            response,
+            "INVALID_PROPOSAL_TOKEN",
+        )   
+
+    def test_acceptance_chat_words_cannot_confirm_completion(
+        self,
+    ):
+        self._request_completion()
+
+        for message in (
+            "Yes.",
+            "Confirm.",
+            "Go ahead.",
+            "Complete it.",
+            "Do it.",
+        ):
+            self.client.post(
+                reverse(
+                    "ai:crm_assistant_ask",
+                ),
+                {
+                    "message": message,
+                },
+            )
+
+        self.task.refresh_from_db()
+
+        self.assertEqual(
+            self.task.status,
+            "pending",
+        )
+
+        self.assertEqual(
+            LeadActivity.objects.count(),
+            0,
+        )
+
+        self.assertEqual(
+            AIActionAudit.objects.count(),
+            0,
+        )
+
+    def test_acceptance_completed_task_cannot_be_completed_again(
+        self,
+    ):
+        self.task.status = "completed"
+
+        self.task.save(
+            update_fields=[
+                "status",
+            ]
+        )
+
+        response = self._request_completion()
+
+        self.assertContains(
+            response,
+            "TASK_ALREADY_COMPLETED",
+        )
+
+        self.assertEqual(
+            LeadActivity.objects.count(),
+            0,
+        )
+
+        self.assertEqual(
+            AIActionAudit.objects.count(),
+            0,
+        )
+
+    def test_acceptance_create_task_flow_still_works(
+        self,
+    ):
+        proposal_response = self.client.post(
+            reverse(
+                "ai:crm_assistant_ask",
+            ),
+            {
+                "message": (
+                    "Create a follow-up task "
+                    f"for lead {self.lead.id} "
+                    "to Call customer."
+                ),
+            },
+        )
+
+        token = proposal_response.context[
+            "proposal_token"
+        ]
+
+        response = self.client.post(
+            reverse(
+                "ai:crm_assistant_task_confirm",
+            ),
+            {
+                "proposal_token": token,
+            },
+        )
+
+        self.assertEqual(
+            response.status_code,
+            200,
+        )
+
+        created_task = (
+            LeadTask.objects
+            .exclude(
+                id=self.task.id,
+            )
+            .get()
+        )
+
+        self.assertEqual(
+            created_task.title,
+            "Call customer",
+        )
+
+        self.assertEqual(
+            created_task.status,
+            "pending",
+        )

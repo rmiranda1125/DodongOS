@@ -5,30 +5,54 @@
         <div class="card-header bg-light">
 
             <strong>
-                ✅ CRM Task Created
+                {% if result.action == "complete_lead_task" %}
+                    ✅ CRM Task Completed
+                {% else %}
+                    ✅ CRM Task Created
+                {% endif %}
             </strong>
 
         </div>
 
         <div class="card-body">
 
-            <div
-                class="alert alert-success"
-                role="alert"
-            >
-                <strong>
-                    The task was created successfully.
-                </strong>
+            {% if result.action == "complete_lead_task" %}
 
-                <div class="mt-2">
-                    Dodong verified that the new task
-                    exists in the CRM.
+                <div
+                    class="alert alert-success"
+                    role="alert"
+                >
+                    <strong>
+                        The task was completed successfully.
+                    </strong>
+
+                    <div class="mt-2">
+                        Dodong verified the task is marked
+                        completed in the CRM.
+                    </div>
                 </div>
-            </div>
+
+            {% else %}
+
+                <div
+                    class="alert alert-success"
+                    role="alert"
+                >
+                    <strong>
+                        The task was created successfully.
+                    </strong>
+
+                    <div class="mt-2">
+                        Dodong verified that the new task
+                        exists in the CRM.
+                    </div>
+                </div>
+
+            {% endif %}
 
 
             <!-- ================================================= -->
-            <!-- CREATED TASK DETAILS -->
+            <!-- CREATED / COMPLETED TASK DETAILS -->
             <!-- ================================================= -->
 
             <dl class="row mb-0">
