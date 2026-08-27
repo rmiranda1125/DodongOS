@@ -1491,6 +1491,7 @@ class CRMToolRegistryTests(TestCase):
             "get_pipeline_summary",
             "create_lead_task",
             "complete_lead_task",
+            "change_lead_status",
         }
 
         self.assertEqual(
@@ -1510,6 +1511,7 @@ class CRMToolRegistryTests(TestCase):
             "get_pipeline_summary": "read",
             "create_lead_task": "write",
             "complete_lead_task": "write",
+            "change_lead_status": "write",
         }
 
         actual_access_levels = {
@@ -1550,7 +1552,7 @@ class CRMToolRegistryTests(TestCase):
 
         self.assertEqual(
             len(tools),
-            10,
+            11,
         )
 
         for tool in tools:
@@ -1679,6 +1681,20 @@ class CRMToolRegistryTests(TestCase):
             name="complete_lead_task",
             arguments={
                 "task_id": 1,
+            },
+        )
+
+        self.assertFalse(
+            result["success"],
+        )
+
+    def test_read_executor_cannot_change_lead_status(self):
+        result = execute_registered_tool(
+            name="change_lead_status",
+            arguments={
+                "lead_id": 1,
+                "status": "qualified",
+                "expected_status": "contacted",
             },
         )
 
@@ -3241,6 +3257,7 @@ class CRMReadAgentRegistrySafetyTests(TestCase):
             {
                 "create_lead_task",
                 "complete_lead_task",
+                "change_lead_status",
             },
         )
 
@@ -6159,6 +6176,7 @@ class ChangeLeadStatusProposalTests(TestCase):
             {
                 "lead_id": self.lead.id,
                 "status": "qualified",
+                "expected_status": "contacted",
             },
         )
 
@@ -6982,4 +7000,286 @@ class CRMTaskCompletionAcceptanceTests(TestCase):
         self.assertEqual(
             created_task.status,
             "pending",
+        )
+
+class ConfirmedLeadStatusChangeExecutorTests(
+    TestCase
+):
+
+    def setUp(self):
+        self.lead = Lead.objects.create(
+            company_name="Acme Analytics",
+            job_title="Power BI Developer",
+            status="contacted",
+        )
+
+    def _build_proposal(self):
+        result = (
+            build_change_lead_status_proposal(
+                lead_id=self.lead.id,
+                status="qualified",
+            )
+        )
+
+        self.assertTrue(
+            result["success"],
+        )
+
+        return result["proposal"]
+
+    def test_unconfirmed_status_change_does_not_write(
+        self,
+    ):
+        proposal = self._build_proposal()
+
+        result = execute_confirmed_proposal(
+            proposal=proposal,
+            confirmed=False,
+        )
+
+        self.assertFalse(
+            result["success"],
+        )
+
+        self.assertEqual(
+            result["error"]["code"],
+            "CONFIRMATION_REQUIRED",
+        )
+
+        self.lead.refresh_from_db()
+
+        self.assertEqual(
+            self.lead.status,
+            "contacted",
+        )
+
+        self.assertEqual(
+            LeadActivity.objects.count(),
+            0,
+        )
+
+        self.assertEqual(
+            AIActionAudit.objects.count(),
+            0,
+        )
+
+    def test_confirmed_status_change_updates_lead(
+        self,
+    ):
+        proposal = self._build_proposal()
+
+        result = execute_confirmed_proposal(
+            proposal=proposal,
+            confirmed=True,
+        )
+
+        self.assertTrue(
+            result["success"],
+        )
+
+        self.lead.refresh_from_db()
+
+        self.assertEqual(
+            self.lead.status,
+            "qualified",
+        )
+
+        self.assertEqual(
+            result["action"],
+            "change_lead_status",
+        )
+
+        self.assertEqual(
+            result["status"],
+            "executed",
+        )
+
+        self.assertEqual(
+            result["data"]["lead_id"],
+            self.lead.id,
+        )
+
+        self.assertEqual(
+            result["data"]["previous_status"],
+            "contacted",
+        )
+
+        self.assertEqual(
+            result["data"]["status"],
+            "qualified",
+        )
+
+    def test_status_change_creates_activity(self):
+        proposal = self._build_proposal()
+
+        result = execute_confirmed_proposal(
+            proposal=proposal,
+            confirmed=True,
+        )
+
+        self.assertTrue(
+            result["success"],
+        )
+
+        self.assertEqual(
+            LeadActivity.objects.count(),
+            1,
+        )
+
+        activity = LeadActivity.objects.get()
+
+        self.assertEqual(
+            activity.lead_id,
+            self.lead.id,
+        )
+
+        self.assertEqual(
+            activity.activity_type,
+            "status_changed",
+        )
+
+    def test_status_change_creates_executed_audit(
+        self,
+    ):
+        proposal = self._build_proposal()
+
+        result = execute_confirmed_proposal(
+            proposal=proposal,
+            confirmed=True,
+        )
+
+        self.assertTrue(
+            result["success"],
+        )
+
+        self.assertEqual(
+            AIActionAudit.objects.count(),
+            1,
+        )
+
+        audit = AIActionAudit.objects.get()
+
+        self.assertEqual(
+            audit.action,
+            "change_lead_status",
+        )
+
+        self.assertEqual(
+            audit.status,
+            "executed",
+        )
+
+        self.assertEqual(
+            audit.lead_id,
+            self.lead.id,
+        )
+
+        self.assertIsNone(
+            audit.result_task_id,
+        )
+
+        self.assertEqual(
+            str(audit.proposal_id),
+            proposal["proposal_id"],
+        )
+
+    def test_status_change_proposal_cannot_execute_twice(
+        self,
+    ):
+        proposal = self._build_proposal()
+
+        first = execute_confirmed_proposal(
+            proposal=proposal,
+            confirmed=True,
+        )
+
+        self.assertTrue(
+            first["success"],
+        )
+
+        activity_count = (
+            LeadActivity.objects.count()
+        )
+
+        second = execute_confirmed_proposal(
+            proposal=proposal,
+            confirmed=True,
+        )
+
+        self.assertFalse(
+            second["success"],
+        )
+
+        self.assertEqual(
+            second["error"]["code"],
+            "PROPOSAL_ALREADY_USED",
+        )
+
+        self.assertEqual(
+            LeadActivity.objects.count(),
+            activity_count,
+        )
+
+        self.assertEqual(
+            AIActionAudit.objects.count(),
+            1,
+        )
+
+    def test_stale_status_proposal_is_rejected(self):
+        proposal = self._build_proposal()
+
+        #
+        # Simulate another user/process changing the lead
+        # after the proposal was prepared.
+        #
+        self.lead.status = "proposal"
+
+        self.lead.save(
+            update_fields=[
+                "status",
+                "updated_at",
+            ]
+        )
+
+        result = execute_confirmed_proposal(
+            proposal=proposal,
+            confirmed=True,
+        )
+
+        self.assertFalse(
+            result["success"],
+        )
+
+        self.assertEqual(
+            result["error"]["code"],
+            "LEAD_STATUS_CHANGED_SINCE_PROPOSAL",
+        )
+
+        self.lead.refresh_from_db()
+
+        self.assertEqual(
+            self.lead.status,
+            "proposal",
+        )
+
+        self.assertEqual(
+            LeadActivity.objects.count(),
+            0,
+        )
+
+        self.assertEqual(
+            AIActionAudit.objects.count(),
+            1,
+        )
+
+        audit = AIActionAudit.objects.get()
+
+        self.assertEqual(
+            audit.status,
+            "failed",
+        )
+
+        self.assertEqual(
+            audit.error_code,
+            "LEAD_STATUS_CHANGED_SINCE_PROPOSAL",
         )

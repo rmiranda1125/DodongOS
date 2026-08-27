@@ -59,6 +59,49 @@ def get_lead_by_id(
 
 
 # =========================================================
+# CHANGE LEAD STATUS
+# =========================================================
+
+def change_lead_status(
+    *,
+    lead,
+    status,
+):
+    """
+    Change one CRM lead's status and record the
+    transition in the lead activity timeline.
+
+    AI tools must use this service instead of
+    modifying Lead directly.
+    """
+
+    if lead.status == status:
+        return lead
+
+    previous_status = lead.status
+
+    lead.status = status
+
+    lead.save(
+        update_fields=[
+            "status",
+            "updated_at",
+        ],
+    )
+
+    LeadActivity.objects.create(
+        lead=lead,
+        activity_type="status_changed",
+        description=(
+            f"Lead status changed from "
+            f"{previous_status} to {status}"
+        ),
+    )
+
+    return lead
+
+
+# =========================================================
 # SEARCH LEADS
 # =========================================================
 
@@ -144,7 +187,7 @@ def get_pipeline_summary():
     total_leads = leads.count()
 
     scored_leads = leads.filter(
-    lead_score__gt=0,
+        lead_score__gt=0,
     )
 
     average_lead_score = None
@@ -540,6 +583,7 @@ def test_get_pipeline_summary_ignores_zero_scores(self):
         summary["average_lead_score"],
         80,
     )
+
 
 def get_lead_task_by_id(
     *,

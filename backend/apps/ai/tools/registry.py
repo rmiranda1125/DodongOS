@@ -1,16 +1,24 @@
 from dataclasses import dataclass
 from typing import Any, Callable
 
+
 from apps.ai.tools.crm.activities import (
     get_lead_activities_tool,
 )
+
+
 from apps.ai.tools.crm.leads import (
+    change_lead_status_tool,
     get_lead_tool,
     search_leads_tool,
 )
+
+
 from apps.ai.tools.crm.pipeline import (
     get_pipeline_summary_tool,
 )
+
+
 from apps.ai.tools.crm.tasks import (
     get_lead_tasks_tool,
     get_overdue_tasks_tool,
@@ -37,6 +45,11 @@ class ToolDefinition:
 
 
 TOOL_REGISTRY = {
+
+    # =========================================================
+    # READ TOOLS
+    # =========================================================
+
     "get_priority_tasks": ToolDefinition(
         name="get_priority_tasks",
         description=(
@@ -58,6 +71,7 @@ TOOL_REGISTRY = {
         },
     ),
 
+
     "get_overdue_tasks": ToolDefinition(
         name="get_overdue_tasks",
         description="Return overdue CRM tasks.",
@@ -76,6 +90,7 @@ TOOL_REGISTRY = {
             "additionalProperties": False,
         },
     ),
+
 
     "get_pending_tasks": ToolDefinition(
         name="get_pending_tasks",
@@ -107,6 +122,7 @@ TOOL_REGISTRY = {
             "additionalProperties": False,
         },
     ),
+
 
     "get_lead_tasks": ToolDefinition(
         name="get_lead_tasks",
@@ -152,6 +168,7 @@ TOOL_REGISTRY = {
         },
     ),
 
+
     "get_lead": ToolDefinition(
         name="get_lead",
         description="Return one CRM lead by ID.",
@@ -169,6 +186,7 @@ TOOL_REGISTRY = {
             "additionalProperties": False,
         },
     ),
+
 
     "search_leads": ToolDefinition(
         name="search_leads",
@@ -212,6 +230,7 @@ TOOL_REGISTRY = {
         },
     ),
 
+
     "get_lead_activities": ToolDefinition(
         name="get_lead_activities",
         description=(
@@ -250,6 +269,7 @@ TOOL_REGISTRY = {
         },
     ),
 
+
     "get_pipeline_summary": ToolDefinition(
         name="get_pipeline_summary",
         description="Return a summary of the CRM pipeline.",
@@ -261,6 +281,11 @@ TOOL_REGISTRY = {
             "additionalProperties": False,
         },
     ),
+
+
+    # =========================================================
+    # APPROVED WRITE TOOLS
+    # =========================================================
 
     "create_lead_task": ToolDefinition(
         name="create_lead_task",
@@ -280,6 +305,7 @@ TOOL_REGISTRY = {
         },
     ),
 
+
     "complete_lead_task": ToolDefinition(
         name="complete_lead_task",
         description=(
@@ -289,6 +315,22 @@ TOOL_REGISTRY = {
         function=complete_lead_task_tool,
         input_schema={
             "task_id": "integer",
+        },
+    ),
+
+
+    "change_lead_status": ToolDefinition(
+        name="change_lead_status",
+        description=(
+            "Change one explicitly confirmed CRM "
+            "lead status."
+        ),
+        access_level="write",
+        function=change_lead_status_tool,
+        input_schema={
+            "lead_id": "integer",
+            "status": "string",
+            "expected_status": "string",
         },
     ),
 }
@@ -336,6 +378,7 @@ def execute_registered_tool(
     """
 
     if not isinstance(name, str) or not name.strip():
+
         return {
             "success": False,
             "error": {
@@ -344,11 +387,14 @@ def execute_registered_tool(
             },
         }
 
+
     tool = get_registered_tool(
         name.strip(),
     )
 
+
     if tool is None:
+
         return {
             "success": False,
             "error": {
@@ -359,7 +405,9 @@ def execute_registered_tool(
             },
         }
 
+
     if tool.access_level != "read":
+
         return {
             "success": False,
             "error": {
@@ -371,10 +419,14 @@ def execute_registered_tool(
             },
         }
 
+
     if arguments is None:
+
         arguments = {}
 
+
     if not isinstance(arguments, dict):
+
         return {
             "success": False,
             "error": {
@@ -383,12 +435,16 @@ def execute_registered_tool(
             },
         }
 
+
     try:
+
         return tool.function(
             **arguments,
         )
 
+
     except TypeError:
+
         return {
             "success": False,
             "error": {
@@ -399,7 +455,9 @@ def execute_registered_tool(
             },
         }
 
+
     except Exception:
+
         return {
             "success": False,
             "error": {
@@ -429,7 +487,9 @@ def execute_confirmed_write_tool(
         name,
     )
 
+
     if tool is None:
+
         return {
             "success": False,
             "error": {
@@ -440,7 +500,9 @@ def execute_confirmed_write_tool(
             },
         }
 
+
     if tool.access_level != "write":
+
         return {
             "success": False,
             "error": {
@@ -452,7 +514,9 @@ def execute_confirmed_write_tool(
             },
         }
 
+
     if confirmed is not True:
+
         return {
             "success": False,
             "error": {
@@ -464,10 +528,14 @@ def execute_confirmed_write_tool(
             },
         }
 
+
     if arguments is None:
+
         arguments = {}
 
+
     if not isinstance(arguments, dict):
+
         return {
             "success": False,
             "error": {
@@ -479,12 +547,16 @@ def execute_confirmed_write_tool(
             },
         }
 
+
     try:
+
         return tool.function(
             **arguments,
         )
 
+
     except TypeError as exc:
+
         return {
             "success": False,
             "error": {
@@ -493,7 +565,9 @@ def execute_confirmed_write_tool(
             },
         }
 
+
     except Exception:
+
         return {
             "success": False,
             "error": {

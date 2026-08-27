@@ -481,6 +481,7 @@ def build_change_lead_status_proposal(
             "arguments": {
                 "lead_id": lead.id,
                 "status": target_status,
+                "expected_status": lead.status,
             },
         },
     }
