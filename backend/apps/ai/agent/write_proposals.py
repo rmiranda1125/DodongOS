@@ -157,78 +157,97 @@ def build_write_proposal_from_message(
     if not route.get("success"):
         return route
 
-    if (
-        route.get("action")
-        != "create_lead_task"
-    ):
+    action = route.get(
+        "action",
+    )
+
+    #
+    # -----------------------------------------------------
+    # CREATE LEAD TASK
+    # -----------------------------------------------------
+    #
+
+    if action == "create_lead_task":
+
+        arguments = dict(
+            route["arguments"]
+        )
+
+        title_is_default = (
+            arguments.pop(
+                "title_is_default",
+                False,
+            )
+        )
+
+        proposal_result = (
+            build_create_lead_task_proposal(
+                **arguments
+            )
+        )
+
+        if not proposal_result.get(
+            "success"
+        ):
+            return proposal_result
+
+        proposal = proposal_result[
+            "proposal"
+        ]
+
+        if title_is_default is True:
+
+            company_name = proposal[
+                "lead"
+            ]["company_name"]
+
+            proposal[
+                "arguments"
+            ]["title"] = (
+                f"Follow up with {company_name}"
+            )
+
         return {
-            "success": False,
-            "error": {
-                "code": "UNSUPPORTED_WRITE_ACTION",
-                "message": (
-                    "This CRM write action is not enabled."
-                ),
-            },
+            "success": True,
+            "intent": route["intent"],
+            "proposal": proposal,
         }
 
     #
-    # Copy the parser arguments so we do not mutate
-    # the router result.
+    # -----------------------------------------------------
+    # COMPLETE LEAD TASK
+    # -----------------------------------------------------
     #
 
-    arguments = dict(
-        route["arguments"]
-    )
+    if action == "complete_lead_task":
 
-    #
-    # This is parser metadata only.
-    # It must NOT be passed to the CRM proposal builder.
-    #
-
-    title_is_default = arguments.pop(
-        "title_is_default",
-        False,
-    )
-
-    proposal_result = (
-        build_create_lead_task_proposal(
-            **arguments
+        proposal_result = (
+            build_complete_lead_task_proposal(
+                **route["arguments"]
+            )
         )
-    )
 
-    if not proposal_result.get(
-        "success"
-    ):
-        return proposal_result
+        if not proposal_result.get(
+            "success"
+        ):
+            return proposal_result
 
-    proposal = proposal_result[
-        "proposal"
-    ]
-
-    #
-    # Only replace the generated fallback title.
-    #
-    # Explicit user titles such as:
-    #
-    # "to Send pricing proposal"
-    #
-    # must remain untouched.
-    #
-
-    if title_is_default is True:
-
-        company_name = proposal[
-            "lead"
-        ]["company_name"]
-
-        proposal["arguments"]["title"] = (
-            f"Follow up with {company_name}"
-        )
+        return {
+            "success": True,
+            "intent": route["intent"],
+            "proposal": proposal_result[
+                "proposal"
+            ],
+        }
 
     return {
-        "success": True,
-        "intent": route["intent"],
-        "proposal": proposal,
+        "success": False,
+        "error": {
+            "code": "UNSUPPORTED_WRITE_ACTION",
+            "message": (
+                "This CRM write action is not enabled."
+            ),
+        },
     }
 
 def build_complete_lead_task_proposal(

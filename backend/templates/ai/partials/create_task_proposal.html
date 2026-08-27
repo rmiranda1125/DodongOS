@@ -3,34 +3,13 @@
     <div class="card shadow-sm border-warning">
 
         <div class="card-header">
-
             <strong>
                 Proposed CRM Change
             </strong>
-
         </div>
 
+
         <div class="card-body">
-
-            <!-- ================================================= -->
-            <!-- SAFETY NOTICE -->
-            <!-- ================================================= -->
-
-            <div
-                class="alert alert-warning"
-                role="alert"
-            >
-                <strong>
-                    No CRM change has been made yet.
-                </strong>
-
-                <div class="mt-2">
-                    Nothing has changed in your CRM.
-                    This proposal will execute only if you click
-                    <strong>Confirm Create Task</strong>.
-                </div>
-            </div>
-
 
             <!-- ================================================= -->
             <!-- ORIGINAL USER REQUEST -->
@@ -54,127 +33,274 @@
 
 
             <!-- ================================================= -->
-            <!-- PROPOSED TASK DETAILS -->
+            <!-- CREATE TASK PROPOSAL -->
             <!-- ================================================= -->
 
-            <dl class="row mb-0">
+            {% if result.proposal.action == "create_lead_task" %}
 
-                <dt class="col-sm-3">
-                    Lead
-                </dt>
+                <!-- ================================================= -->
+                <!-- SAFETY NOTICE -->
+                <!-- ================================================= -->
 
-                <dd class="col-sm-9">
-                    {{ result.proposal.lead.company_name }}
-                    (#{{ result.proposal.lead.id }})
-                </dd>
+                <div
+                    class="alert alert-warning"
+                    role="alert"
+                >
 
+                    <strong>
+                        No CRM change has been made yet.
+                    </strong>
 
-                <dt class="col-sm-3">
-                    Task
-                </dt>
+                    <div class="mt-2">
+                        Nothing has changed in your CRM.
+                        This proposal will execute only if you click
+                        <strong>Confirm Create Task</strong>.
+                    </div>
 
-                <dd class="col-sm-9">
-                    {{ result.proposal.arguments.title }}
-                </dd>
-
-
-                <dt class="col-sm-3">
-                    Type
-                </dt>
-
-                <dd class="col-sm-9">
-                    {{ result.proposal.arguments.task_type }}
-                </dd>
+                </div>
 
 
-                <dt class="col-sm-3">
-                    Priority
-                </dt>
+                <!-- ================================================= -->
+                <!-- PROPOSED TASK DETAILS -->
+                <!-- ================================================= -->
 
-                <dd class="col-sm-9">
-                    {{ result.proposal.arguments.priority }}
-                </dd>
-
-
-                {% if result.proposal.arguments.description %}
+                <dl class="row mb-0">
 
                     <dt class="col-sm-3">
-                        Description
+                        Lead
                     </dt>
 
                     <dd class="col-sm-9">
-                        {{ result.proposal.arguments.description }}
+                        {{ result.proposal.lead.company_name }}
+                        (#{{ result.proposal.lead.id }})
                     </dd>
 
-                {% endif %}
-
-
-                {% if result.proposal.arguments.due_date %}
 
                     <dt class="col-sm-3">
-                        Due
+                        Task
                     </dt>
 
                     <dd class="col-sm-9">
-                        {{ result.proposal.arguments.due_date }}
+                        {{ result.proposal.arguments.title }}
                     </dd>
 
-                {% endif %}
 
-            </dl>
+                    <dt class="col-sm-3">
+                        Type
+                    </dt>
+
+                    <dd class="col-sm-9">
+                        {{ result.proposal.arguments.task_type }}
+                    </dd>
+
+
+                    <dt class="col-sm-3">
+                        Priority
+                    </dt>
+
+                    <dd class="col-sm-9">
+                        {{ result.proposal.arguments.priority }}
+                    </dd>
+
+
+                    {% if result.proposal.arguments.description %}
+
+                        <dt class="col-sm-3">
+                            Description
+                        </dt>
+
+                        <dd class="col-sm-9">
+                            {{ result.proposal.arguments.description }}
+                        </dd>
+
+                    {% endif %}
+
+
+                    {% if result.proposal.arguments.due_date %}
+
+                        <dt class="col-sm-3">
+                            Due
+                        </dt>
+
+                        <dd class="col-sm-9">
+                            {{ result.proposal.arguments.due_date }}
+                        </dd>
+
+                    {% endif %}
+
+                </dl>
+
+
+            <!-- ================================================= -->
+            <!-- COMPLETE TASK PROPOSAL -->
+            <!-- ================================================= -->
+
+            {% elif result.proposal.action == "complete_lead_task" %}
+
+                <!-- ================================================= -->
+                <!-- SAFETY NOTICE -->
+                <!-- ================================================= -->
+
+                <div
+                    class="alert alert-warning"
+                    role="alert"
+                >
+
+                    <strong>
+                        No CRM change has been made yet.
+                    </strong>
+
+                    <div class="mt-2">
+                        This task will be marked completed only
+                        if you click
+                        <strong>Confirm Complete Task</strong>.
+                    </div>
+
+                </div>
+
+
+                <!-- ================================================= -->
+                <!-- TASK DETAILS -->
+                <!-- ================================================= -->
+
+                <dl class="row mb-0">
+
+                    <dt class="col-sm-3">
+                        Task
+                    </dt>
+
+                    <dd class="col-sm-9">
+                        {{ result.proposal.task.title }}
+                        (#{{ result.proposal.task.id }})
+                    </dd>
+
+
+                    <dt class="col-sm-3">
+                        Lead
+                    </dt>
+
+                    <dd class="col-sm-9">
+                        {{ result.proposal.lead.company_name }}
+                        (#{{ result.proposal.lead.id }})
+                    </dd>
+
+
+                    <dt class="col-sm-3">
+                        Current status
+                    </dt>
+
+                    <dd class="col-sm-9">
+                        {{ result.proposal.task.status }}
+                    </dd>
+
+
+                    <dt class="col-sm-3">
+                        Priority
+                    </dt>
+
+                    <dd class="col-sm-9">
+                        {{ result.proposal.task.priority }}
+                    </dd>
+
+                </dl>
+
+
+            <!-- ================================================= -->
+            <!-- UNKNOWN PROPOSAL ACTION -->
+            <!-- ================================================= -->
+
+            {% else %}
+
+                <div
+                    class="alert alert-warning"
+                    role="alert"
+                >
+
+                    <strong>
+                        Unsupported CRM proposal.
+                    </strong>
+
+                    <div class="mt-1">
+                        This proposal action is not supported by
+                        the current interface.
+                    </div>
+
+                </div>
+
+            {% endif %}
 
 
             <!-- ================================================= -->
             <!-- CONFIRMATION CONTROLS -->
             <!-- ================================================= -->
 
-            <hr>
+            {% if result.proposal.action == "create_lead_task" or result.proposal.action == "complete_lead_task" %}
 
-            <div class="d-flex justify-content-end gap-2">
+                <hr>
 
-                <!-- Cancel -->
+                <div class="d-flex justify-content-end gap-2">
 
-                <a
-                    href="{% url 'ai:crm_assistant' %}"
-                    class="btn btn-outline-secondary"
-                >
-                    Cancel
-                </a>
+                    <!-- Cancel -->
+
+                    <a
+                        href="{% url 'ai:crm_assistant' %}"
+                        class="btn btn-outline-secondary"
+                    >
+                        Cancel
+                    </a>
 
 
-                <!-- Confirm -->
+                    <!-- Confirm -->
 
-                <form
-                    hx-post="{% url 'ai:crm_assistant_task_confirm' %}"
-                    hx-target="#task-action-area"
-                    hx-swap="innerHTML"
-                    hx-disabled-elt="find button"
-                >
-
-                    {% csrf_token %}
-
-                    <input
-                        type="hidden"
-                        name="proposal_token"
-                        value="{{ proposal_token }}"
+                    <form
+                        hx-post="{% url 'ai:crm_assistant_task_confirm' %}"
+                        hx-target="#task-action-area"
+                        hx-swap="innerHTML"
+                        hx-disabled-elt="find button"
                     >
 
-                    <button
-                        type="submit"
-                        class="btn btn-warning"
-                    >
-                        Confirm Create Task
-                    </button>
+                        {% csrf_token %}
 
-                </form>
+                        <input
+                            type="hidden"
+                            name="proposal_token"
+                            value="{{ proposal_token }}"
+                        >
 
-            </div>
+
+                        <button
+                            type="submit"
+                            class="btn btn-warning"
+                        >
+
+                            {% if result.proposal.action == "complete_lead_task" %}
+
+                                Confirm Complete Task
+
+                            {% else %}
+
+                                Confirm Create Task
+
+                            {% endif %}
+
+                        </button>
+
+                    </form>
+
+                </div>
+
+            {% endif %}
 
         </div>
 
     </div>
 
+
 {% else %}
+
+    <!-- ========================================================= -->
+    <!-- ERROR STATE -->
+    <!-- ========================================================= -->
 
     <div
         class="alert alert-warning"
@@ -188,6 +314,7 @@
         <div class="mt-1">
             {{ result.error.message }}
         </div>
+
 
         {% if result.error.code %}
 

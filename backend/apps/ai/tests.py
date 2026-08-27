@@ -4977,6 +4977,44 @@ class CRMWriteProposalRouterTests(TestCase):
             result["success"],
         )
 
+    def test_routes_complete_task_request(self):
+        result = route_crm_write_proposal_intent(
+            "Complete task 15."
+        )
+
+        self.assertTrue(
+            result["success"],
+        )
+
+        self.assertEqual(
+            result["intent"],
+            "complete_lead_task_proposal",
+        )
+
+        self.assertEqual(
+            result["action"],
+            "complete_lead_task",
+        )
+
+        self.assertEqual(
+            result["arguments"]["task_id"],
+            15,
+        )
+
+    def test_routes_polite_complete_task_request(self):
+        result = route_crm_write_proposal_intent(
+            "Please complete task #15."
+        )
+
+        self.assertTrue(
+            result["success"],
+        )
+
+        self.assertEqual(
+            result["arguments"]["task_id"],
+            15,
+        )
+
 class CRMNaturalLanguageTaskProposalTests(TestCase):
 
     def setUp(self):
@@ -6073,4 +6111,119 @@ class CompleteLeadTaskProposalTests(TestCase):
         self.assertNotEqual(
             first["proposal"]["proposal_id"],
             second["proposal"]["proposal_id"],
+        )
+
+class CRMNaturalLanguageTaskCompletionTests(TestCase):
+
+    def setUp(self):
+        self.lead = Lead.objects.create(
+            company_name="Acme Analytics",
+            job_title="Power BI Developer",
+        )
+
+        self.task = LeadTask.objects.create(
+            lead=self.lead,
+            title="Send pricing proposal",
+            task_type="follow_up",
+            priority="high",
+            status="pending",
+        )
+
+    def test_natural_language_builds_completion_proposal(self):
+        result = build_write_proposal_from_message(
+            f"Complete task {self.task.id}."
+        )
+
+        self.assertTrue(
+            result["success"],
+        )
+
+        proposal = result["proposal"]
+
+        self.assertEqual(
+            proposal["action"],
+            "complete_lead_task",
+        )
+
+        self.assertEqual(
+            proposal["task"]["id"],
+            self.task.id,
+        )
+
+        self.assertTrue(
+            proposal["requires_confirmation"],
+        )
+
+        self.assertEqual(
+            proposal["status"],
+            "awaiting_confirmation",
+        )
+
+    def test_completion_proposal_does_not_change_task(self):
+        result = build_write_proposal_from_message(
+            f"Complete task {self.task.id}."
+        )
+
+        self.assertTrue(
+            result["success"],
+        )
+
+        self.task.refresh_from_db()
+
+        self.assertEqual(
+            self.task.status,
+            "pending",
+        )
+
+        self.assertIsNone(
+            self.task.completed_at,
+        )
+
+        self.assertEqual(
+            LeadActivity.objects.count(),
+            0,
+        )
+
+        self.assertEqual(
+            AIActionAudit.objects.count(),
+            0,
+        )
+
+    def test_assistant_returns_completion_proposal_card(self):
+        response = self.client.post(
+            reverse(
+                "ai:crm_assistant_ask",
+            ),
+            {
+                "message": (
+                    f"Complete task {self.task.id}."
+                ),
+            },
+        )
+
+        self.assertEqual(
+            response.status_code,
+            200,
+        )
+
+        self.assertContains(
+            response,
+            "Proposed CRM Change",
+        )
+
+        self.assertContains(
+            response,
+            "Send pricing proposal",
+        )
+
+        self.assertContains(
+            response,
+            "Confirm Complete Task",
+        )
+
+        self.assertEqual(
+            LeadTask.objects.get(
+                id=self.task.id
+            ).status,
+            "pending",
         )
