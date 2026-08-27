@@ -129,3 +129,126 @@ def get_lead_activities_tool(
                 "message": "Unable to retrieve lead activities.",
             },
         }
+
+def add_lead_note_tool(
+    *,
+    lead_id,
+    activity_type,
+    description,
+):
+    """
+    Add one explicitly confirmed note to a CRM lead.
+
+    WRITE TOOL:
+    Must only execute through the confirmed
+    write executor.
+    """
+
+    if (
+        isinstance(lead_id, bool)
+        or not isinstance(lead_id, int)
+        or lead_id <= 0
+    ):
+        return {
+            "success": False,
+            "error": {
+                "code": "INVALID_LEAD_ID",
+                "message": (
+                    "A valid positive lead ID is required."
+                ),
+            },
+        }
+
+    if activity_type != "note":
+        return {
+            "success": False,
+            "error": {
+                "code": "UNSUPPORTED_ACTIVITY_TYPE",
+                "message": (
+                    "Only CRM note creation is enabled."
+                ),
+            },
+        }
+
+    if (
+        not isinstance(description, str)
+        or not description.strip()
+    ):
+        return {
+            "success": False,
+            "error": {
+                "code": "INVALID_NOTE",
+                "message": (
+                    "A non-empty lead note is required."
+                ),
+            },
+        }
+
+    cleaned_description = (
+        description.strip()
+    )
+
+    lead = lead_services.get_lead_by_id(
+        lead_id=lead_id,
+    )
+
+    if lead is None:
+        return {
+            "success": False,
+            "error": {
+                "code": "LEAD_NOT_FOUND",
+                "message": (
+                    f"Lead {lead_id} was not found."
+                ),
+            },
+        }
+
+    activity = lead_services.create_lead_note(
+        lead=lead,
+        description=cleaned_description,
+    )
+
+    verified_activity = (
+        lead_services.get_lead_activity_by_id(
+            activity_id=activity.id,
+        )
+    )
+
+    if (
+        verified_activity is None
+        or verified_activity.lead_id != lead.id
+        or verified_activity.activity_type != "note"
+        or verified_activity.description
+        != cleaned_description
+    ):
+        return {
+            "success": False,
+            "error": {
+                "code": (
+                    "LEAD_NOTE_VERIFICATION_FAILED"
+                ),
+                "message": (
+                    "The new CRM note could not "
+                    "be verified."
+                ),
+            },
+        }
+
+    return {
+        "success": True,
+        "data": {
+            "activity_id": (
+                verified_activity.id
+            ),
+            "lead_id": lead.id,
+            "company_name": (
+                lead.company_name
+            ),
+            "activity_type": (
+                verified_activity.activity_type
+            ),
+            "description": (
+                verified_activity.description
+            ),
+        },
+    }

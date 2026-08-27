@@ -603,3 +603,35 @@ def get_lead_task_by_id(
 
     except LeadTask.DoesNotExist:
         return None
+
+def create_lead_note(
+    *,
+    lead,
+    description,
+):
+    """
+    Create one note activity for a CRM lead.
+    """
+
+    return LeadActivity.objects.create(
+        lead=lead,
+        activity_type="note",
+        description=description,
+    )
+
+
+def get_lead_activity_by_id(
+    *,
+    activity_id,
+):
+    """
+    Retrieve one lead activity by primary key.
+    """
+
+    try:
+        return LeadActivity.objects.get(
+            id=activity_id,
+        )
+
+    except LeadActivity.DoesNotExist:
+        return None

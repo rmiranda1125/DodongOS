@@ -16,6 +16,7 @@ SUPPORTED_WRITE_ACTIONS = {
     "create_lead_task",
     "complete_lead_task",
     "change_lead_status",
+    "add_lead_note",
 }
 
 

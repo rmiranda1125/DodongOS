@@ -1493,6 +1493,7 @@ class CRMToolRegistryTests(TestCase):
             "create_lead_task",
             "complete_lead_task",
             "change_lead_status",
+             "add_lead_note",
         }
 
         self.assertEqual(
@@ -1513,6 +1514,7 @@ class CRMToolRegistryTests(TestCase):
             "create_lead_task": "write",
             "complete_lead_task": "write",
             "change_lead_status": "write",
+            "add_lead_note": "write",
         }
 
         actual_access_levels = {
@@ -1553,7 +1555,7 @@ class CRMToolRegistryTests(TestCase):
 
         self.assertEqual(
             len(tools),
-            11,
+            12,
         )
 
         for tool in tools:
@@ -1696,6 +1698,22 @@ class CRMToolRegistryTests(TestCase):
                 "lead_id": 1,
                 "status": "qualified",
                 "expected_status": "contacted",
+            },
+        )
+
+        self.assertFalse(
+            result["success"],
+        )
+
+    def test_read_executor_cannot_add_lead_note(
+        self,
+    ):
+        result = execute_registered_tool(
+            name="add_lead_note",
+            arguments={
+                "lead_id": 1,
+                "activity_type": "note",
+                "description": "Test note.",
             },
         )
 
@@ -3259,6 +3277,7 @@ class CRMReadAgentRegistrySafetyTests(TestCase):
                 "create_lead_task",
                 "complete_lead_task",
                 "change_lead_status",
+                "add_lead_note",
             },
         )
 
@@ -8347,4 +8366,248 @@ class AddLeadNoteProposalTests(TestCase):
         self.assertNotEqual(
             first["proposal"]["proposal_id"],
             second["proposal"]["proposal_id"],
+        )
+
+class ConfirmedLeadNoteExecutorTests(TestCase):
+
+    def setUp(self):
+        self.lead = Lead.objects.create(
+            company_name="Acme Analytics",
+            job_title="Power BI Developer",
+            status="contacted",
+        )
+
+    def _build_proposal(self):
+        result = build_add_lead_note_proposal(
+            lead_id=self.lead.id,
+            note=(
+                "Customer requested pricing."
+            ),
+        )
+
+        self.assertTrue(
+            result["success"],
+        )
+
+        return result["proposal"]
+
+    def test_unconfirmed_note_does_not_write(
+        self,
+    ):
+        proposal = self._build_proposal()
+
+        result = execute_confirmed_proposal(
+            proposal=proposal,
+            confirmed=False,
+        )
+
+        self.assertFalse(
+            result["success"],
+        )
+
+        self.assertEqual(
+            result["error"]["code"],
+            "CONFIRMATION_REQUIRED",
+        )
+
+        self.assertEqual(
+            LeadActivity.objects.count(),
+            0,
+        )
+
+        self.assertEqual(
+            AIActionAudit.objects.count(),
+            0,
+        )
+
+    def test_confirmed_note_creates_activity(
+        self,
+    ):
+        proposal = self._build_proposal()
+
+        result = execute_confirmed_proposal(
+            proposal=proposal,
+            confirmed=True,
+        )
+
+        self.assertTrue(
+            result["success"],
+        )
+
+        self.assertEqual(
+            result["action"],
+            "add_lead_note",
+        )
+
+        self.assertEqual(
+            result["status"],
+            "executed",
+        )
+
+        self.assertEqual(
+            LeadActivity.objects.count(),
+            1,
+        )
+
+        activity = LeadActivity.objects.get()
+
+        self.assertEqual(
+            activity.lead_id,
+            self.lead.id,
+        )
+
+        self.assertEqual(
+            activity.activity_type,
+            "note",
+        )
+
+        self.assertEqual(
+            activity.description,
+            "Customer requested pricing.",
+        )
+
+        self.assertEqual(
+            result["data"]["activity_id"],
+            activity.id,
+        )
+
+    def test_confirmed_note_creates_executed_audit(
+        self,
+    ):
+        proposal = self._build_proposal()
+
+        result = execute_confirmed_proposal(
+            proposal=proposal,
+            confirmed=True,
+        )
+
+        self.assertTrue(
+            result["success"],
+        )
+
+        self.assertEqual(
+            AIActionAudit.objects.count(),
+            1,
+        )
+
+        audit = AIActionAudit.objects.get()
+
+        self.assertEqual(
+            audit.action,
+            "add_lead_note",
+        )
+
+        self.assertEqual(
+            audit.status,
+            "executed",
+        )
+
+        self.assertEqual(
+            audit.lead_id,
+            self.lead.id,
+        )
+
+        self.assertIsNone(
+            audit.result_task_id,
+        )
+
+        self.assertEqual(
+            str(audit.proposal_id),
+            proposal["proposal_id"],
+        )
+
+    def test_note_proposal_cannot_execute_twice(
+        self,
+    ):
+        proposal = self._build_proposal()
+
+        first = execute_confirmed_proposal(
+            proposal=proposal,
+            confirmed=True,
+        )
+
+        self.assertTrue(
+            first["success"],
+        )
+
+        activity_count = (
+            LeadActivity.objects.count()
+        )
+
+        second = execute_confirmed_proposal(
+            proposal=proposal,
+            confirmed=True,
+        )
+
+        self.assertFalse(
+            second["success"],
+        )
+
+        self.assertEqual(
+            second["error"]["code"],
+            "PROPOSAL_ALREADY_USED",
+        )
+
+        self.assertEqual(
+            LeadActivity.objects.count(),
+            activity_count,
+        )
+
+        self.assertEqual(
+            AIActionAudit.objects.count(),
+            1,
+        )
+
+    def test_write_tool_rejects_non_note_activity(
+        self,
+    ):
+        result = execute_confirmed_write_tool(
+            name="add_lead_note",
+            arguments={
+                "lead_id": self.lead.id,
+                "activity_type": "call",
+                "description": "Called customer.",
+            },
+            confirmed=True,
+        )
+
+        self.assertFalse(
+            result["success"],
+        )
+
+        self.assertEqual(
+            result["error"]["code"],
+            "UNSUPPORTED_ACTIVITY_TYPE",
+        )
+
+        self.assertEqual(
+            LeadActivity.objects.count(),
+            0,
+        )
+
+    def test_write_tool_rejects_missing_lead(
+        self,
+    ):
+        result = execute_confirmed_write_tool(
+            name="add_lead_note",
+            arguments={
+                "lead_id": 999999,
+                "activity_type": "note",
+                "description": "Test note.",
+            },
+            confirmed=True,
+        )
+
+        self.assertFalse(
+            result["success"],
+        )
+
+        self.assertEqual(
+            result["error"]["code"],
+            "LEAD_NOT_FOUND",
+        )
+
+        self.assertEqual(
+            LeadActivity.objects.count(),
+            0,
         )

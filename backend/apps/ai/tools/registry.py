@@ -3,6 +3,7 @@ from typing import Any, Callable
 
 
 from apps.ai.tools.crm.activities import (
+    add_lead_note_tool,
     get_lead_activities_tool,
 )
 
@@ -331,6 +332,22 @@ TOOL_REGISTRY = {
             "lead_id": "integer",
             "status": "string",
             "expected_status": "string",
+        },
+    ),
+
+
+    "add_lead_note": ToolDefinition(
+        name="add_lead_note",
+        description=(
+            "Add one explicitly confirmed note "
+            "to a CRM lead."
+        ),
+        access_level="write",
+        function=add_lead_note_tool,
+        input_schema={
+            "lead_id": "integer",
+            "activity_type": "string",
+            "description": "string",
         },
     ),
 }
