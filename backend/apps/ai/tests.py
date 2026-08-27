@@ -54,6 +54,7 @@ from apps.ai.agent.router import (
 from apps.ai.agent.write_proposals import (
     build_complete_lead_task_proposal,
     build_create_lead_task_proposal,
+    build_change_lead_status_proposal,
     build_write_proposal_from_message,
 )
 
@@ -6106,6 +6107,257 @@ class CompleteLeadTaskProposalTests(TestCase):
 
         second = build_complete_lead_task_proposal(
             task_id=self.task.id,
+        )
+
+        self.assertNotEqual(
+            first["proposal"]["proposal_id"],
+            second["proposal"]["proposal_id"],
+        )
+
+class ChangeLeadStatusProposalTests(TestCase):
+
+    def setUp(self):
+        self.lead = Lead.objects.create(
+            company_name="Acme Analytics",
+            job_title="Power BI Developer",
+            status="contacted",
+        )
+
+    def test_builds_change_lead_status_proposal(self):
+        result = build_change_lead_status_proposal(
+            lead_id=self.lead.id,
+            status="qualified",
+        )
+
+        self.assertTrue(
+            result["success"],
+        )
+
+        proposal = result["proposal"]
+
+        self.assertEqual(
+            proposal["action"],
+            "change_lead_status",
+        )
+
+        self.assertEqual(
+            proposal["access_level"],
+            "write",
+        )
+
+        self.assertEqual(
+            proposal["status"],
+            "awaiting_confirmation",
+        )
+
+        self.assertTrue(
+            proposal["requires_confirmation"],
+        )
+
+        self.assertEqual(
+            proposal["arguments"],
+            {
+                "lead_id": self.lead.id,
+                "status": "qualified",
+            },
+        )
+
+    def test_proposal_contains_lead_snapshot(self):
+        result = build_change_lead_status_proposal(
+            lead_id=self.lead.id,
+            status="qualified",
+        )
+
+        self.assertTrue(
+            result["success"],
+        )
+
+        lead_snapshot = result[
+            "proposal"
+        ]["lead"]
+
+        self.assertEqual(
+            lead_snapshot["id"],
+            self.lead.id,
+        )
+
+        self.assertEqual(
+            lead_snapshot["company_name"],
+            "Acme Analytics",
+        )
+
+        self.assertEqual(
+            lead_snapshot["status"],
+            "contacted",
+        )
+
+    def test_proposal_does_not_change_lead_status(self):
+        before_activity_count = (
+            LeadActivity.objects.count()
+        )
+
+        before_audit_count = (
+            AIActionAudit.objects.count()
+        )
+
+        result = build_change_lead_status_proposal(
+            lead_id=self.lead.id,
+            status="qualified",
+        )
+
+        self.assertTrue(
+            result["success"],
+        )
+
+        self.lead.refresh_from_db()
+
+        self.assertEqual(
+            self.lead.status,
+            "contacted",
+        )
+
+        self.assertEqual(
+            LeadActivity.objects.count(),
+            before_activity_count,
+        )
+
+        self.assertEqual(
+            AIActionAudit.objects.count(),
+            before_audit_count,
+        )
+
+    def test_rejects_invalid_lead_id(self):
+        invalid_ids = (
+            0,
+            -1,
+            True,
+            "1",
+            None,
+        )
+
+        for invalid_id in invalid_ids:
+            with self.subTest(
+                lead_id=invalid_id,
+            ):
+                result = (
+                    build_change_lead_status_proposal(
+                        lead_id=invalid_id,
+                        status="qualified",
+                    )
+                )
+
+                self.assertFalse(
+                    result["success"],
+                )
+
+                self.assertEqual(
+                    result["error"]["code"],
+                    "INVALID_LEAD_ID",
+                )
+
+    def test_rejects_missing_lead(self):
+        result = build_change_lead_status_proposal(
+            lead_id=999999,
+            status="qualified",
+        )
+
+        self.assertFalse(
+            result["success"],
+        )
+
+        self.assertEqual(
+            result["error"]["code"],
+            "LEAD_NOT_FOUND",
+        )
+
+    def test_rejects_invalid_status(self):
+        invalid_statuses = (
+            "",
+            "archived",
+            "deleted",
+            None,
+            123,
+        )
+
+        for invalid_status in invalid_statuses:
+            with self.subTest(
+                status=invalid_status,
+            ):
+                result = (
+                    build_change_lead_status_proposal(
+                        lead_id=self.lead.id,
+                        status=invalid_status,
+                    )
+                )
+
+                self.assertFalse(
+                    result["success"],
+                )
+
+                self.assertEqual(
+                    result["error"]["code"],
+                    "INVALID_LEAD_STATUS",
+                )
+
+    def test_rejects_status_that_is_already_current(self):
+        result = build_change_lead_status_proposal(
+            lead_id=self.lead.id,
+            status="contacted",
+        )
+
+        self.assertFalse(
+            result["success"],
+        )
+
+        self.assertEqual(
+            result["error"]["code"],
+            "LEAD_ALREADY_IN_STATUS",
+        )
+
+        self.lead.refresh_from_db()
+
+        self.assertEqual(
+            self.lead.status,
+            "contacted",
+        )
+
+        self.assertEqual(
+            AIActionAudit.objects.count(),
+            0,
+        )
+
+    def test_normalizes_status_to_lowercase(self):
+        result = build_change_lead_status_proposal(
+            lead_id=self.lead.id,
+            status="QUALIFIED",
+        )
+
+        self.assertTrue(
+            result["success"],
+        )
+
+        self.assertEqual(
+            result["proposal"]["arguments"]["status"],
+            "qualified",
+        )
+
+    def test_proposal_ids_are_unique(self):
+        first = build_change_lead_status_proposal(
+            lead_id=self.lead.id,
+            status="qualified",
+        )
+
+        second = build_change_lead_status_proposal(
+            lead_id=self.lead.id,
+            status="qualified",
+        )
+
+        self.assertTrue(
+            first["success"],
+        )
+
+        self.assertTrue(
+            second["success"],
         )
 
         self.assertNotEqual(

@@ -1,15 +1,27 @@
 from django.utils.dateparse import parse_datetime
 import uuid
+
 from apps.leads import services as lead_services
 from apps.ai.agent.write_router import (
     route_crm_write_proposal_intent,
 )
+
 
 ALLOWED_TASK_PRIORITIES = {
     "low",
     "medium",
     "high",
     "urgent",
+}
+
+
+ALLOWED_LEAD_STATUSES = {
+    "new",
+    "contacted",
+    "qualified",
+    "proposal",
+    "won",
+    "lost",
 }
 
 
@@ -85,7 +97,9 @@ def build_create_lead_task_proposal(
                 "success": False,
                 "error": {
                     "code": "INVALID_DUE_DATE",
-                    "message": "due_date must be an ISO datetime string.",
+                    "message": (
+                        "due_date must be an ISO datetime string."
+                    ),
                 },
             }
 
@@ -98,7 +112,9 @@ def build_create_lead_task_proposal(
                 "success": False,
                 "error": {
                     "code": "INVALID_DUE_DATE",
-                    "message": "due_date must be an ISO datetime string.",
+                    "message": (
+                        "due_date must be an ISO datetime string."
+                    ),
                 },
             }
 
@@ -120,7 +136,9 @@ def build_create_lead_task_proposal(
     return {
         "success": True,
         "proposal": {
-            "proposal_id": str(uuid.uuid4()),
+            "proposal_id": str(
+                uuid.uuid4()
+            ),
             "action": "create_lead_task",
             "access_level": "write",
             "status": "awaiting_confirmation",
@@ -139,6 +157,7 @@ def build_create_lead_task_proposal(
             },
         },
     }
+
 
 def build_write_proposal_from_message(
     message,
@@ -240,6 +259,33 @@ def build_write_proposal_from_message(
             ],
         }
 
+    #
+    # -----------------------------------------------------
+    # CHANGE LEAD STATUS
+    # -----------------------------------------------------
+    #
+
+    if action == "change_lead_status":
+
+        proposal_result = (
+            build_change_lead_status_proposal(
+                **route["arguments"]
+            )
+        )
+
+        if not proposal_result.get(
+            "success"
+        ):
+            return proposal_result
+
+        return {
+            "success": True,
+            "intent": route["intent"],
+            "proposal": proposal_result[
+                "proposal"
+            ],
+        }
+
     return {
         "success": False,
         "error": {
@@ -249,6 +295,7 @@ def build_write_proposal_from_message(
             ),
         },
     }
+
 
 def build_complete_lead_task_proposal(
     *,
@@ -326,6 +373,114 @@ def build_complete_lead_task_proposal(
             },
             "arguments": {
                 "task_id": task.id,
+            },
+        },
+    }
+
+
+def build_change_lead_status_proposal(
+    *,
+    lead_id,
+    status,
+):
+    """
+    Build a validated proposal for changing one lead's status.
+
+    This function MUST NOT mutate CRM data.
+    """
+
+    if (
+        isinstance(lead_id, bool)
+        or not isinstance(lead_id, int)
+        or lead_id <= 0
+    ):
+        return {
+            "success": False,
+            "error": {
+                "code": "INVALID_LEAD_ID",
+                "message": (
+                    "A valid positive lead ID is required."
+                ),
+            },
+        }
+
+    if (
+        not isinstance(status, str)
+        or not status.strip()
+    ):
+        return {
+            "success": False,
+            "error": {
+                "code": "INVALID_LEAD_STATUS",
+                "message": (
+                    "A valid lead status is required."
+                ),
+            },
+        }
+
+    target_status = (
+        status
+        .strip()
+        .lower()
+    )
+
+    if target_status not in ALLOWED_LEAD_STATUSES:
+        return {
+            "success": False,
+            "error": {
+                "code": "INVALID_LEAD_STATUS",
+                "message": (
+                    f"Lead status '{target_status}' "
+                    "is not supported."
+                ),
+            },
+        }
+
+    lead = lead_services.get_lead_by_id(
+        lead_id=lead_id,
+    )
+
+    if lead is None:
+        return {
+            "success": False,
+            "error": {
+                "code": "LEAD_NOT_FOUND",
+                "message": (
+                    f"Lead {lead_id} was not found."
+                ),
+            },
+        }
+
+    if lead.status == target_status:
+        return {
+            "success": False,
+            "error": {
+                "code": "LEAD_ALREADY_IN_STATUS",
+                "message": (
+                    f"Lead {lead_id} is already "
+                    f"in status '{target_status}'."
+                ),
+            },
+        }
+
+    return {
+        "success": True,
+        "proposal": {
+            "proposal_id": str(
+                uuid.uuid4()
+            ),
+            "action": "change_lead_status",
+            "access_level": "write",
+            "status": "awaiting_confirmation",
+            "requires_confirmation": True,
+            "lead": {
+                "id": lead.id,
+                "company_name": lead.company_name,
+                "status": lead.status,
+            },
+            "arguments": {
+                "lead_id": lead.id,
+                "status": target_status,
             },
         },
     }
