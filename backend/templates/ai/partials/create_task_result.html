@@ -5,16 +5,31 @@
         <div class="card-header bg-light">
 
             <strong>
+
                 {% if result.action == "complete_lead_task" %}
+
                     ✅ CRM Task Completed
+
+                {% elif result.action == "change_lead_status" %}
+
+                    ✅ CRM Lead Status Changed
+
                 {% else %}
+
                     ✅ CRM Task Created
+
                 {% endif %}
+
             </strong>
 
         </div>
 
+
         <div class="card-body">
+
+            <!-- ================================================= -->
+            <!-- SUCCESS MESSAGE -->
+            <!-- ================================================= -->
 
             {% if result.action == "complete_lead_task" %}
 
@@ -31,6 +46,24 @@
                         completed in the CRM.
                     </div>
                 </div>
+
+
+            {% elif result.action == "change_lead_status" %}
+
+                <div
+                    class="alert alert-success"
+                    role="alert"
+                >
+                    <strong>
+                        The lead status was changed successfully.
+                    </strong>
+
+                    <div class="mt-2">
+                        Dodong verified the new lead status
+                        in the CRM.
+                    </div>
+                </div>
+
 
             {% else %}
 
@@ -52,56 +85,102 @@
 
 
             <!-- ================================================= -->
-            <!-- CREATED / COMPLETED TASK DETAILS -->
+            <!-- RESULT DETAILS -->
             <!-- ================================================= -->
 
-            <dl class="row mb-0">
+            {% if result.action == "change_lead_status" %}
 
-                <dt class="col-sm-3">
-                    Task
-                </dt>
+                <!-- ================================================= -->
+                <!-- LEAD STATUS CHANGE DETAILS -->
+                <!-- ================================================= -->
 
-                <dd class="col-sm-9">
-                    {{ result.data.title }}
-                </dd>
+                <dl class="row mb-0">
 
+                    <dt class="col-sm-3">
+                        Lead
+                    </dt>
 
-                <dt class="col-sm-3">
-                    Lead ID
-                </dt>
-
-                <dd class="col-sm-9">
-                    {{ result.data.lead_id }}
-                </dd>
+                    <dd class="col-sm-9">
+                        {{ result.data.company_name }}
+                        (#{{ result.data.lead_id }})
+                    </dd>
 
 
-                <dt class="col-sm-3">
-                    Priority
-                </dt>
+                    <dt class="col-sm-3">
+                        Previous status
+                    </dt>
 
-                <dd class="col-sm-9">
-                    {{ result.data.priority }}
-                </dd>
-
-
-                <dt class="col-sm-3">
-                    Status
-                </dt>
-
-                <dd class="col-sm-9">
-                    {{ result.data.status }}
-                </dd>
+                    <dd class="col-sm-9">
+                        {{ result.data.previous_status }}
+                    </dd>
 
 
-                <dt class="col-sm-3">
-                    Task ID
-                </dt>
+                    <dt class="col-sm-3">
+                        New status
+                    </dt>
 
-                <dd class="col-sm-9">
-                    {{ result.data.id }}
-                </dd>
+                    <dd class="col-sm-9">
+                        {{ result.data.status }}
+                    </dd>
 
-            </dl>
+                </dl>
+
+
+            {% else %}
+
+                <!-- ================================================= -->
+                <!-- CREATED / COMPLETED TASK DETAILS -->
+                <!-- ================================================= -->
+
+                <dl class="row mb-0">
+
+                    <dt class="col-sm-3">
+                        Task
+                    </dt>
+
+                    <dd class="col-sm-9">
+                        {{ result.data.title }}
+                    </dd>
+
+
+                    <dt class="col-sm-3">
+                        Lead ID
+                    </dt>
+
+                    <dd class="col-sm-9">
+                        {{ result.data.lead_id }}
+                    </dd>
+
+
+                    <dt class="col-sm-3">
+                        Priority
+                    </dt>
+
+                    <dd class="col-sm-9">
+                        {{ result.data.priority }}
+                    </dd>
+
+
+                    <dt class="col-sm-3">
+                        Status
+                    </dt>
+
+                    <dd class="col-sm-9">
+                        {{ result.data.status }}
+                    </dd>
+
+
+                    <dt class="col-sm-3">
+                        Task ID
+                    </dt>
+
+                    <dd class="col-sm-9">
+                        {{ result.data.id }}
+                    </dd>
+
+                </dl>
+
+            {% endif %}
 
 
             <!-- ================================================= -->
@@ -122,6 +201,7 @@
         </div>
 
     </div>
+
 
 {% else %}
 

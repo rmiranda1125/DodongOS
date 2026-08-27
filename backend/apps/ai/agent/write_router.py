@@ -51,6 +51,48 @@ COMPLETE_TASK_PATTERN = re.compile(
 )
 
 
+MOVE_LEAD_STATUS_PATTERN = re.compile(
+    r"""
+    ^\s*
+    (?:please\s+)?
+    move
+    \s+
+    lead
+    \s*\#?\s*
+    (?P<lead_id>\d+)
+    \s+
+    to
+    \s+
+    (?P<status>[a-zA-Z_]+)
+    [.!?]?
+    \s*$
+    """,
+    re.IGNORECASE | re.VERBOSE,
+)
+
+
+CHANGE_LEAD_STATUS_PATTERN = re.compile(
+    r"""
+    ^\s*
+    (?:please\s+)?
+    change
+    \s+
+    lead
+    \s*\#?\s*
+    (?P<lead_id>\d+)
+    \s+
+    status
+    \s+
+    to
+    \s+
+    (?P<status>[a-zA-Z_]+)
+    [.!?]?
+    \s*$
+    """,
+    re.IGNORECASE | re.VERBOSE,
+)
+
+
 def route_crm_write_proposal_intent(message):
     """
     Deterministically recognize supported controlled
@@ -60,6 +102,7 @@ def route_crm_write_proposal_intent(message):
     """
 
     if not isinstance(message, str) or not message.strip():
+
         return {
             "success": False,
             "error": {
@@ -69,6 +112,7 @@ def route_crm_write_proposal_intent(message):
                 ),
             },
         }
+
 
     #
     # -----------------------------------------------------
@@ -104,6 +148,7 @@ def route_crm_write_proposal_intent(message):
         )
 
         if requested_title:
+
             title = (
                 requested_title
                 .strip()
@@ -113,6 +158,7 @@ def route_crm_write_proposal_intent(message):
             title_is_default = False
 
         else:
+
             title = (
                 f"Follow up with lead {lead_id}"
             )
@@ -135,6 +181,7 @@ def route_crm_write_proposal_intent(message):
                 ),
             },
         }
+
 
     #
     # -----------------------------------------------------
@@ -166,6 +213,58 @@ def route_crm_write_proposal_intent(message):
                 "task_id": task_id,
             },
         }
+
+
+    #
+    # -----------------------------------------------------
+    # CHANGE LEAD STATUS
+    # -----------------------------------------------------
+    #
+
+    status_match = (
+        MOVE_LEAD_STATUS_PATTERN.fullmatch(
+            message,
+        )
+        or
+        CHANGE_LEAD_STATUS_PATTERN.fullmatch(
+            message,
+        )
+    )
+
+    if status_match is not None:
+
+        lead_id = int(
+            status_match.group(
+                "lead_id"
+            )
+        )
+
+        status = (
+            status_match.group(
+                "status"
+            )
+            .strip()
+            .lower()
+        )
+
+        return {
+            "success": True,
+            "intent": (
+                "change_lead_status_proposal"
+            ),
+            "action": "change_lead_status",
+            "arguments": {
+                "lead_id": lead_id,
+                "status": status,
+            },
+        }
+
+
+    #
+    # -----------------------------------------------------
+    # UNSUPPORTED WRITE REQUEST
+    # -----------------------------------------------------
+    #
 
     return {
         "success": False,

@@ -5033,6 +5033,50 @@ class CRMWriteProposalRouterTests(TestCase):
             15,
         )
 
+    def test_routes_move_lead_status_request(self):
+        result = route_crm_write_proposal_intent(
+            "Move lead 12 to qualified."
+        )
+
+        self.assertTrue(
+            result["success"],
+        )
+
+        self.assertEqual(
+            result["intent"],
+            "change_lead_status_proposal",
+        )
+
+        self.assertEqual(
+            result["action"],
+            "change_lead_status",
+        )
+
+        self.assertEqual(
+            result["arguments"],
+            {
+                "lead_id": 12,
+                "status": "qualified",
+            },
+        )
+
+    def test_routes_change_lead_status_request(self):
+        result = route_crm_write_proposal_intent(
+            "Please change lead #12 status to WON."
+        )
+
+        self.assertTrue(
+            result["success"],
+        )
+
+        self.assertEqual(
+            result["arguments"],
+            {
+                "lead_id": 12,
+                "status": "won",
+            },
+        )    
+
 class CRMNaturalLanguageTaskProposalTests(TestCase):
 
     def setUp(self):
@@ -7282,4 +7326,284 @@ class ConfirmedLeadStatusChangeExecutorTests(
         self.assertEqual(
             audit.error_code,
             "LEAD_STATUS_CHANGED_SINCE_PROPOSAL",
+        )
+
+class CRMNaturalLanguageLeadStatusChangeTests(
+    TestCase
+):
+
+    def setUp(self):
+        self.lead = Lead.objects.create(
+            company_name="Acme Analytics",
+            job_title="Power BI Developer",
+            status="contacted",
+        )
+
+    def test_natural_language_builds_status_change_proposal(
+        self,
+    ):
+        result = build_write_proposal_from_message(
+            (
+                f"Move lead {self.lead.id} "
+                "to qualified."
+            )
+        )
+
+        self.assertTrue(
+            result["success"],
+        )
+
+        proposal = result["proposal"]
+
+        self.assertEqual(
+            proposal["action"],
+            "change_lead_status",
+        )
+
+        self.assertEqual(
+            proposal["lead"]["id"],
+            self.lead.id,
+        )
+
+        self.assertEqual(
+            proposal["lead"]["status"],
+            "contacted",
+        )
+
+        self.assertEqual(
+            proposal["arguments"]["status"],
+            "qualified",
+        )
+
+        self.assertEqual(
+            proposal["arguments"]["expected_status"],
+            "contacted",
+        )
+
+        self.assertTrue(
+            proposal["requires_confirmation"],
+        )
+
+    def test_natural_language_status_proposal_does_not_write(
+        self,
+    ):
+        result = build_write_proposal_from_message(
+            (
+                f"Move lead {self.lead.id} "
+                "to qualified."
+            )
+        )
+
+        self.assertTrue(
+            result["success"],
+        )
+
+        self.lead.refresh_from_db()
+
+        self.assertEqual(
+            self.lead.status,
+            "contacted",
+        )
+
+        self.assertEqual(
+            LeadActivity.objects.count(),
+            0,
+        )
+
+        self.assertEqual(
+            AIActionAudit.objects.count(),
+            0,
+        )
+
+    def test_assistant_returns_status_change_proposal(
+        self,
+    ):
+        response = self.client.post(
+            reverse(
+                "ai:crm_assistant_ask",
+            ),
+            {
+                "message": (
+                    f"Move lead {self.lead.id} "
+                    "to qualified."
+                ),
+            },
+        )
+
+        self.assertEqual(
+            response.status_code,
+            200,
+        )
+
+        self.assertContains(
+            response,
+            "Confirm Status Change",
+        )
+
+        self.assertContains(
+            response,
+            "Acme Analytics",
+        )
+
+        self.assertContains(
+            response,
+            "contacted",
+        )
+
+        self.assertContains(
+            response,
+            "qualified",
+        )
+
+        self.lead.refresh_from_db()
+
+        self.assertEqual(
+            self.lead.status,
+            "contacted",
+        )
+
+        self.assertEqual(
+            AIActionAudit.objects.count(),
+            0,
+        )
+
+    def test_confirm_post_changes_status(
+        self,
+    ):
+        proposal_response = self.client.post(
+            reverse(
+                "ai:crm_assistant_ask",
+            ),
+            {
+                "message": (
+                    f"Move lead {self.lead.id} "
+                    "to qualified."
+                ),
+            },
+        )
+
+        token = proposal_response.context[
+            "proposal_token"
+        ]
+
+        self.lead.refresh_from_db()
+
+        self.assertEqual(
+            self.lead.status,
+            "contacted",
+        )
+
+        confirm_response = self.client.post(
+            reverse(
+                "ai:crm_assistant_task_confirm",
+            ),
+            {
+                "proposal_token": token,
+            },
+        )
+
+        self.assertEqual(
+            confirm_response.status_code,
+            200,
+        )
+
+        self.lead.refresh_from_db()
+
+        self.assertEqual(
+            self.lead.status,
+            "qualified",
+        )
+
+        self.assertEqual(
+            AIActionAudit.objects.count(),
+            1,
+        )
+
+        self.assertContains(
+            confirm_response,
+            "CRM Lead Status Changed",
+        )
+
+    def test_chat_confirmation_cannot_change_lead_status(
+        self,
+    ):
+        self.client.post(
+            reverse(
+                "ai:crm_assistant_ask",
+            ),
+            {
+                "message": (
+                    f"Move lead {self.lead.id} "
+                    "to qualified."
+                ),
+            },
+        )
+
+        for message in (
+            "Yes.",
+            "Confirm.",
+            "Go ahead.",
+            "Do it.",
+        ):
+            self.client.post(
+                reverse(
+                    "ai:crm_assistant_ask",
+                ),
+                {
+                    "message": message,
+                },
+            )
+
+        self.lead.refresh_from_db()
+
+        self.assertEqual(
+            self.lead.status,
+            "contacted",
+        )
+
+        self.assertEqual(
+            LeadActivity.objects.count(),
+            0,
+        )
+
+        self.assertEqual(
+            AIActionAudit.objects.count(),
+            0,
+        )
+
+    def test_assistant_rejects_invalid_target_status(
+        self,
+    ):
+        response = self.client.post(
+            reverse(
+                "ai:crm_assistant_ask",
+            ),
+            {
+                "message": (
+                    f"Move lead {self.lead.id} "
+                    "to archived."
+                ),
+            },
+        )
+
+        self.assertEqual(
+            response.status_code,
+            200,
+        )
+
+        self.assertContains(
+            response,
+            "INVALID_LEAD_STATUS",
+        )
+
+        self.lead.refresh_from_db()
+
+        self.assertEqual(
+            self.lead.status,
+            "contacted",
+        )
+
+        self.assertEqual(
+            AIActionAudit.objects.count(),
+            0,
         )
