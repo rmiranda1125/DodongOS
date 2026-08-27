@@ -485,3 +485,88 @@ def build_change_lead_status_proposal(
             },
         },
     }
+
+def build_add_lead_note_proposal(
+    *,
+    lead_id,
+    note,
+):
+    """
+    Build a validated proposal for adding a note
+    to one CRM lead.
+
+    This function MUST NOT mutate CRM data.
+    """
+
+    if (
+        isinstance(lead_id, bool)
+        or not isinstance(lead_id, int)
+        or lead_id <= 0
+    ):
+        return {
+            "success": False,
+            "error": {
+                "code": "INVALID_LEAD_ID",
+                "message": (
+                    "A valid positive lead ID is required."
+                ),
+            },
+        }
+
+    if (
+        not isinstance(note, str)
+        or not note.strip()
+    ):
+        return {
+            "success": False,
+            "error": {
+                "code": "INVALID_NOTE",
+                "message": (
+                    "A non-empty lead note is required."
+                ),
+            },
+        }
+
+    cleaned_note = note.strip()
+
+    lead = lead_services.get_lead_by_id(
+        lead_id=lead_id,
+    )
+
+    if lead is None:
+        return {
+            "success": False,
+            "error": {
+                "code": "LEAD_NOT_FOUND",
+                "message": (
+                    f"Lead {lead_id} was not found."
+                ),
+            },
+        }
+
+    return {
+        "success": True,
+        "proposal": {
+            "proposal_id": str(
+                uuid.uuid4()
+            ),
+            "action": "add_lead_note",
+            "access_level": "write",
+            "status": "awaiting_confirmation",
+            "requires_confirmation": True,
+            "lead": {
+                "id": lead.id,
+                "company_name": lead.company_name,
+                "status": lead.status,
+            },
+            "activity": {
+                "activity_type": "note",
+                "description": cleaned_note,
+            },
+            "arguments": {
+                "lead_id": lead.id,
+                "activity_type": "note",
+                "description": cleaned_note,
+            },
+        },
+    }

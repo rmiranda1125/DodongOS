@@ -52,6 +52,7 @@ from apps.ai.agent.router import (
 )
 
 from apps.ai.agent.write_proposals import (
+    build_add_lead_note_proposal,
     build_complete_lead_task_proposal,
     build_create_lead_task_proposal,
     build_change_lead_status_proposal,
@@ -8079,4 +8080,271 @@ class CRMLeadStatusChangeAcceptanceTests(TestCase):
 
         self.assertIsNotNone(
             task.completed_at,
+        )
+
+class AddLeadNoteProposalTests(TestCase):
+
+    def setUp(self):
+        self.lead = Lead.objects.create(
+            company_name="Acme Analytics",
+            job_title="Power BI Developer",
+            status="contacted",
+        )
+
+    def test_builds_add_lead_note_proposal(self):
+        result = build_add_lead_note_proposal(
+            lead_id=self.lead.id,
+            note=(
+                "Customer requested a follow-up "
+                "next Monday."
+            ),
+        )
+
+        self.assertTrue(
+            result["success"],
+        )
+
+        proposal = result["proposal"]
+
+        self.assertEqual(
+            proposal["action"],
+            "add_lead_note",
+        )
+
+        self.assertEqual(
+            proposal["access_level"],
+            "write",
+        )
+
+        self.assertEqual(
+            proposal["status"],
+            "awaiting_confirmation",
+        )
+
+        self.assertTrue(
+            proposal["requires_confirmation"],
+        )
+
+        self.assertEqual(
+            proposal["arguments"],
+            {
+                "lead_id": self.lead.id,
+                "activity_type": "note",
+                "description": (
+                    "Customer requested a follow-up "
+                    "next Monday."
+                ),
+            },
+        )
+
+    def test_proposal_contains_lead_snapshot(self):
+        result = build_add_lead_note_proposal(
+            lead_id=self.lead.id,
+            note="Customer requested pricing.",
+        )
+
+        self.assertTrue(
+            result["success"],
+        )
+
+        snapshot = result[
+            "proposal"
+        ]["lead"]
+
+        self.assertEqual(
+            snapshot["id"],
+            self.lead.id,
+        )
+
+        self.assertEqual(
+            snapshot["company_name"],
+            "Acme Analytics",
+        )
+
+        self.assertEqual(
+            snapshot["status"],
+            "contacted",
+        )
+
+    def test_proposal_contains_note_activity_snapshot(
+        self,
+    ):
+        result = build_add_lead_note_proposal(
+            lead_id=self.lead.id,
+            note="Customer requested pricing.",
+        )
+
+        self.assertTrue(
+            result["success"],
+        )
+
+        activity = result[
+            "proposal"
+        ]["activity"]
+
+        self.assertEqual(
+            activity["activity_type"],
+            "note",
+        )
+
+        self.assertEqual(
+            activity["description"],
+            "Customer requested pricing.",
+        )
+
+    def test_proposal_does_not_create_activity(self):
+        before_activity_count = (
+            LeadActivity.objects.count()
+        )
+
+        before_audit_count = (
+            AIActionAudit.objects.count()
+        )
+
+        result = build_add_lead_note_proposal(
+            lead_id=self.lead.id,
+            note="Customer requested pricing.",
+        )
+
+        self.assertTrue(
+            result["success"],
+        )
+
+        self.assertEqual(
+            LeadActivity.objects.count(),
+            before_activity_count,
+        )
+
+        self.assertEqual(
+            AIActionAudit.objects.count(),
+            before_audit_count,
+        )
+
+        self.lead.refresh_from_db()
+
+        self.assertEqual(
+            self.lead.status,
+            "contacted",
+        )
+
+    def test_rejects_invalid_lead_id(self):
+        for invalid_id in (
+            0,
+            -1,
+            True,
+            "1",
+            None,
+        ):
+            with self.subTest(
+                lead_id=invalid_id,
+            ):
+                result = (
+                    build_add_lead_note_proposal(
+                        lead_id=invalid_id,
+                        note="Test note",
+                    )
+                )
+
+                self.assertFalse(
+                    result["success"],
+                )
+
+                self.assertEqual(
+                    result["error"]["code"],
+                    "INVALID_LEAD_ID",
+                )
+
+    def test_rejects_missing_lead(self):
+        result = build_add_lead_note_proposal(
+            lead_id=999999,
+            note="Test note",
+        )
+
+        self.assertFalse(
+            result["success"],
+        )
+
+        self.assertEqual(
+            result["error"]["code"],
+            "LEAD_NOT_FOUND",
+        )
+
+        self.assertEqual(
+            LeadActivity.objects.count(),
+            0,
+        )
+
+    def test_rejects_invalid_note(self):
+        for invalid_note in (
+            "",
+            "   ",
+            None,
+            123,
+            True,
+        ):
+            with self.subTest(
+                note=invalid_note,
+            ):
+                result = (
+                    build_add_lead_note_proposal(
+                        lead_id=self.lead.id,
+                        note=invalid_note,
+                    )
+                )
+
+                self.assertFalse(
+                    result["success"],
+                )
+
+                self.assertEqual(
+                    result["error"]["code"],
+                    "INVALID_NOTE",
+                )
+
+    def test_note_is_trimmed(self):
+        result = build_add_lead_note_proposal(
+            lead_id=self.lead.id,
+            note="  Customer requested pricing.  ",
+        )
+
+        self.assertTrue(
+            result["success"],
+        )
+
+        self.assertEqual(
+            result["proposal"][
+                "arguments"
+            ]["description"],
+            "Customer requested pricing.",
+        )
+
+        self.assertEqual(
+            result["proposal"][
+                "activity"
+            ]["description"],
+            "Customer requested pricing.",
+        )
+
+    def test_proposal_ids_are_unique(self):
+        first = build_add_lead_note_proposal(
+            lead_id=self.lead.id,
+            note="First proposal.",
+        )
+
+        second = build_add_lead_note_proposal(
+            lead_id=self.lead.id,
+            note="First proposal.",
+        )
+
+        self.assertTrue(
+            first["success"],
+        )
+
+        self.assertTrue(
+            second["success"],
+        )
+
+        self.assertNotEqual(
+            first["proposal"]["proposal_id"],
+            second["proposal"]["proposal_id"],
         )
