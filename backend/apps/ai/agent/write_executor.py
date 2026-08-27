@@ -1,14 +1,21 @@
 import uuid
-from apps.ai import audit_services
+
 from django.db import (
     IntegrityError,
     transaction,
 )
 
+from apps.ai import audit_services
 from apps.ai.models import AIActionAudit
 from apps.ai.tools.registry import (
     execute_confirmed_write_tool,
 )
+
+
+SUPPORTED_WRITE_ACTIONS = {
+    "create_lead_task",
+    "complete_lead_task",
+}
 
 
 def execute_confirmed_proposal(
@@ -72,7 +79,7 @@ def execute_confirmed_proposal(
         "action",
     )
 
-    if action != "create_lead_task":
+    if action not in SUPPORTED_WRITE_ACTIONS:
         return {
             "success": False,
             "error": {
@@ -140,7 +147,7 @@ def execute_confirmed_proposal(
                 lead_id=arguments.get(
                     "lead_id",
                 ),
-            proposal_data=arguments,
+                proposal_data=arguments,
             )
 
             result = execute_confirmed_write_tool(
@@ -166,7 +173,7 @@ def execute_confirmed_proposal(
 
                 result["audit_id"] = audit.id
                 result["proposal_id"] = str(
-                    proposal_id
+                    proposal_id,
                 )
 
                 return result
@@ -177,7 +184,7 @@ def execute_confirmed_proposal(
                 audit=audit,
                 result_task_id=task_data.get(
                     "id",
-                )
+                ),
             )
 
             return {
@@ -185,7 +192,7 @@ def execute_confirmed_proposal(
                 "action": action,
                 "status": "executed",
                 "proposal_id": str(
-                    proposal_id
+                    proposal_id,
                 ),
                 "audit_id": audit.id,
                 "data": task_data,

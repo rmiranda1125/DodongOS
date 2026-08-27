@@ -417,3 +417,73 @@ def create_lead_task_tool(
             verified_task,
         ),
     }
+
+def complete_lead_task_tool(
+    *,
+    task_id,
+):
+    """
+    Complete one CRM task through the CRM service layer.
+
+    WRITE TOOL:
+    Must only run through confirmed write execution.
+    """
+
+    task = lead_services.get_lead_task_by_id(
+        task_id=task_id,
+    )
+
+    if task is None:
+        return {
+            "success": False,
+            "error": {
+                "code": "TASK_NOT_FOUND",
+                "message": f"Task {task_id} was not found.",
+            },
+        }
+
+    if task.status == "completed":
+        return {
+            "success": False,
+            "error": {
+                "code": "TASK_ALREADY_COMPLETED",
+                "message": (
+                    f"Task {task_id} is already completed."
+                ),
+            },
+        }
+
+    completed_task = (
+        lead_services.complete_lead_task(
+            task=task,
+        )
+    )
+
+    verified_task = (
+        lead_services.get_lead_task_by_id(
+            task_id=completed_task.id,
+        )
+    )
+
+    if (
+        verified_task is None
+        or verified_task.status != "completed"
+        or verified_task.completed_at is None
+    ):
+        return {
+            "success": False,
+            "error": {
+                "code": "TASK_COMPLETION_VERIFICATION_FAILED",
+                "message": (
+                    "The task completion could not "
+                    "be verified."
+                ),
+            },
+        }
+
+    return {
+        "success": True,
+        "data": _serialize_task(
+            verified_task,
+        ),
+    }

@@ -17,6 +17,7 @@ from apps.ai.tools.crm.tasks import (
     get_pending_tasks_tool,
     get_priority_tasks_tool,
     create_lead_task_tool,
+    complete_lead_task_tool,
 )
 
 
@@ -275,10 +276,23 @@ TOOL_REGISTRY = {
             "description": "string",
             "task_type": "string",
             "priority": "string",
-        "due_date": "string|null",
+            "due_date": "string|null",
+        },
+    ),
+
+    "complete_lead_task": ToolDefinition(
+        name="complete_lead_task",
+        description=(
+            "Complete one explicitly confirmed CRM task."
+        ),
+        access_level="write",
+        function=complete_lead_task_tool,
+        input_schema={
+            "task_id": "integer",
         },
     ),
 }
+
 
 def get_registered_tool(name):
     """
@@ -306,6 +320,7 @@ def list_registered_tools():
         }
         for tool in TOOL_REGISTRY.values()
     ]
+
 
 def execute_registered_tool(
     *,
@@ -395,6 +410,7 @@ def execute_registered_tool(
             },
         }
 
+
 def execute_confirmed_write_tool(
     *,
     name,
@@ -474,5 +490,16 @@ def execute_confirmed_write_tool(
             "error": {
                 "code": "INVALID_TOOL_ARGUMENTS",
                 "message": str(exc),
+            },
+        }
+
+    except Exception:
+        return {
+            "success": False,
+            "error": {
+                "code": "TOOL_EXECUTION_ERROR",
+                "message": (
+                    f"Unable to execute tool '{name}'."
+                ),
             },
         }

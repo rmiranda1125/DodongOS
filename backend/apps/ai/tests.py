@@ -1489,6 +1489,7 @@ class CRMToolRegistryTests(TestCase):
             "get_lead_activities",
             "get_pipeline_summary",
             "create_lead_task",
+            "complete_lead_task",
         }
 
         self.assertEqual(
@@ -1507,6 +1508,7 @@ class CRMToolRegistryTests(TestCase):
             "get_lead_activities": "read",
             "get_pipeline_summary": "read",
             "create_lead_task": "write",
+            "complete_lead_task": "write",
         }
 
         actual_access_levels = {
@@ -1547,7 +1549,7 @@ class CRMToolRegistryTests(TestCase):
 
         self.assertEqual(
             len(tools),
-            9,
+            10,
         )
 
         for tool in tools:
@@ -1600,6 +1602,8 @@ class CRMToolRegistryTests(TestCase):
             result["data"]["by_status"]["qualified"],
             1,
         )
+
+
 
     def test_execute_get_lead_through_registry(self):
         lead = Lead.objects.create(
@@ -1667,6 +1671,18 @@ class CRMToolRegistryTests(TestCase):
         self.assertEqual(
             result["error"]["code"],
             "INVALID_TOOL_ARGUMENTS",
+        )
+
+    def test_read_executor_cannot_complete_task(self):
+        result = execute_registered_tool(
+            name="complete_lead_task",
+            arguments={
+                "task_id": 1,
+            },
+        )
+
+        self.assertFalse(
+            result["success"],
         )
 
 
@@ -3223,12 +3239,12 @@ class CRMReadAgentRegistrySafetyTests(TestCase):
             write_tools,
             {
                 "create_lead_task",
-        },
-     )
+                "complete_lead_task",
+            },
+        )
 
     def test_registry_contains_no_unapproved_write_tools(self):
         prohibited_tools = {
-            "complete_lead_task",
             "update_lead_status",
             "create_activity",
             "delete_lead",
@@ -3890,7 +3906,207 @@ class ConfirmedWriteExecutorTests(TestCase):
         self.assertEqual(
             audit.lead_id,
             task.lead_id,
-        )    
+        )   
+
+class ConfirmedTaskCompletionExecutorTests(TestCase):
+
+    def setUp(self):
+        self.lead = Lead.objects.create(
+            company_name="Acme Analytics",
+            job_title="Power BI Developer",
+        )
+
+        self.task = LeadTask.objects.create(
+            lead=self.lead,
+            title="Send pricing proposal",
+            task_type="follow_up",
+            priority="high",
+            status="pending",
+        )
+
+    def _build_proposal(self):
+        result = build_complete_lead_task_proposal(
+            task_id=self.task.id,
+        )
+
+        self.assertTrue(
+            result["success"],
+        )
+
+        return result["proposal"]
+
+
+    def test_unconfirmed_completion_does_not_write(self):
+        proposal = self._build_proposal()
+
+        before_activity_count = (
+            LeadActivity.objects.count()
+        )
+
+        result = execute_confirmed_proposal(
+            proposal=proposal,
+            confirmed=False,
+        )
+
+        self.assertFalse(
+            result["success"],
+        )
+
+        self.assertEqual(
+            result["error"]["code"],
+            "CONFIRMATION_REQUIRED",
+        )
+
+        self.task.refresh_from_db()
+
+        self.assertEqual(
+            self.task.status,
+            "pending",
+        )
+
+        self.assertIsNone(
+            self.task.completed_at,
+        )
+
+        self.assertEqual(
+            LeadActivity.objects.count(),
+            before_activity_count,
+        )
+
+
+    def test_confirmed_completion_completes_task(self):
+        proposal = self._build_proposal()
+
+        result = execute_confirmed_proposal(
+            proposal=proposal,
+            confirmed=True,
+        )
+
+        self.assertTrue(
+            result["success"],
+        )
+
+        self.task.refresh_from_db()
+
+        self.assertEqual(
+            self.task.status,
+            "completed",
+        )
+
+        self.assertIsNotNone(
+            self.task.completed_at,
+        )
+
+        self.assertEqual(
+            result["action"],
+            "complete_lead_task",
+        )
+
+        self.assertEqual(
+            result["status"],
+            "executed",
+        )
+
+
+    def test_completion_creates_activity(self):
+        proposal = self._build_proposal()
+
+        before_count = LeadActivity.objects.count()
+
+        result = execute_confirmed_proposal(
+            proposal=proposal,
+            confirmed=True,
+        )
+
+        self.assertTrue(
+            result["success"],
+        )
+
+        self.assertEqual(
+            LeadActivity.objects.count(),
+            before_count + 1,
+        )
+
+
+    def test_completion_creates_executed_audit(self):
+        proposal = self._build_proposal()
+
+        result = execute_confirmed_proposal(
+            proposal=proposal,
+            confirmed=True,
+        )
+
+        self.assertTrue(
+            result["success"],
+        )
+
+        self.assertEqual(
+            AIActionAudit.objects.count(),
+            1,
+        )
+
+        audit = AIActionAudit.objects.get()
+
+        self.assertEqual(
+            audit.action,
+            "complete_lead_task",
+        )
+
+        self.assertEqual(
+            audit.status,
+            "executed",
+        )
+
+        self.assertEqual(
+            audit.result_task_id,
+            self.task.id,
+        )
+
+        self.assertEqual(
+            str(audit.proposal_id),
+            proposal["proposal_id"],
+        )
+
+
+    def test_completion_proposal_cannot_execute_twice(self):
+        proposal = self._build_proposal()
+
+        first = execute_confirmed_proposal(
+            proposal=proposal,
+            confirmed=True,
+        )
+
+        self.assertTrue(
+            first["success"],
+        )
+
+        activity_count = (
+            LeadActivity.objects.count()
+        )
+
+        second = execute_confirmed_proposal(
+            proposal=proposal,
+            confirmed=True,
+        )
+
+        self.assertFalse(
+            second["success"],
+        )
+
+        self.assertEqual(
+            second["error"]["code"],
+            "PROPOSAL_ALREADY_USED",
+        )
+
+        self.assertEqual(
+            LeadActivity.objects.count(),
+            activity_count,
+        )
+
+        self.assertEqual(
+            AIActionAudit.objects.count(),
+            1,
+        ) 
 
 class CRMActionProposalTokenTests(TestCase):
 
