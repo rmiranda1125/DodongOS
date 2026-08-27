@@ -7607,3 +7607,476 @@ class CRMNaturalLanguageLeadStatusChangeTests(
             AIActionAudit.objects.count(),
             0,
         )
+
+class CRMLeadStatusChangeAcceptanceTests(TestCase):
+
+    def setUp(self):
+        self.lead = Lead.objects.create(
+            company_name="Acme Analytics",
+            job_title="Power BI Developer",
+            status="contacted",
+        )
+
+    def _request_status_change(self):
+        return self.client.post(
+            reverse(
+                "ai:crm_assistant_ask",
+            ),
+            {
+                "message": (
+                    f"Move lead {self.lead.id} "
+                    "to qualified."
+                ),
+            },
+        )
+
+    def test_acceptance_status_proposal_performs_no_write(
+        self,
+    ):
+        response = self._request_status_change()
+
+        self.assertEqual(
+            response.status_code,
+            200,
+        )
+
+        self.assertContains(
+            response,
+            "Confirm Status Change",
+        )
+
+        self.lead.refresh_from_db()
+
+        self.assertEqual(
+            self.lead.status,
+            "contacted",
+        )
+
+        self.assertEqual(
+            LeadActivity.objects.count(),
+            0,
+        )
+
+        self.assertEqual(
+            AIActionAudit.objects.count(),
+            0,
+        )
+
+    def test_acceptance_confirm_changes_verified_status(
+        self,
+    ):
+        proposal_response = (
+            self._request_status_change()
+        )
+
+        token = proposal_response.context[
+            "proposal_token"
+        ]
+
+        response = self.client.post(
+            reverse(
+                "ai:crm_assistant_task_confirm",
+            ),
+            {
+                "proposal_token": token,
+            },
+        )
+
+        self.assertEqual(
+            response.status_code,
+            200,
+        )
+
+        self.lead.refresh_from_db()
+
+        self.assertEqual(
+            self.lead.status,
+            "qualified",
+        )
+
+        self.assertContains(
+            response,
+            "CRM Lead Status Changed",
+        )
+
+    def test_acceptance_status_change_creates_activity_and_audit(
+        self,
+    ):
+        proposal_response = (
+            self._request_status_change()
+        )
+
+        token = proposal_response.context[
+            "proposal_token"
+        ]
+
+        self.client.post(
+            reverse(
+                "ai:crm_assistant_task_confirm",
+            ),
+            {
+                "proposal_token": token,
+            },
+        )
+
+        self.assertEqual(
+            LeadActivity.objects.count(),
+            1,
+        )
+
+        activity = LeadActivity.objects.get()
+
+        self.assertEqual(
+            activity.activity_type,
+            "status_changed",
+        )
+
+        self.assertEqual(
+            activity.lead_id,
+            self.lead.id,
+        )
+
+        self.assertEqual(
+            AIActionAudit.objects.count(),
+            1,
+        )
+
+        audit = AIActionAudit.objects.get()
+
+        self.assertEqual(
+            audit.action,
+            "change_lead_status",
+        )
+
+        self.assertEqual(
+            audit.status,
+            "executed",
+        )
+
+        self.assertEqual(
+            audit.lead_id,
+            self.lead.id,
+        )
+
+        self.assertIsNone(
+            audit.result_task_id,
+        )
+
+    def test_acceptance_status_change_replay_is_blocked(
+        self,
+    ):
+        proposal_response = (
+            self._request_status_change()
+        )
+
+        token = proposal_response.context[
+            "proposal_token"
+        ]
+
+        first = self.client.post(
+            reverse(
+                "ai:crm_assistant_task_confirm",
+            ),
+            {
+                "proposal_token": token,
+            },
+        )
+
+        self.assertEqual(
+            first.status_code,
+            200,
+        )
+
+        activity_count = (
+            LeadActivity.objects.count()
+        )
+
+        second = self.client.post(
+            reverse(
+                "ai:crm_assistant_task_confirm",
+            ),
+            {
+                "proposal_token": token,
+            },
+        )
+
+        self.assertEqual(
+            second.status_code,
+            200,
+        )
+
+        self.assertContains(
+            second,
+            "PROPOSAL_ALREADY_USED",
+        )
+
+        self.assertEqual(
+            LeadActivity.objects.count(),
+            activity_count,
+        )
+
+        self.assertEqual(
+            AIActionAudit.objects.count(),
+            1,
+        )
+
+    def test_acceptance_tampered_status_token_is_blocked(
+        self,
+    ):
+        proposal_response = (
+            self._request_status_change()
+        )
+
+        token = proposal_response.context[
+            "proposal_token"
+        ]
+
+        tampered = (
+            token[:-1]
+            + (
+                "A"
+                if token[-1] != "A"
+                else "B"
+            )
+        )
+
+        response = self.client.post(
+            reverse(
+                "ai:crm_assistant_task_confirm",
+            ),
+            {
+                "proposal_token": tampered,
+            },
+        )
+
+        self.lead.refresh_from_db()
+
+        self.assertEqual(
+            self.lead.status,
+            "contacted",
+        )
+
+        self.assertEqual(
+            LeadActivity.objects.count(),
+            0,
+        )
+
+        self.assertEqual(
+            AIActionAudit.objects.count(),
+            0,
+        )
+
+        self.assertContains(
+            response,
+            "INVALID_PROPOSAL_TOKEN",
+        )
+
+    def test_acceptance_stale_status_proposal_is_blocked(
+        self,
+    ):
+        proposal_response = (
+            self._request_status_change()
+        )
+
+        token = proposal_response.context[
+            "proposal_token"
+        ]
+
+        self.lead.status = "proposal"
+
+        self.lead.save(
+            update_fields=[
+                "status",
+                "updated_at",
+            ],
+        )
+
+        response = self.client.post(
+            reverse(
+                "ai:crm_assistant_task_confirm",
+            ),
+            {
+                "proposal_token": token,
+            },
+        )
+
+        self.lead.refresh_from_db()
+
+        self.assertEqual(
+            self.lead.status,
+            "proposal",
+        )
+
+        self.assertContains(
+            response,
+            "LEAD_STATUS_CHANGED_SINCE_PROPOSAL",
+        )
+
+        self.assertEqual(
+            LeadActivity.objects.count(),
+            0,
+        )
+
+        self.assertEqual(
+            AIActionAudit.objects.count(),
+            1,
+        )
+
+        audit = AIActionAudit.objects.get()
+
+        self.assertEqual(
+            audit.status,
+            "failed",
+        )
+
+    def test_acceptance_chat_words_cannot_confirm_status_change(
+        self,
+    ):
+        self._request_status_change()
+
+        for message in (
+            "Yes.",
+            "Confirm.",
+            "Go ahead.",
+            "Do it.",
+        ):
+            self.client.post(
+                reverse(
+                    "ai:crm_assistant_ask",
+                ),
+                {
+                    "message": message,
+                },
+            )
+
+        self.lead.refresh_from_db()
+
+        self.assertEqual(
+            self.lead.status,
+            "contacted",
+        )
+
+        self.assertEqual(
+            LeadActivity.objects.count(),
+            0,
+        )
+
+        self.assertEqual(
+            AIActionAudit.objects.count(),
+            0,
+        )
+
+    def test_acceptance_invalid_status_is_rejected(
+        self,
+    ):
+        response = self.client.post(
+            reverse(
+                "ai:crm_assistant_ask",
+            ),
+            {
+                "message": (
+                    f"Move lead {self.lead.id} "
+                    "to archived."
+                ),
+            },
+        )
+
+        self.assertContains(
+            response,
+            "INVALID_LEAD_STATUS",
+        )
+
+        self.lead.refresh_from_db()
+
+        self.assertEqual(
+            self.lead.status,
+            "contacted",
+        )
+
+        self.assertEqual(
+            AIActionAudit.objects.count(),
+            0,
+        )
+
+    def test_acceptance_same_status_is_rejected(
+        self,
+    ):
+        response = self.client.post(
+            reverse(
+                "ai:crm_assistant_ask",
+            ),
+            {
+                "message": (
+                    f"Move lead {self.lead.id} "
+                    "to contacted."
+                ),
+            },
+        )
+
+        self.assertContains(
+            response,
+            "LEAD_ALREADY_IN_STATUS",
+        )
+
+        self.lead.refresh_from_db()
+
+        self.assertEqual(
+            self.lead.status,
+            "contacted",
+        )
+
+        self.assertEqual(
+            LeadActivity.objects.count(),
+            0,
+        )
+
+        self.assertEqual(
+            AIActionAudit.objects.count(),
+            0,
+        )
+
+    def test_acceptance_task_completion_flow_still_works(
+        self,
+    ):
+        task = LeadTask.objects.create(
+            lead=self.lead,
+            title="Send pricing proposal",
+            task_type="follow_up",
+            priority="high",
+            status="pending",
+        )
+
+        proposal_response = self.client.post(
+            reverse(
+                "ai:crm_assistant_ask",
+            ),
+            {
+                "message": (
+                    f"Complete task {task.id}."
+                ),
+            },
+        )
+
+        token = proposal_response.context[
+            "proposal_token"
+        ]
+
+        self.client.post(
+            reverse(
+                "ai:crm_assistant_task_confirm",
+            ),
+            {
+                "proposal_token": token,
+            },
+        )
+
+        task.refresh_from_db()
+
+        self.assertEqual(
+            task.status,
+            "completed",
+        )
+
+        self.assertIsNotNone(
+            task.completed_at,
+        )
