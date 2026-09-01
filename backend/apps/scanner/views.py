@@ -1,49 +1,133 @@
+"""
+Staff-only lead scanner UI.
+
+Read-only review queue + explicit import/reject actions. These
+views contain no ORM and no CRM logic - everything goes through
+apps/scanner/services.py, which delegates CRM creation to
+apps/leads/services.py.
+"""
+
+from django.contrib import messages
+from django.contrib.admin.views.decorators import staff_member_required
+from django.http import HttpResponse
 from django.shortcuts import redirect, render
+from django.views.decorators.http import require_GET, require_POST
 
-from .forms import ScanURLForm
-from .services.scanner import LeadScanner
+from apps.scanner import services as scanner_services
 
 
-def scan(request):
-    """
-    Display the scanner page and process a URL.
-    """
+@staff_member_required
+@require_GET
+def review_queue(request):
+    status = request.GET.get("status") or None
+    source = request.GET.get("source") or None
+    min_score = request.GET.get("min_score") or None
 
-    error = None
-
-    if request.method == "POST":
-
-        form = ScanURLForm(request.POST)
-
-        if form.is_valid():
-
-            url = form.cleaned_data["url"]
-
-            try:
-
-                scanner = LeadScanner()
-
-                lead = scanner.scan(url)
-
-                # Redirect to the newly created Lead
-                return redirect(
-                    "leads:detail",
-                    pk=lead.pk,
-                )
-
-            except Exception as exc:
-
-                error = str(exc)
-
-    else:
-
-        form = ScanURLForm()
+    candidates = scanner_services.list_candidates(
+        status=status,
+        source=source,
+        min_score=min_score,
+    )
 
     return render(
         request,
-        "scanner/scan.html",
+        "scanner/review_queue.html",
         {
-            "form": form,
-            "error": error,
+            "candidates": candidates,
+            "sources": scanner_services.candidate_sources(),
+            "selected_status": status,
+            "selected_source": source,
+            "selected_min_score": min_score,
+            "status_choices": [
+                "new",
+                "reviewed",
+                "approved",
+                "rejected",
+                "imported",
+            ],
         },
     )
+
+
+@staff_member_required
+@require_GET
+def candidate_detail(request, candidate_id):
+    candidate = scanner_services.get_candidate(candidate_id=candidate_id)
+    if candidate is None:
+        return render(
+            request,
+            "scanner/candidate_detail.html",
+            {"candidate": None},
+            status=404,
+        )
+
+    preview = scanner_services.preview_import(candidate_id=candidate_id)
+
+    return render(
+        request,
+        "scanner/candidate_detail.html",
+        {"candidate": candidate, "preview": preview},
+    )
+
+
+@staff_member_required
+@require_POST
+def import_candidate(request, candidate_id):
+    result = scanner_services.import_candidate(
+        candidate_id=candidate_id,
+        user=request.user,
+    )
+    if result.get("success"):
+        messages.success(
+            request,
+            f"Imported as CRM lead #{result['lead_id']}.",
+        )
+    else:
+        code = result.get("error", {}).get("code", "IMPORT_FAILED")
+        messages.warning(request, f"Not imported: {code}.")
+    return redirect("scanner:candidate_detail", candidate_id=candidate_id)
+
+
+@staff_member_required
+@require_POST
+def reject_candidate(request, candidate_id):
+    scanner_services.reject_candidate(
+        candidate_id=candidate_id,
+        reason=request.POST.get("reason", ""),
+    )
+    messages.success(request, "Candidate rejected.")
+    return redirect("scanner:candidate_detail", candidate_id=candidate_id)
+
+
+@staff_member_required
+@require_POST
+def mark_reviewed(request, candidate_id):
+    scanner_services.set_candidate_status(
+        candidate_id=candidate_id,
+        status="reviewed",
+    )
+    return redirect("scanner:candidate_detail", candidate_id=candidate_id)
+
+
+@staff_member_required
+@require_GET
+def scan_runs(request):
+    return render(
+        request,
+        "scanner/scan_runs.html",
+        {"runs": scanner_services.list_scan_runs()},
+    )
+
+
+@staff_member_required
+@require_GET
+def export_csv(request):
+    content = scanner_services.export_candidates_csv(
+        status=request.GET.get("status") or None,
+        source=request.GET.get("source") or None,
+    )
+    response = HttpResponse(content, content_type="text/csv")
+    response["Content-Disposition"] = (
+        'attachment; filename="lead_candidates.csv"'
+    )
+    return response

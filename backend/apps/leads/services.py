@@ -635,3 +635,73 @@ def get_lead_activity_by_id(
 
     except LeadActivity.DoesNotExist:
         return None
+
+
+# =========================================================
+# SCANNER -> CRM IMPORT
+# =========================================================
+
+def find_duplicate_lead(*, company_name=None, source_url=None):
+    """
+    Return an existing CRM Lead that likely matches, or None.
+
+    Deterministic identity only: exact (normalized) source_url,
+    then case-insensitive exact company_name. Used to block a
+    duplicate import from the lead scanner.
+    """
+
+    if source_url:
+        source_url = source_url.strip()
+        if source_url:
+            match = Lead.objects.filter(source_url=source_url).first()
+            if match is not None:
+                return match
+
+    if company_name:
+        company_name = company_name.strip()
+        if company_name:
+            return Lead.objects.filter(
+                company_name__iexact=company_name,
+            ).first()
+
+    return None
+
+
+def import_scanner_candidate(*, mapping, context_note=""):
+    """
+    Create one CRM Lead from a scanner candidate mapping and, if
+    provided, attach a context note. This is the ONLY entry point
+    the lead scanner uses to create a Lead - the scanner never
+    calls Lead.objects.create() itself.
+
+    ``mapping`` keys (all optional except company_name):
+    company_name, job_title, source_platform, source_url, location,
+    work_setup, salary, lead_score.
+    """
+
+    company_name = (mapping.get("company_name") or "").strip()
+    if not company_name:
+        raise ValueError("company_name is required to import a lead.")
+
+    source_url = (mapping.get("source_url") or "").strip() or None
+
+    lead = Lead.objects.create(
+        company_name=company_name,
+        job_title=(mapping.get("job_title") or "").strip(),
+        source_platform=(mapping.get("source_platform") or "").strip(),
+        source_url=source_url,
+        location=(mapping.get("location") or "").strip(),
+        work_setup=(mapping.get("work_setup") or "").strip(),
+        salary=(mapping.get("salary") or "").strip(),
+        lead_score=int(mapping.get("lead_score") or 0),
+        status="new",
+    )
+
+    if context_note:
+        LeadActivity.objects.create(
+            lead=lead,
+            activity_type="note",
+            description=context_note,
+        )
+
+    return lead

@@ -507,3 +507,57 @@ KNOWLEDGE_DOC_MAX_CHARS = env.int(
     "KNOWLEDGE_DOC_MAX_CHARS",
     default=200000,
 )
+
+# ==========================================================
+# Lead Scanner (Phase 4)
+# ==========================================================
+#
+# Discovery only - the scanner never creates a CRM Lead without an
+# explicit staff import. All values are conservative defaults;
+# tune the qualification profile per operator.
+#
+#   SCANNER_PROFILE            - deterministic qualification profile
+#                               (dict; missing keys fall back to
+#                               apps/scanner/scoring.DEFAULT_PROFILE).
+#   SCANNER_SCORE_HIGH/MEDIUM  - qualification band thresholds.
+#   SCANNER_AI_TIMEOUT_SECONDS - bounded timeout for the OPTIONAL,
+#                               non-authoritative AI explanation note.
+#
+
+SCANNER_PROFILE = {
+    "required_skills": env.list(
+        "SCANNER_REQUIRED_SKILLS",
+        default=["power bi", "sql"],
+    ),
+    "preferred_skills": env.list(
+        "SCANNER_PREFERRED_SKILLS",
+        default=["dax", "power query", "tableau", "python"],
+    ),
+    "role_keywords": env.list(
+        "SCANNER_ROLE_KEYWORDS",
+        default=["analyst", "bi", "data", "developer", "engineer"],
+    ),
+    "excluded_terms": env.list(
+        "SCANNER_EXCLUDED_TERMS",
+        default=["unpaid", "volunteer"],
+    ),
+    "remote_required": env.bool(
+        "SCANNER_REMOTE_REQUIRED",
+        default=False,
+    ),
+    "min_compensation": env.int(
+        "SCANNER_MIN_COMPENSATION",
+        default=0,
+    ),
+    "recency_days": env.int(
+        "SCANNER_RECENCY_DAYS",
+        default=30,
+    ),
+}
+
+SCANNER_SCORE_HIGH = env.int("SCANNER_SCORE_HIGH", default=80)
+SCANNER_SCORE_MEDIUM = env.int("SCANNER_SCORE_MEDIUM", default=60)
+SCANNER_AI_TIMEOUT_SECONDS = env.int(
+    "SCANNER_AI_TIMEOUT_SECONDS",
+    default=15,
+)

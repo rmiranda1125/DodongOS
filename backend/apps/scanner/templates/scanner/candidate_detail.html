@@ -1,0 +1,164 @@
+{% extends "base.html" %}
+
+{% block title %}Candidate review{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+
+    <a href="{% url 'scanner:review_queue' %}"
+       class="btn btn-sm btn-link px-0 mb-2">&larr; Back to queue</a>
+
+    {% if not candidate %}
+        <div class="alert alert-danger">Candidate not found.</div>
+    {% else %}
+
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags|default:'info' }}">
+                {{ message }}
+            </div>
+        {% endfor %}
+    {% endif %}
+
+    <div class="d-flex justify-content-between align-items-start">
+        <div>
+            <h2 class="mb-1">{{ candidate.company_name }}</h2>
+            <p class="text-muted mb-0">
+                {{ candidate.opportunity_title|default:"(no title)" }}
+            </p>
+        </div>
+        <span class="badge fs-6 text-bg-{% if candidate.qualification == 'high' %}success{% elif candidate.qualification == 'medium' %}warning{% else %}secondary{% endif %}">
+            {{ candidate.score }}/100 · {{ candidate.qualification }}
+        </span>
+    </div>
+
+    <div class="row mt-3">
+        <div class="col-lg-6">
+            <div class="card shadow-sm mb-3">
+                <div class="card-header bg-light"><strong>Source</strong></div>
+                <div class="card-body">
+                    <dl class="row mb-0 small">
+                        <dt class="col-sm-4">Source</dt>
+                        <dd class="col-sm-8"><code>{{ candidate.source }}</code></dd>
+                        <dt class="col-sm-4">Source link</dt>
+                        <dd class="col-sm-8">
+                            {% if candidate.source_url %}
+                                <a href="{{ candidate.source_url }}"
+                                   rel="nofollow noopener noreferrer"
+                                   target="_blank">{{ candidate.source_url }}</a>
+                            {% else %}—{% endif %}
+                        </dd>
+                        <dt class="col-sm-4">Dedup key</dt>
+                        <dd class="col-sm-8"><code>{{ candidate.dedup_key }}</code></dd>
+                        <dt class="col-sm-4">Contact</dt>
+                        <dd class="col-sm-8">{{ candidate.contact_name|default:"—" }}</dd>
+                        <dt class="col-sm-4">Location</dt>
+                        <dd class="col-sm-8">{{ candidate.location|default:"—" }}</dd>
+                        <dt class="col-sm-4">Work</dt>
+                        <dd class="col-sm-8">{{ candidate.work_arrangement|default:"—" }}</dd>
+                        <dt class="col-sm-4">Compensation</dt>
+                        <dd class="col-sm-8">{{ candidate.compensation_text|default:"—" }}</dd>
+                        <dt class="col-sm-4">Times seen</dt>
+                        <dd class="col-sm-8">{{ candidate.times_seen }}</dd>
+                        <dt class="col-sm-4">Status</dt>
+                        <dd class="col-sm-8">{{ candidate.status }}</dd>
+                    </dl>
+                </div>
+            </div>
+
+            <div class="card shadow-sm mb-3">
+                <div class="card-header bg-light">
+                    <strong>Original opportunity text</strong>
+                </div>
+                <div class="card-body" style="white-space: pre-wrap;">{{ candidate.description|default:"(none)" }}</div>
+            </div>
+        </div>
+
+        <div class="col-lg-6">
+            <div class="card shadow-sm mb-3">
+                <div class="card-header bg-light">
+                    <strong>Score explanation</strong>
+                </div>
+                <div class="card-body">
+                    <ul class="list-unstyled mb-2 small">
+                        {% for key, value in candidate.score_components.items %}
+                            <li><code>{{ key }}</code>: {{ value }}</li>
+                        {% endfor %}
+                    </ul>
+                    <ul class="small mb-0">
+                        {% for reason in candidate.score_reasons %}
+                            <li>{{ reason }}</li>
+                        {% endfor %}
+                    </ul>
+                    {% if candidate.ai_note %}
+                        <hr>
+                        <div class="small text-muted">
+                            AI note (non-authoritative): {{ candidate.ai_note }}
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="card shadow-sm mb-3">
+                <div class="card-header bg-light">
+                    <strong>CRM import</strong>
+                </div>
+                <div class="card-body">
+                    {% if candidate.status == "imported" %}
+                        <div class="alert alert-success mb-0">
+                            Already imported as CRM lead
+                            #{{ candidate.imported_lead_id }}.
+                        </div>
+                    {% else %}
+                        {% if preview.duplicate_lead_id %}
+                            <div class="alert alert-warning">
+                                A CRM lead (#{{ preview.duplicate_lead_id }})
+                                already looks like a match. Import is blocked.
+                            </div>
+                        {% endif %}
+                        <div class="small text-muted mb-2">
+                            This will create:
+                        </div>
+                        <dl class="row mb-3 small">
+                            {% for key, value in preview.mapping.items %}
+                                <dt class="col-sm-4">{{ key }}</dt>
+                                <dd class="col-sm-8">{{ value|default:"—" }}</dd>
+                            {% endfor %}
+                        </dl>
+                        <form method="post"
+                              action="{% url 'scanner:import_candidate' candidate.id %}"
+                              class="d-inline">
+                            {% csrf_token %}
+                            <button class="btn btn-primary btn-sm"
+                                {% if preview.duplicate_lead_id %}disabled{% endif %}>
+                                Import to CRM
+                            </button>
+                        </form>
+                        <form method="post"
+                              action="{% url 'scanner:mark_reviewed' candidate.id %}"
+                              class="d-inline">
+                            {% csrf_token %}
+                            <button class="btn btn-outline-secondary btn-sm">
+                                Mark reviewed
+                            </button>
+                        </form>
+                        <form method="post"
+                              action="{% url 'scanner:reject_candidate' candidate.id %}"
+                              class="d-inline">
+                            {% csrf_token %}
+                            <input type="text" name="reason"
+                                   class="form-control form-control-sm d-inline-block w-auto"
+                                   placeholder="reason (optional)">
+                            <button class="btn btn-outline-danger btn-sm">
+                                Reject
+                            </button>
+                        </form>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% endif %}
+</div>
+{% endblock %}
