@@ -83,7 +83,14 @@ def persist_findings(*, findings, seen_at=None):
     MUST only be called for a fully successful check run.
 
     Returns:
-        {"active": <int>, "resolved": <int>}
+        {
+            "active": <int>,
+            "resolved": <int>,
+            "digest_findings": [<shaped finding>, ...],
+        }
+
+    ``digest_findings`` is the deterministic, JSON-safe shaped data
+    the optional AI summary layer (Phase 6D) works from.
     """
 
     digest_findings = [
@@ -91,7 +98,12 @@ def persist_findings(*, findings, seen_at=None):
         for raw_finding in findings
     ]
 
-    return automation_services.sync_digest_findings(
+    sync_result = automation_services.sync_digest_findings(
         digest_findings=digest_findings,
         seen_at=seen_at,
     )
+
+    return {
+        **sync_result,
+        "digest_findings": digest_findings,
+    }
