@@ -12,6 +12,6 @@ Phase 5.6 ✅ Documentation Sync
 Phase 6 ⏳ Background Automation
 Phase 7 ⏳ RAG / AI Memory
 Phase 8 ✅ CRM Read Agent
-Phase 9 🔄 Controlled AI CRM Agent (in progress — lead-note vertical, 9E3 done)
+Phase 9 🔄 Controlled AI CRM Agent (Phase 9E — Controlled Lead Notes — complete; Phase 9F not yet defined)
 Phase 10 ⏳ Production Hardening
 Phase 11 ⏳ Dodong OS v1.0

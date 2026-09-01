@@ -8,9 +8,9 @@ For the broader long-term product, learning, AI, engineering, and business visio
 
 # Current Position
 
-**Current Phase:** Phase 9 — Controlled AI CRM Agent (lead-note vertical; 9E3 complete)
+**Current Phase:** Phase 9 — Controlled AI CRM Agent (Phase 9E — Controlled Lead Notes — complete; Phase 9F not yet defined)
 
-**Automated test baseline:** 305 passing tests
+**Automated test baseline:** 322 passing tests
 
 Canonical test command (from `backend/`): `python manage.py test`
 
@@ -42,17 +42,36 @@ Confirmed-write architecture:
 Proposal boundary, signed proposal tokens, replay protection, confirmed-write
 executor, and audit visibility (`AIActionAudit`).
 
-**Confirmed write actions**
+**Approved controlled write actions** (all with proposal → signed token →
+confirm → executor → verification → audit, and full acceptance coverage):
+
+1. `create_lead_task`
+2. `complete_lead_task`
+3. `change_lead_status`
+4. `add_lead_note`
 
 | Action              | Proposal | Confirmed executor | Natural language + UI | Acceptance coverage |
 |---------------------|----------|--------------------|-----------------------|---------------------|
 | create_lead_task    | ✅       | ✅                 | ✅                    | ✅                  |
 | complete_lead_task  | ✅       | ✅                 | ✅                    | ✅                  |
 | change_lead_status  | ✅       | ✅                 | ✅                    | ✅                  |
-| add_lead_note (9E)  | ✅ (9E1) | ✅ (9E2)           | ✅ (9E3)              | — (9E4, undefined)  |
+| add_lead_note       | ✅       | ✅                 | ✅                    | ✅                  |
 
-**Not yet scoped:** 9E4 acceptance coverage for the lead-note flow, and any
-further write actions (edit/delete note, etc.).
+**Phase 9E — Controlled Lead Notes — ✅ COMPLETE**
+
+- 9E1 Proposal boundary ✅
+- 9E2 Confirmed execution ✅
+- 9E3 Natural-language + UI ✅
+- 9E4 Acceptance + safety ✅
+
+**Open design decision (not yet resolved):** `LeadActivity.description` has no
+length limit anywhere in the stack (model `TextField()`, proposal builder,
+write tool, router capture group, and UI template are all unbounded). No
+limit has been added — needs an explicit decision before it's treated as
+settled.
+
+**Not yet scoped:** Phase 9F (next write action or capability) — not defined,
+not started.
 
 ---
 
