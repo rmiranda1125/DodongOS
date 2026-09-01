@@ -49,6 +49,11 @@ urlpatterns = [
     ),
 
     path(
+    "assistant/knowledge/",
+    include("apps.knowledge.urls"),
+    ),
+
+    path(
     "automation/",
     include("apps.automation.urls"),
     ),
