@@ -9071,17 +9071,30 @@ class CRMLeadNoteAcceptanceTests(TestCase):
         )
 
         # Over HTTP a blank note never reaches a
-        # confirmation proposal and performs no write.
-        response = self.client.post(
-            reverse(
-                "ai:crm_assistant_ask",
-            ),
-            {
-                "message": (
-                    f"Add a note to lead {self.lead.id}:     "
-                ),
+        # confirmation proposal and performs no write. The
+        # unrecognized message falls through to the read agent,
+        # which is stubbed here so tests never call a real
+        # provider.
+        with patch(
+            "apps.ai.views.run_crm_read_agent_with_provider",
+            return_value={
+                "success": True,
+                "answer": "No matching CRM note request.",
+                "tool_used": None,
+                "data": [],
+                "response_source": "deterministic_fallback",
             },
-        )
+        ):
+            response = self.client.post(
+                reverse(
+                    "ai:crm_assistant_ask",
+                ),
+                {
+                    "message": (
+                        f"Add a note to lead {self.lead.id}:     "
+                    ),
+                },
+            )
 
         self.assertNotContains(
             response,
