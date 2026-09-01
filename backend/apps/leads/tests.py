@@ -18,6 +18,10 @@ from .services import (
     get_priority_tasks,
     search_leads,
 )
+from .reminders import (
+    get_due_soon_tasks,
+    get_stale_leads,
+)
 
 
 class LeadTaskServiceTests(TestCase):
@@ -536,3 +540,288 @@ class LeadTaskServiceTests(TestCase):
         self.assertIsNone(
             summary["average_lead_score"],
         )
+
+
+# =========================================================
+# PHASE 6B - DETERMINISTIC REMINDER SERVICES
+# =========================================================
+
+
+class GetDueSoonTasksServiceTests(TestCase):
+
+    def setUp(self):
+        self.now = timezone.now()
+
+        self.lead = Lead.objects.create(
+            company_name="Acme Analytics",
+            job_title="Power BI Developer",
+            status="contacted",
+        )
+
+    def _task(self, *, due_in_hours, status="pending", title="T"):
+        return LeadTask.objects.create(
+            lead=self.lead,
+            title=title,
+            task_type="follow_up",
+            priority="medium",
+            status=status,
+            due_date=(
+                None
+                if due_in_hours is None
+                else self.now + timedelta(hours=due_in_hours)
+            ),
+        )
+
+    def test_includes_task_within_horizon(self):
+        task = self._task(due_in_hours=6)
+
+        result = get_due_soon_tasks(
+            within_hours=24,
+            now=self.now,
+        )
+
+        self.assertEqual(
+            [t.id for t in result],
+            [task.id],
+        )
+
+    def test_excludes_overdue_task(self):
+        self._task(due_in_hours=-1)
+
+        result = get_due_soon_tasks(
+            within_hours=24,
+            now=self.now,
+        )
+
+        self.assertEqual(result, [])
+
+    def test_excludes_task_due_exactly_now(self):
+        self._task(due_in_hours=0)
+
+        result = get_due_soon_tasks(
+            within_hours=24,
+            now=self.now,
+        )
+
+        self.assertEqual(result, [])
+
+    def test_includes_task_due_exactly_at_horizon(self):
+        task = self._task(due_in_hours=24)
+
+        result = get_due_soon_tasks(
+            within_hours=24,
+            now=self.now,
+        )
+
+        self.assertEqual(
+            [t.id for t in result],
+            [task.id],
+        )
+
+    def test_excludes_task_just_past_horizon(self):
+        self._task(due_in_hours=25)
+
+        result = get_due_soon_tasks(
+            within_hours=24,
+            now=self.now,
+        )
+
+        self.assertEqual(result, [])
+
+    def test_excludes_completed_and_cancelled(self):
+        self._task(due_in_hours=3, status="completed")
+        self._task(due_in_hours=3, status="cancelled")
+
+        result = get_due_soon_tasks(
+            within_hours=24,
+            now=self.now,
+        )
+
+        self.assertEqual(result, [])
+
+    def test_includes_in_progress(self):
+        task = self._task(due_in_hours=3, status="in_progress")
+
+        result = get_due_soon_tasks(
+            within_hours=24,
+            now=self.now,
+        )
+
+        self.assertEqual(
+            [t.id for t in result],
+            [task.id],
+        )
+
+    def test_excludes_null_due_date(self):
+        self._task(due_in_hours=None)
+
+        result = get_due_soon_tasks(
+            within_hours=24,
+            now=self.now,
+        )
+
+        self.assertEqual(result, [])
+
+    def test_deterministic_ordering_by_due_date(self):
+        later = self._task(due_in_hours=20, title="later")
+        sooner = self._task(due_in_hours=2, title="sooner")
+
+        result = get_due_soon_tasks(
+            within_hours=24,
+            now=self.now,
+        )
+
+        self.assertEqual(
+            [t.id for t in result],
+            [sooner.id, later.id],
+        )
+
+    def test_rejects_non_positive_within_hours(self):
+        for bad in (0, -5, True, "6", None):
+            with self.assertRaises((ValueError, TypeError)):
+                get_due_soon_tasks(
+                    within_hours=bad,
+                    now=self.now,
+                )
+
+
+class GetStaleLeadsServiceTests(TestCase):
+
+    def setUp(self):
+        self.now = timezone.now()
+
+    def _lead(self, *, created_days_ago, status="contacted"):
+        lead = Lead.objects.create(
+            company_name=f"Lead {created_days_ago}",
+            job_title="Analyst",
+            status=status,
+        )
+
+        created_at = self.now - timedelta(days=created_days_ago)
+
+        Lead.objects.filter(id=lead.id).update(
+            created_at=created_at,
+        )
+
+        lead.refresh_from_db()
+
+        return lead
+
+    def _activity(self, *, lead, days_ago):
+        activity = LeadActivity.objects.create(
+            lead=lead,
+            activity_type="note",
+            description="x",
+        )
+
+        LeadActivity.objects.filter(id=activity.id).update(
+            created_at=self.now - timedelta(days=days_ago),
+        )
+
+        return activity
+
+    def test_old_lead_with_no_activity_is_stale(self):
+        lead = self._lead(created_days_ago=30)
+
+        result = get_stale_leads(
+            stale_after_days=14,
+            now=self.now,
+        )
+
+        self.assertEqual(
+            [l.id for l in result],
+            [lead.id],
+        )
+
+    def test_recent_lead_is_not_stale(self):
+        self._lead(created_days_ago=3)
+
+        result = get_stale_leads(
+            stale_after_days=14,
+            now=self.now,
+        )
+
+        self.assertEqual(result, [])
+
+    def test_old_lead_with_recent_activity_is_not_stale(self):
+        lead = self._lead(created_days_ago=60)
+        self._activity(lead=lead, days_ago=2)
+
+        result = get_stale_leads(
+            stale_after_days=14,
+            now=self.now,
+        )
+
+        self.assertEqual(result, [])
+
+    def test_won_and_lost_leads_are_excluded(self):
+        self._lead(created_days_ago=90, status="won")
+        self._lead(created_days_ago=90, status="lost")
+
+        result = get_stale_leads(
+            stale_after_days=14,
+            now=self.now,
+        )
+
+        self.assertEqual(result, [])
+
+    def test_boundary_last_activity_exactly_at_cutoff_is_stale(self):
+        lead = self._lead(created_days_ago=100)
+        self._activity(lead=lead, days_ago=14)
+
+        result = get_stale_leads(
+            stale_after_days=14,
+            now=self.now,
+        )
+
+        self.assertEqual(
+            [l.id for l in result],
+            [lead.id],
+        )
+
+    def test_activity_just_inside_threshold_is_not_stale(self):
+        lead = self._lead(created_days_ago=100)
+        self._activity(lead=lead, days_ago=13)
+
+        result = get_stale_leads(
+            stale_after_days=14,
+            now=self.now,
+        )
+
+        self.assertEqual(result, [])
+
+    def test_deterministic_ordering_oldest_first(self):
+        older = self._lead(created_days_ago=90)
+        newer = self._lead(created_days_ago=20)
+
+        result = get_stale_leads(
+            stale_after_days=14,
+            now=self.now,
+        )
+
+        self.assertEqual(
+            [l.id for l in result],
+            [older.id, newer.id],
+        )
+
+    def test_sets_last_meaningful_activity_attribute(self):
+        lead = self._lead(created_days_ago=40)
+        self._activity(lead=lead, days_ago=30)
+
+        result = get_stale_leads(
+            stale_after_days=14,
+            now=self.now,
+        )
+
+        self.assertEqual(
+            result[0].last_meaningful_activity_at,
+            self.now - timedelta(days=30),
+        )
+
+    def test_rejects_non_positive_stale_after_days(self):
+        for bad in (0, -1, True, "14", None):
+            with self.assertRaises((ValueError, TypeError)):
+                get_stale_leads(
+                    stale_after_days=bad,
+                    now=self.now,
+                )

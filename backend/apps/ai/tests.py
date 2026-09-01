@@ -1485,6 +1485,8 @@ class CRMToolRegistryTests(TestCase):
             "get_priority_tasks",
             "get_overdue_tasks",
             "get_pending_tasks",
+            "get_due_soon_tasks",
+            "get_stale_leads",
             "get_lead_tasks",
             "get_lead",
             "search_leads",
@@ -1506,6 +1508,8 @@ class CRMToolRegistryTests(TestCase):
             "get_priority_tasks": "read",
             "get_overdue_tasks": "read",
             "get_pending_tasks": "read",
+            "get_due_soon_tasks": "read",
+            "get_stale_leads": "read",
             "get_lead_tasks": "read",
             "get_lead": "read",
             "search_leads": "read",
@@ -1555,7 +1559,7 @@ class CRMToolRegistryTests(TestCase):
 
         self.assertEqual(
             len(tools),
-            12,
+            14,
         )
 
         for tool in tools:
@@ -9706,3 +9710,129 @@ class CRMLeadNoteAcceptanceTests(TestCase):
                 f"Django ORM directly: {violations}"
             ),
         )
+
+
+class CRMReminderReadToolTests(TestCase):
+    """
+    Phase 6B read tools: get_due_soon_tasks / get_stale_leads.
+
+    They must be registered as read-only, run through the normal
+    read executor, return JSON-safe data, and never mutate CRM.
+    """
+
+    def setUp(self):
+        self.lead = Lead.objects.create(
+            company_name="Acme Analytics",
+            job_title="Power BI Developer",
+            status="contacted",
+        )
+
+    def test_reminder_tools_are_registered_read_only(self):
+        for name in ("get_due_soon_tasks", "get_stale_leads"):
+            tool = get_registered_tool(name)
+
+            self.assertIsNotNone(tool)
+
+            self.assertEqual(
+                tool.access_level,
+                "read",
+            )
+
+    def test_read_executor_runs_get_due_soon_tasks(self):
+        task = LeadTask.objects.create(
+            lead=self.lead,
+            title="Call back",
+            task_type="follow_up",
+            priority="high",
+            status="pending",
+            due_date=timezone.now() + timedelta(hours=6),
+        )
+
+        lead_count = Lead.objects.count()
+        task_count = LeadTask.objects.count()
+        activity_count = LeadActivity.objects.count()
+        audit_count = AIActionAudit.objects.count()
+
+        result = execute_registered_tool(
+            name="get_due_soon_tasks",
+            arguments={"within_hours": 24},
+        )
+
+        self.assertTrue(result["success"])
+
+        self.assertEqual(
+            [row["id"] for row in result["data"]],
+            [task.id],
+        )
+
+        self.assertEqual(Lead.objects.count(), lead_count)
+        self.assertEqual(LeadTask.objects.count(), task_count)
+        self.assertEqual(
+            LeadActivity.objects.count(),
+            activity_count,
+        )
+        self.assertEqual(
+            AIActionAudit.objects.count(),
+            audit_count,
+        )
+
+    def test_read_executor_runs_get_stale_leads(self):
+        Lead.objects.filter(id=self.lead.id).update(
+            created_at=timezone.now() - timedelta(days=40),
+        )
+
+        result = execute_registered_tool(
+            name="get_stale_leads",
+            arguments={"stale_after_days": 14},
+        )
+
+        self.assertTrue(result["success"])
+
+        self.assertEqual(
+            [row["id"] for row in result["data"]],
+            [self.lead.id],
+        )
+
+        self.assertIn(
+            "last_meaningful_activity_at",
+            result["data"][0],
+        )
+
+    def test_reminder_tools_reject_non_positive_values(self):
+        due = execute_registered_tool(
+            name="get_due_soon_tasks",
+            arguments={"within_hours": 0},
+        )
+
+        self.assertFalse(due["success"])
+
+        self.assertEqual(
+            due["error"]["code"],
+            "INVALID_WITHIN_HOURS",
+        )
+
+        stale = execute_registered_tool(
+            name="get_stale_leads",
+            arguments={"stale_after_days": -3},
+        )
+
+        self.assertFalse(stale["success"])
+
+        self.assertEqual(
+            stale["error"]["code"],
+            "INVALID_STALE_AFTER_DAYS",
+        )
+
+    def test_reminder_tools_fall_back_to_settings_defaults(self):
+        due = execute_registered_tool(
+            name="get_due_soon_tasks",
+            arguments={},
+        )
+
+        stale = execute_registered_tool(
+            name="get_stale_leads",
+            arguments={},
+        )
+
+        self.assertTrue(due["success"])
+        self.assertTrue(stale["success"])

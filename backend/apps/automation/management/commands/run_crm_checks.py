@@ -1,5 +1,6 @@
 from django.core.management.base import BaseCommand
 
+from apps.automation import checks as automation_checks
 from apps.automation import services as automation_services
 
 
@@ -7,13 +8,14 @@ class Command(BaseCommand):
     """
     Run scheduled background CRM checks.
 
-    Phase 6A: no checks are registered yet. This command only
-    proves the run-record lifecycle (start -> finish) works and is
-    safe to invoke repeatedly. Phase 6B will add the first
-    deterministic CRM checks.
+    Phase 6B: runs the deterministic, read-only CRM checks
+    (due-soon tasks, stale leads) and records how many checks ran
+    and how many findings they produced. Findings are not persisted
+    yet — that is Phase 6C.
 
     This module must not access the Django ORM directly. Run-record
-    persistence goes through apps/automation/services.py.
+    persistence goes through apps/automation/services.py; CRM state
+    is read only through apps/automation/checks.py.
     """
 
     help = (
@@ -30,14 +32,13 @@ class Command(BaseCommand):
             # DETERMINISTIC CRM CHECKS
             # -----------------------------------------------------
             #
-            # Phase 6A intentionally runs zero checks. Phase 6B
-            # will populate this section with deterministic CRM
-            # check calls (overdue tasks, due-soon follow-ups,
-            # stale leads, etc.).
+            # Read-only. No finding persistence in Phase 6B.
             #
 
-            checks_run = 0
-            findings_count = 0
+            outcome = automation_checks.run_all_checks()
+
+            checks_run = outcome["checks_run"]
+            findings_count = len(outcome["findings"])
 
             automation_services.finish_check_run_succeeded(
                 run=run,

@@ -183,3 +183,30 @@ MEDIA_ROOT = MEDIA_DIR
 # ==========================================================
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+# ==========================================================
+# Background Automation (Phase 6)
+# ==========================================================
+#
+# Thresholds for the deterministic CRM checks run by
+# `python manage.py run_crm_checks`. These are product decisions,
+# not architectural constants — tune them per deployment via env.
+# The roadmap does not yet fix these values; the defaults below are
+# conservative starting points and should be reviewed with the
+# business.
+#
+#   CRM_DUE_SOON_HOURS  - a task is "due soon" when its due_date is
+#                         in the future but within this many hours.
+#   CRM_STALE_LEAD_DAYS - an active lead is "stale" when it has had
+#                         no meaningful activity for this many days.
+#
+
+CRM_DUE_SOON_HOURS = env.int(
+    "CRM_DUE_SOON_HOURS",
+    default=48,
+)
+
+CRM_STALE_LEAD_DAYS = env.int(
+    "CRM_STALE_LEAD_DAYS",
+    default=14,
+)

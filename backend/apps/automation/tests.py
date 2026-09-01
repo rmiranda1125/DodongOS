@@ -1,8 +1,10 @@
+from datetime import timedelta
 from io import StringIO
 from pathlib import Path
 
 from django.core.management import call_command
 from django.test import TestCase
+from django.utils import timezone
 
 from apps.ai.models import AIActionAudit
 from apps.automation.models import ScheduledCheckRun
@@ -11,11 +13,12 @@ from apps.leads.models import Lead, LeadActivity, LeadTask
 
 class ScheduledCheckRunFoundationTests(TestCase):
     """
-    Phase 6A scheduling foundation.
+    Scheduling foundation + Phase 6B deterministic checks.
 
     The run_crm_checks command must record one run per invocation
-    through the service layer, finalize a clean run as succeeded
-    with zero checks and zero findings, and never mutate CRM data.
+    through the service layer, run the deterministic checks,
+    finalize a clean run as succeeded with the correct checks_run
+    and findings_count, and never mutate CRM data.
     """
 
     def _run_command(self):
@@ -28,7 +31,7 @@ class ScheduledCheckRunFoundationTests(TestCase):
 
         return out.getvalue()
 
-    def test_command_runs_with_zero_checks(self):
+    def test_command_runs_successfully(self):
         output = self._run_command()
 
         self.assertIn(
@@ -63,17 +66,17 @@ class ScheduledCheckRunFoundationTests(TestCase):
             "",
         )
 
-    def test_successful_run_records_zero_checks(self):
+    def test_successful_run_records_two_checks(self):
         self._run_command()
 
         run = ScheduledCheckRun.objects.get()
 
         self.assertEqual(
             run.checks_run,
-            0,
+            2,
         )
 
-    def test_successful_run_records_zero_findings(self):
+    def test_empty_crm_produces_zero_findings(self):
         self._run_command()
 
         run = ScheduledCheckRun.objects.get()
@@ -81,6 +84,42 @@ class ScheduledCheckRunFoundationTests(TestCase):
         self.assertEqual(
             run.findings_count,
             0,
+        )
+
+    def test_findings_count_matches_deterministic_findings(self):
+        from apps.automation import checks as automation_checks
+
+        lead = Lead.objects.create(
+            company_name="Acme Analytics",
+            job_title="Power BI Developer",
+            status="contacted",
+        )
+
+        LeadTask.objects.create(
+            lead=lead,
+            title="Call back",
+            task_type="follow_up",
+            priority="high",
+            status="pending",
+            due_date=timezone.now() + timedelta(hours=6),
+        )
+
+        expected = len(
+            automation_checks.run_all_checks()["findings"]
+        )
+
+        self._run_command()
+
+        run = ScheduledCheckRun.objects.get()
+
+        self.assertEqual(
+            run.findings_count,
+            expected,
+        )
+
+        self.assertGreaterEqual(
+            expected,
+            1,
         )
 
     def test_two_invocations_create_two_independent_runs(self):

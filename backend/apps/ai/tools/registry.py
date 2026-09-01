@@ -20,6 +20,12 @@ from apps.ai.tools.crm.pipeline import (
 )
 
 
+from apps.ai.tools.crm.reminders import (
+    get_due_soon_tasks_tool,
+    get_stale_leads_tool,
+)
+
+
 from apps.ai.tools.crm.tasks import (
     get_lead_tasks_tool,
     get_overdue_tasks_tool,
@@ -118,6 +124,48 @@ TOOL_REGISTRY = {
                         "urgent",
                         None,
                     ],
+                },
+            },
+            "additionalProperties": False,
+        },
+    ),
+
+
+    "get_due_soon_tasks": ToolDefinition(
+        name="get_due_soon_tasks",
+        description=(
+            "Return actionable CRM tasks due within a "
+            "configurable number of hours."
+        ),
+        access_level="read",
+        function=get_due_soon_tasks_tool,
+        input_schema={
+            "type": "object",
+            "properties": {
+                "within_hours": {
+                    "type": ["number", "null"],
+                    "exclusiveMinimum": 0,
+                },
+            },
+            "additionalProperties": False,
+        },
+    ),
+
+
+    "get_stale_leads": ToolDefinition(
+        name="get_stale_leads",
+        description=(
+            "Return active CRM leads with no meaningful activity "
+            "within a configurable number of days."
+        ),
+        access_level="read",
+        function=get_stale_leads_tool,
+        input_schema={
+            "type": "object",
+            "properties": {
+                "stale_after_days": {
+                    "type": ["number", "null"],
+                    "exclusiveMinimum": 0,
                 },
             },
             "additionalProperties": False,
