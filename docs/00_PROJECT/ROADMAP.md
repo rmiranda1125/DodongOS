@@ -1,11 +1,17 @@
 # Roadmap
 
+See `docs/ROADMAP.md` for the detailed, authoritative progress tracker.
+
 Phase 1 ✅ Foundation
-Phase 2 ✅ AI Foundation
-Phase 3 🔄 GPT-5.6 Luna
-Phase 4 Lead Scanner
-Phase 5 CRM
-Phase 6 Background Jobs
-Phase 7 RAG
-Phase 8 AI Assistant
-Phase 9 Deployment
+Phase 2 ✅ AI Prototype
+Phase 3 ✅ AI Provider Layer
+Phase 4 🟡 Lead Scanner (iterative)
+Phase 5 ✅ CRM Foundation
+Phase 5.5 ✅ Agent-Ready CRM Tool Layer
+Phase 5.6 ✅ Documentation Sync
+Phase 6 ⏳ Background Automation
+Phase 7 ⏳ RAG / AI Memory
+Phase 8 ✅ CRM Read Agent
+Phase 9 🔄 Controlled AI CRM Agent (in progress — lead-note vertical, 9E3 done)
+Phase 10 ⏳ Production Hardening
+Phase 11 ⏳ Dodong OS v1.0
