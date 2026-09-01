@@ -59,6 +59,7 @@ LOCAL_APPS = [
     "apps.ai",
     "apps.leadfinder",
     "apps.automation",
+    "apps.knowledge",
 ]
 
 INSTALLED_APPS = (
@@ -229,5 +230,46 @@ CRM_AUTOMATION_STALE_RUN_MINUTES = env.int(
 
 CRM_AUTOMATION_AI_TIMEOUT_SECONDS = env.int(
     "CRM_AUTOMATION_AI_TIMEOUT_SECONDS",
+    default=15,
+)
+
+# ==========================================================
+# RAG / AI Memory (Phase 7)
+# ==========================================================
+#
+# Deterministic knowledge retrieval (SQLite deployment has no
+# pgvector, so retrieval is lexical, not embedding-based). All
+# env-tunable:
+#
+#   RAG_CHUNK_SIZE          - max characters per knowledge chunk.
+#   RAG_CHUNK_OVERLAP       - characters of trailing context shared
+#                             between consecutive chunks.
+#   RAG_RETRIEVAL_LIMIT     - default number of evidence chunks
+#                             returned by a knowledge search.
+#   RAG_AI_TIMEOUT_SECONDS  - bounded provider network timeout for
+#                             the grounded RAG answer only (own
+#                             setting, not shared with automation).
+#                             A timeout degrades to a deterministic
+#                             evidence-only answer; RAG also uses
+#                             max_retries=0.
+#
+
+RAG_CHUNK_SIZE = env.int(
+    "RAG_CHUNK_SIZE",
+    default=800,
+)
+
+RAG_CHUNK_OVERLAP = env.int(
+    "RAG_CHUNK_OVERLAP",
+    default=120,
+)
+
+RAG_RETRIEVAL_LIMIT = env.int(
+    "RAG_RETRIEVAL_LIMIT",
+    default=5,
+)
+
+RAG_AI_TIMEOUT_SECONDS = env.int(
+    "RAG_AI_TIMEOUT_SECONDS",
     default=15,
 )
