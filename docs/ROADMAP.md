@@ -8,9 +8,9 @@ For the broader long-term product, learning, AI, engineering, and business visio
 
 # Current Position
 
-**Current Phase:** Phase 10 — Production Hardening (not started). Phases 6, 7 and 9 are complete.
+**Current Phase:** Phase 11 — Dodong OS v1.0 (not started). Phases 6, 7, 9 and 10 are complete.
 
-**Automated test baseline:** 483 passing tests
+**Automated test baseline:** 512 passing tests
 
 Canonical test command (from `backend/`): `python manage.py test`
 
@@ -26,7 +26,7 @@ Phase 6     Background Automation         ✅
 Phase 7     RAG / AI Memory               ✅
 Phase 8     CRM Read Agent                ✅
 Phase 9     Controlled AI CRM Agent       ✅
-Phase 10    Production Hardening          ⏳
+Phase 10    Production Hardening          ✅
 Phase 11    Dodong OS v1.0               ⏳
 ```
 
@@ -375,7 +375,112 @@ would expand scope and risk storing sensitive prompts.
 
 ---
 
+# Phase 10 — Production Hardening — ✅ COMPLETE
+
+Repo-side production readiness for a real deployment, with every existing
+AI/CRM safety boundary preserved. **Selected target: Azure** — App Service
+for Containers (Linux) + Azure Database for PostgreSQL Flexible Server, with
+the automation scheduler as an Azure Container Apps Job. Full runbook:
+`docs/04_DEPLOYMENT/PRODUCTION.md`.
+
+**Deployment status: `DEPLOYMENT_READY_BUT_NOT_EXECUTED`** — all artifacts,
+commands, and checklists are prepared; a live cutover needs the production
+Azure account.
+
+**Configuration.** `DJANGO_ENV` selects the profile. `production` refuses
+an insecure `SECRET_KEY`, `DEBUG=True`, empty `ALLOWED_HOSTS`, and the
+SQLite fallback (raises `ImproperlyConfigured` at settings load — proven by
+subprocess tests). `ALLOWED_HOSTS`, `CSRF_TRUSTED_ORIGINS`, `DATABASE_URL`,
+security toggles, `LOG_LEVEL` and input limits are all env-driven with
+secure production defaults. Development is unchanged (plain HTTP, SQLite).
+`DJANGO_SKIP_DOTENV=1` disables the `.env` file for CI/containers.
+`backend/.env.example` is the annotated template (placeholders only).
+
+**Secrets.** `.env` is gitignored, never committed, never in history, and
+excluded from the Docker image. `.env.example` holds placeholders only.
+Health endpoints, logs, and `production_check` never render secret values;
+knowledge ingestion refuses secret-looking material. The whole test suite
+makes **zero** real external API calls.
+
+**PostgreSQL.** Production DB from `DATABASE_URL` (django-environ →
+`django.db.backends.postgresql`, psycopg 3), `CONN_MAX_AGE` +
+`CONN_HEALTH_CHECKS`. No raw SQL / PRAGMA / `.extra()` anywhere;
+`select_for_update()` (automation + knowledge) is kept as-is and gains real
+row-locking on PostgreSQL. JSONField, unique constraints, and `-id`
+ordering tie-breakers are portable. **Runtime verification: NOT executed
+from this machine** (dev is SQLite); the CI workflow carries an optional
+`postgres-smoke` job (migrate + full suite against a PostgreSQL 16 service
+container) — run it before first cutover.
+
+**pgvector: deferred.** Deterministic lexical retrieval (Phase 7) remains
+the production RAG implementation. Phase 10 does not require semantic
+embeddings; pgvector stays a documented future enhancement.
+
+**Health / readiness.** `GET /health/` (liveness, no deps, no AI),
+`GET /ready/` (`SELECT 1`, 503 with generic reason on failure). Minimal
+JSON, no secrets/tracebacks. Plus `python manage.py production_check`.
+
+**Static / server.** WhiteNoise (manifest+compressed in production, finders
+in dev). `gunicorn config.wsgi:application` (image `CMD`); `WEB_CONCURRENCY`
+default **3**, conservative, sized against `max_connections`. No `runserver`
+in production.
+
+**Docker / CI.** `/Dockerfile` (python:3.13-slim, non-root, build-time
+`collectstatic`, no `.env`, `HEALTHCHECK`), `.dockerignore`,
+`.github/workflows/ci.yml` (check + `makemigrations --check` + tests +
+`check --deploy`; optional PostgreSQL smoke job; no repo secrets needed).
+
+**Automation scheduling.** `python manage.py run_crm_checks` via an Azure
+Container Apps Job (cron), same image/env. **Cadence: every 30 min**
+(configurable) — no product SLA defined. The existing `ScheduledCheckRun`
+overlap guard is the safety net. Failure visibility: `/automation/runs/`.
+
+**Backup / restore / rollback.** Documented in `PRODUCTION.md` §9–11:
+Azure PostgreSQL automated PITR (retention 14–35d, geo-redundant) as
+primary, `pg_dump --format=custom` on-demand; non-destructive restore drill
+into a disposable DB; code rollback = redeploy previous image tag, prefer
+forward-fix migrations (all Phase ≤10 migrations are additive). **Marked
+"documented, requires production account" — not verified live.**
+
+**Security review.** Sensitive routes (`/admin/`, `/assistant/`,
+`/assistant/audit/`, `/automation/runs/`, `/assistant/knowledge/`,
+confirmed-write confirm) verified staff/auth-protected. Confirmed-write
+POST keeps Django CSRF (no `csrf_exempt`); GET cannot mutate; signed
+token + replay protection unchanged. `check --deploy` under a
+production-like env is clean except `security.W021` (HSTS preload) — an
+intentional operator opt-in via `SECURE_HSTS_PRELOAD`.
+
+**Input limits (decision made).** Centralized, generous, boundary-enforced,
+no silent truncation, no data migration: `CRM_NOTE_MAX_LENGTH`=5000
+(resolves the `LeadActivity.description` open question — enforced in the
+add-note proposal builder and write tool → `NOTE_TOO_LONG`, also bounds the
+proposal token / audit JSON), `RAG_QUERY_MAX_CHARS`=2000,
+`KNOWLEDGE_DOC_MAX_CHARS`=200000. `LeadTask.title` already `CharField(255)`;
+`LeadTask.description` left unbounded (system + short NL text, low risk).
+
+**Indexes added:** `Lead(status)`, `LeadActivity(lead,-created_at)`,
+`LeadTask(status,due_date)`, `ScheduledCheckRun(status)`,
+`CRMDigest(resolved_at)` + `(finding_type,resolved_at)`,
+`KnowledgeDocument(active)`.
+
+**Tests:** `python manage.py test` → **512** (483 → 512, +29 Phase 10;
+one pre-existing latent real-API test fixed). `check` clean;
+`check --deploy` clean but for the intentional W021; `makemigrations
+--check` clean; `migrate --plan` clean; `collectstatic --noinput`
+succeeds under production settings (137 files / 411 post-processed).
+
+**Deferred production hardening (non-blocking):**
+- live Azure deployment execution (needs the production account)
+- real PostgreSQL runtime verification (run the CI `postgres-smoke` job)
+- external "automation didn't run" / uptime alerting → Phase 11
+- application-level rate limiting on staff AI endpoints (all
+  authenticated, small scale) → deferred, no Redis
+- pgvector / semantic retrieval
+- `get_stale_leads` in-Python ranking; `/automation/runs/` &
+  `get_recent_check_runs` unpaginated
+
+---
+
 # Not started
 
-- **Phase 10 — Production Hardening**
 - **Phase 11 — Dodong OS v1.0**

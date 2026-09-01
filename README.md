@@ -32,15 +32,24 @@ Instead of switching between many disconnected tools, Dodong OS aims to provide 
 
 # Current Status
 
-**Updated:** August 20, 2026
+**Updated:** September 2, 2026
 
 ## Current Development Stage
 
-**Phase 5.6 — Documentation Sync**
+**Phase 10 — Production Hardening ✅ complete. Next: Phase 11 — Dodong OS v1.0.**
 
-Dodong OS has progressed significantly beyond the original Phase 3 documentation.
+Phases 1–3, 5, 5.5, 6, 7, 8, 9 and 10 are complete; Phase 4 (Lead Scanner) is
+iterative. Dodong OS now has: the CRM foundation, a deterministic CRM read
+agent, four controlled confirmed-write actions (create task, complete task,
+change status, add note) each gated by proposal → signed token → explicit
+Confirm → verified executor → audit, deterministic background automation with
+an optional AI digest summary, a read-first RAG / AI-memory layer, and
+repo-side production hardening (env-driven config, PostgreSQL readiness,
+health/readiness endpoints, WhiteNoise, gunicorn, Docker, CI, and a full
+deployment runbook at `docs/04_DEPLOYMENT/PRODUCTION.md`).
 
-The CRM foundation and first AI-facing read layer are now implemented.
+**Canonical test baseline: 512 passing** (`python manage.py test`).
+Authoritative tracker: `docs/ROADMAP.md`.
 
 ### Completed
 
@@ -73,7 +82,7 @@ The CRM foundation and first AI-facing read layer are now implemented.
 * ✅ Controlled read-only AI tool registry
 * ✅ Structured tool inputs and outputs
 * ✅ Structured AI-tool errors
-* ✅ **86 relevant CRM + AI automated tests passing**
+* ✅ **512 automated tests passing** (CRM, AI, automation, RAG, production hardening)
 
 ---
 
@@ -556,12 +565,12 @@ apps/
 | Phase 4   | Lead Scanner                      | 🟡 Iterative development   |
 | Phase 5   | CRM Foundation                    | ✅ Complete                 |
 | Phase 5.5 | Agent-Ready CRM Tool Layer        | ✅ Complete                 |
-| Phase 5.6 | Documentation Sync                | 🔄 Current                 |
-| Phase 6   | Background Jobs / Automation      | ⏳ Planned                  |
-| Phase 7   | RAG / AI Memory                   | ⏳ Planned                  |
-| Phase 8   | AI Assistant / CRM Read Agent     | 🎯 Next major milestone    |
-| Phase 9   | Controlled AI CRM Agent           | ⏳ Planned                  |
-| Phase 10  | Production Deployment / Hardening | ⏳ Planned                  |
+| Phase 5.6 | Documentation Sync                | ✅ Complete                 |
+| Phase 6   | Background Jobs / Automation      | ✅ Complete                 |
+| Phase 7   | RAG / AI Memory                   | ✅ Complete                 |
+| Phase 8   | AI Assistant / CRM Read Agent     | ✅ Complete                 |
+| Phase 9   | Controlled AI CRM Agent           | ✅ Complete                 |
+| Phase 10  | Production Deployment / Hardening | ✅ Complete (ready, not yet deployed) |
 | Phase 11  | Dodong OS v1.0                    | ⏳ Planned                  |
 
 ---
@@ -575,13 +584,13 @@ Phase 3     AI Provider Layer              ✅
 Phase 4     Lead Scanner                   🟡
 Phase 5     CRM Foundation                 ✅
 Phase 5.5   Agent-Ready CRM Tools          ✅
-Phase 5.6   Documentation Sync             ← CURRENT
-Phase 6     Background Automation          ⏳
-Phase 7     RAG / Memory                    ⏳
-Phase 8     CRM Read Agent                 NEXT MAJOR BUILD
-Phase 9     Controlled AI CRM Agent         ⏳
-Phase 10    Production Hardening            ⏳
-Phase 11    Dodong OS v1.0                 ⏳
+Phase 5.6   Documentation Sync             ✅
+Phase 6     Background Automation          ✅
+Phase 7     RAG / Memory                   ✅
+Phase 8     CRM Read Agent                 ✅
+Phase 9     Controlled AI CRM Agent        ✅
+Phase 10    Production Hardening           ✅  (ready, not yet deployed)
+Phase 11    Dodong OS v1.0                 ← CURRENT
 ```
 
 ---
@@ -841,7 +850,7 @@ Automated testing is required for important CRM services and AI tools.
 Current relevant test baseline:
 
 ```text
-86 tests passing
+512 tests passing
 ```
 
 Run:
@@ -856,7 +865,7 @@ Expected result:
 ```text
 System check identified no issues.
 
-Ran 86 tests
+Ran 512 tests
 
 OK
 ```
@@ -1119,7 +1128,7 @@ Agent-Ready CRM Services
 Read-Only Tool Registry
       ✅
 
-86 Relevant Tests
+512 Relevant Tests
       ✅
 ```
 

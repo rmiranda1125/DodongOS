@@ -13,5 +13,5 @@ Phase 6 ✅ Background Automation (6A–6E complete)
 Phase 7 ✅ RAG / AI Memory (7A–7E complete; deterministic lexical retrieval, embeddings/pgvector deferred)
 Phase 8 ✅ CRM Read Agent
 Phase 9 ✅ Controlled AI CRM Agent (Phase 9E complete, no Phase 9F)
-Phase 10 ⏳ Production Hardening
+Phase 10 ✅ Production Hardening (Azure target; DEPLOYMENT_READY_BUT_NOT_EXECUTED)
 Phase 11 ⏳ Dodong OS v1.0
