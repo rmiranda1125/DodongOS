@@ -7,11 +7,16 @@ apps/scanner/services.py, which delegates CRM creation to
 apps/leads/services.py.
 """
 
+from django.conf import settings
 from django.contrib import messages
 from django.contrib.admin.views.decorators import staff_member_required
 from django.http import HttpResponse
 from django.shortcuts import redirect, render
-from django.views.decorators.http import require_GET, require_POST
+from django.views.decorators.http import (
+    require_GET,
+    require_http_methods,
+    require_POST,
+)
 
 from apps.scanner import services as scanner_services
 
@@ -107,6 +112,64 @@ def mark_reviewed(request, candidate_id):
         status="reviewed",
     )
     return redirect("scanner:candidate_detail", candidate_id=candidate_id)
+
+
+@staff_member_required
+@require_http_methods(["GET", "POST"])
+def upload_csv(request):
+    """
+    Staff-only: upload a lead CSV (e.g. produced by a Claude
+    routine) and run it through the csv source adapter.
+
+    Discovery only - this never creates a CRM lead. Candidates land
+    in the review queue for explicit import.
+    """
+
+    context = {"max_kb": settings.SCANNER_CSV_MAX_BYTES // 1000}
+
+    if request.method == "GET":
+        return render(request, "scanner/upload.html", context)
+
+    upload = request.FILES.get("csv_file")
+
+    if upload is None:
+        context["error"] = "Choose a .csv file to upload."
+        return render(request, "scanner/upload.html", context)
+
+    if upload.size > settings.SCANNER_CSV_MAX_BYTES:
+        context["error"] = (
+            f"File is too large (max {context['max_kb']} KB)."
+        )
+        return render(request, "scanner/upload.html", context)
+
+    try:
+        content = upload.read().decode("utf-8-sig")
+    except (UnicodeDecodeError, ValueError):
+        context["error"] = (
+            "That file is not valid UTF-8 text. Export it as a "
+            "plain CSV and try again."
+        )
+        return render(request, "scanner/upload.html", context)
+
+    run = scanner_services.run_scan(
+        source="csv",
+        config={"content": content},
+    )
+
+    context["result"] = run
+    if run.status == "failed":
+        messages.warning(
+            request, f"Upload scan failed: {run.error_message}"
+        )
+    else:
+        messages.success(
+            request,
+            f"Scanned {run.candidates_seen} row(s): "
+            f"{run.candidates_created} new, "
+            f"{run.candidates_updated} updated, "
+            f"{run.rows_rejected} rejected.",
+        )
+    return render(request, "scanner/upload.html", context)
 
 
 @staff_member_required

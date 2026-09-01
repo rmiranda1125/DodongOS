@@ -561,3 +561,10 @@ SCANNER_AI_TIMEOUT_SECONDS = env.int(
     "SCANNER_AI_TIMEOUT_SECONDS",
     default=15,
 )
+
+# Max size of a staff-uploaded lead CSV (bytes). Discovery only -
+# an upload never creates a CRM lead.
+SCANNER_CSV_MAX_BYTES = env.int(
+    "SCANNER_CSV_MAX_BYTES",
+    default=2_000_000,
+)

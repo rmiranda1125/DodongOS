@@ -564,3 +564,124 @@ class ScannerArchitectureSafetyTests(TestCase):
             self.assertNotIn(call, src, msg=call)
         self.assertIn("lead_services", src)
         self.assertIn("import_scanner_candidate", src)
+
+
+# =========================================================
+# CSV UPLOAD (staff UI)
+# =========================================================
+
+from django.core.files.uploadedfile import SimpleUploadedFile  # noqa: E402
+from django.test import override_settings  # noqa: E402
+
+
+@override_settings(SCANNER_PROFILE=PROFILE)
+class ScannerCsvUploadTests(TestCase):
+
+    CSV = (
+        "Company,Job Title,Source,Source link,Problem or opportunity,"
+        "Compensation,Source id\n"
+        "Acme Analytics,Power BI Developer,claude-weekly,"
+        "https://example.com/1,"
+        "\"Rebuild finance dashboards; needs Power BI, DAX and SQL.\","
+        "$120k,acme-analytics-power-bi-developer\n"
+        "Beta LLC,Volunteer helper,claude-weekly,,unpaid role,,beta-volunteer\n"
+        ",No company,claude-weekly,,,,\n"
+    )
+
+    def setUp(self):
+        User = get_user_model()
+        self.staff = User.objects.create(username="csv-staff", is_staff=True)
+        self.member = User.objects.create(username="csv-member")
+
+    def _file(self, text=None, name="leads.csv"):
+        return SimpleUploadedFile(
+            name,
+            (text if text is not None else self.CSV).encode("utf-8"),
+            content_type="text/csv",
+        )
+
+    def test_upload_page_is_staff_only(self):
+        self.assertNotEqual(
+            self.client.get(reverse("scanner:upload_csv")).status_code, 200
+        )
+        self.client.force_login(self.member)
+        self.assertNotEqual(
+            self.client.get(reverse("scanner:upload_csv")).status_code, 200
+        )
+
+    def test_staff_sees_upload_form_and_link_from_queue(self):
+        self.client.force_login(self.staff)
+        page = self.client.get(reverse("scanner:upload_csv"))
+        self.assertEqual(page.status_code, 200)
+        self.assertContains(page, 'name="csv_file"')
+        self.assertContains(page, "Expected header row")
+        queue = self.client.get(reverse("scanner:review_queue"))
+        self.assertContains(queue, reverse("scanner:upload_csv"))
+        self.assertContains(queue, "Upload CSV")
+
+    def test_upload_creates_candidates_but_no_crm_lead(self):
+        self.client.force_login(self.staff)
+        before = (Lead.objects.count(), LeadActivity.objects.count())
+        response = self.client.post(
+            reverse("scanner:upload_csv"), {"csv_file": self._file()}
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Succeeded")
+        # 3 rows: 1 valid, 1 excluded-term (still a candidate), 1 no company
+        self.assertEqual(LeadCandidate.objects.count(), 2)
+        self.assertEqual(LeadScanRun.objects.count(), 1)
+        run = LeadScanRun.objects.get()
+        self.assertEqual(run.candidates_created, 2)
+        self.assertEqual(run.rows_rejected, 1)
+        self.assertEqual(
+            (Lead.objects.count(), LeadActivity.objects.count()), before
+        )
+
+    def test_reupload_same_file_updates_not_duplicates(self):
+        self.client.force_login(self.staff)
+        self.client.post(
+            reverse("scanner:upload_csv"), {"csv_file": self._file()}
+        )
+        self.client.post(
+            reverse("scanner:upload_csv"), {"csv_file": self._file()}
+        )
+        self.assertEqual(LeadCandidate.objects.count(), 2)
+        self.assertEqual(LeadScanRun.objects.count(), 2)
+
+    def test_missing_file_is_rejected(self):
+        self.client.force_login(self.staff)
+        response = self.client.post(reverse("scanner:upload_csv"), {})
+        self.assertContains(response, "Choose a .csv file")
+        self.assertEqual(LeadScanRun.objects.count(), 0)
+
+    def test_non_utf8_file_is_rejected_gracefully(self):
+        self.client.force_login(self.staff)
+        bad = SimpleUploadedFile(
+            "leads.csv", b"\xff\xfe\x00bad binary", content_type="text/csv"
+        )
+        response = self.client.post(
+            reverse("scanner:upload_csv"), {"csv_file": bad}
+        )
+        self.assertContains(response, "not valid UTF-8")
+        self.assertEqual(LeadScanRun.objects.count(), 0)
+
+    @override_settings(SCANNER_CSV_MAX_BYTES=50, SCANNER_PROFILE=PROFILE)
+    def test_oversized_file_is_rejected(self):
+        self.client.force_login(self.staff)
+        big = self._file(self.CSV + ("x" * 200))
+        response = self.client.post(
+            reverse("scanner:upload_csv"), {"csv_file": big}
+        )
+        self.assertContains(response, "too large")
+        self.assertEqual(LeadScanRun.objects.count(), 0)
+
+    def test_headerless_csv_records_a_failed_run(self):
+        self.client.force_login(self.staff)
+        response = self.client.post(
+            reverse("scanner:upload_csv"),
+            {"csv_file": self._file("just one line, no header semantics\n")},
+        )
+        # DictReader treats the first line as the header, so this
+        # yields zero data rows rather than an adapter error.
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(LeadScanRun.objects.count(), 1)
