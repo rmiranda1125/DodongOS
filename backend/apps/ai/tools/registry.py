@@ -36,6 +36,11 @@ from apps.ai.tools.crm.tasks import (
 )
 
 
+from apps.ai.tools.knowledge import (
+    search_knowledge_tool,
+)
+
+
 @dataclass(frozen=True)
 class ToolDefinition:
     """
@@ -168,6 +173,34 @@ TOOL_REGISTRY = {
                     "exclusiveMinimum": 0,
                 },
             },
+            "additionalProperties": False,
+        },
+    ),
+
+
+    "search_knowledge": ToolDefinition(
+        name="search_knowledge",
+        description=(
+            "Return relevant chunks from the approved knowledge "
+            "store, ranked by lexical relevance. Read-only."
+        ),
+        access_level="read",
+        function=search_knowledge_tool,
+        input_schema={
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": "string",
+                    "minLength": 1,
+                },
+                "limit": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 20,
+                    "default": 5,
+                },
+            },
+            "required": ["query"],
             "additionalProperties": False,
         },
     ),

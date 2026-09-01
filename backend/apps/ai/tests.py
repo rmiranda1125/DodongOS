@@ -1487,6 +1487,7 @@ class CRMToolRegistryTests(TestCase):
             "get_pending_tasks",
             "get_due_soon_tasks",
             "get_stale_leads",
+            "search_knowledge",
             "get_lead_tasks",
             "get_lead",
             "search_leads",
@@ -1510,6 +1511,7 @@ class CRMToolRegistryTests(TestCase):
             "get_pending_tasks": "read",
             "get_due_soon_tasks": "read",
             "get_stale_leads": "read",
+            "search_knowledge": "read",
             "get_lead_tasks": "read",
             "get_lead": "read",
             "search_leads": "read",
@@ -1559,7 +1561,7 @@ class CRMToolRegistryTests(TestCase):
 
         self.assertEqual(
             len(tools),
-            14,
+            15,
         )
 
         for tool in tools:
