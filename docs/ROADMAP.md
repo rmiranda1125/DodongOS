@@ -8,9 +8,9 @@ For the broader long-term product, learning, AI, engineering, and business visio
 
 # Current Position
 
-**Current Phase:** Phase 6 — Background Automation (design proposed; not yet implemented). Phase 9 — Controlled AI CRM Agent is complete.
+**Current Phase:** Phase 7 — RAG / AI Memory (not started). Phases 6 and 9 are complete.
 
-**Automated test baseline:** 322 passing tests
+**Automated test baseline:** 430 passing tests
 
 Canonical test command (from `backend/`): `python manage.py test`
 
@@ -22,7 +22,7 @@ Phase 4     Lead Scanner                  🟡 Iterative
 Phase 5     CRM Foundation                ✅
 Phase 5.5   Agent-Ready CRM Tool Layer    ✅
 Phase 5.6   Documentation Sync            ✅
-Phase 6     Background Automation         📐 DESIGN PROPOSED
+Phase 6     Background Automation         ✅
 Phase 7     RAG / AI Memory               ⏳
 Phase 8     CRM Read Agent                ✅
 Phase 9     Controlled AI CRM Agent       ✅
@@ -74,7 +74,87 @@ Phase 9 is closed. No Phase 9F is defined.
 
 ---
 
-# Phase 6 — Background Automation (design proposed, not yet implemented)
+# Phase 6 — Background Automation — ✅ COMPLETE
+
+Scheduled, deterministic detection of CRM conditions (due-soon tasks, stale
+leads) persisted as a deduplicated digest, with an optional, non-authoritative
+AI summary layered on top. No autonomous CRM writes; no email/Slack.
+
+**Subphase status**
+
+| Sub | Scope | Status |
+|---|---|---|
+| 6A | Scheduling foundation — `apps.automation`, `run_crm_checks`, `ScheduledCheckRun` | ✅ |
+| 6B | Deterministic checks — `get_due_soon_tasks` / `get_stale_leads` services + read tools | ✅ |
+| 6C | `CRMDigest` persistence + dedup (`<finding_type>:<id>` key) + resolve/reopen | ✅ |
+| 6D | Optional AI summary via `apps.ai.providers.factory`; deterministic fallback | ✅ |
+| 6E1 | Summary outcome persisted on `ScheduledCheckRun`; staff run-history page `/automation/runs/`; read-only admin | ✅ |
+| 6E2 | Overlap protection, stale-run recovery, bounded AI timeout, full acceptance suite | ✅ |
+
+**Final architecture**
+
+```
+external scheduler (cron / Azure WebJob / Task Scheduler)
+  → manage.py run_crm_checks
+      → services.start_check_run()        # overlap guard + stale recovery (ORM)
+      → checks.run_all_checks()           # no ORM; reads via apps/ai/tools/crm/* read tools
+          → leads/reminders.py            # deterministic, read-only (ORM)
+      → digest.persist_findings()         # no ORM; shapes findings
+          → services.sync_digest_findings()  # CRMDigest upsert + resolve, atomic (ORM)
+      → summary.summarize_digest()        # no ORM; bounded-timeout provider, always falls back
+      → services.record_run_summary()     # persists summary_status/source/text/error (ORM)
+      → services.finish_check_run_succeeded()  # or finish_check_run_failed() on deterministic failure
+  staff view /automation/runs/            # no ORM; reads via services.get_recent_check_runs()
+```
+
+ORM boundary (architecture-tested): `checks.py`, `digest.py`, `summary.py`,
+`views.py`, and `management/commands/` contain **no** `.objects` access; all
+persistence goes through `apps/automation/services.py` /
+`apps/automation/models.py` and `apps/leads/services.py` /
+`apps/leads/reminders.py`.
+
+**Guarantees**
+
+- Deterministic checks + digest persistence define run success. An AI
+  timeout/error is *degradation*: run stays `succeeded`,
+  `summary_status=AI_SUMMARY_FAILED`, `summary_source=deterministic_fallback`,
+  fallback text + error persisted, `CRMDigest` untouched.
+- A deterministic check/digest failure marks the run `failed`, resolves
+  nothing, and persists no AI outcome.
+- Digest rows are deduplicated by identity; repeated runs increment
+  `occurrence_count`; an absent finding is resolved **only** by a fully
+  successful run; a resolved finding reopens the same row.
+- No `Lead` / `LeadTask` / `LeadActivity` / `AIActionAudit` mutation anywhere
+  in the pipeline; the confirmed-write executor is never invoked.
+
+**Settings** (env-tunable; defaults are conservative product decisions):
+
+| Setting | Default | Purpose |
+|---|---|---|
+| `CRM_DUE_SOON_HOURS` | 48 | due-soon task horizon |
+| `CRM_STALE_LEAD_DAYS` | 14 | stale-lead inactivity threshold |
+| `CRM_AUTOMATION_STALE_RUN_MINUTES` | 30 | a `running` row older than this is recovered as `failed` (`STALE_RUN_RECOVERED`) |
+| `CRM_AUTOMATION_AI_TIMEOUT_SECONDS` | 15 | bounded provider network timeout for the automation summary only (interactive AI unaffected); automation also uses `max_retries=0` |
+
+**Concurrency:** `start_check_run()` serializes on `ScheduledCheckRun`
+(`select_for_update` + `status="running"` check); a non-stale running row
+raises `OverlappingRunError` and the command exits cleanly without touching
+CRM data. This is a durable single-host coordination record, not a
+distributed lock.
+
+**Known remaining hardening (deferred, not blocking Phase 6):**
+
+- `get_stale_leads` evaluates the last-activity rule in Python over all
+  active leads; move to a DB annotation if lead volume grows.
+- `/automation/runs/` and `get_recent_check_runs` are capped at 50 with no
+  pagination.
+- No partial index on `CRMDigest(resolved_at IS NULL)`.
+- `select_for_update` is a no-op on SQLite (dev/test); real row locking
+  requires the PostgreSQL deployment.
+
+---
+
+## Original Phase 6 design notes (retained for reference)
 
 Goal: scheduled, deterministic detection of CRM conditions (overdue tasks,
 due follow-ups, stale leads, operational reminders), with an optional AI
