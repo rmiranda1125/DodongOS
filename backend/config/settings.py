@@ -58,6 +58,7 @@ LOCAL_APPS = [
     "apps.scanner",
     "apps.ai",
     "apps.leadfinder",
+    "apps.automation",
 ]
 
 INSTALLED_APPS = (
