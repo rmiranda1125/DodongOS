@@ -1,168 +1,69 @@
 {% extends "base.html" %}
-
-{% block title %}
-    Dodong Action Audit
-{% endblock %}
-
+{% block title %}Dodong Action Audit{% endblock %}
 
 {% block content %}
 
-<div class="container-fluid">
-
-    <div class="d-flex justify-content-between align-items-center mb-4">
-
-        <div>
-
-            <h2 class="mb-1">
-                Dodong Action Audit
-            </h2>
-
-            <p class="text-muted mb-0">
-                Recent confirmed AI-assisted CRM actions.
-            </p>
-
-        </div>
-
-        <a
-            href="{% url 'ai:crm_assistant' %}"
-            class="btn btn-outline-secondary"
-        >
-            Back to Assistant
-        </a>
-
+<div class="dodong-page-header">
+    <div>
+        <h1 class="dodong-page-title">Dodong Action Audit</h1>
+        <p class="dodong-page-desc">
+            Every confirmed AI-assisted CRM write. Read-only, staff
+            access.
+        </p>
     </div>
+    <a href="{% url 'ai:crm_assistant' %}" class="btn btn-sm btn-outline-secondary">
+        <i class="bi bi-arrow-left"></i> Assistant
+    </a>
+</div>
 
-
-    <div
-        class="alert alert-info"
-        role="alert"
-    >
-        This page is read-only and available
-        only to staff users.
+<div class="card">
+    <div class="table-responsive">
+        <table class="table table-hover mb-0">
+            <thead>
+                <tr>
+                    <th>Time</th>
+                    <th>Action</th>
+                    <th>Status</th>
+                    <th>Lead</th>
+                    <th>Task</th>
+                    <th>Proposal ID</th>
+                    <th>Error</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for audit in audits %}
+                <tr>
+                    <td class="small">{{ audit.confirmed_at|date:"M j, H:i:s" }}</td>
+                    <td><code>{{ audit.action }}</code></td>
+                    <td>
+                        {% if audit.status == "executed" %}
+                            <span class="badge dodong-status text-bg-success">Executed</span>
+                        {% else %}
+                            <span class="badge dodong-status text-bg-danger">Failed</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ audit.lead_id|default:"—" }}</td>
+                    <td>{{ audit.result_task_id|default:"—" }}</td>
+                    <td>
+                        <code class="small" title="{{ audit.proposal_id }}">
+                            {{ audit.proposal_id|stringformat:"s"|slice:":8" }}…
+                        </code>
+                    </td>
+                    <td class="small text-danger">{{ audit.error_code|default:"—" }}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="7">
+                        <div class="dodong-empty">
+                            <i class="bi bi-shield-check"></i>
+                            No AI actions have been confirmed yet.
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
     </div>
-
-
-    <div class="card shadow-sm">
-
-        <div class="table-responsive">
-
-            <table class="table table-hover mb-0">
-
-                <thead>
-
-                    <tr>
-
-                        <th>
-                            Time
-                        </th>
-
-                        <th>
-                            Action
-                        </th>
-
-                        <th>
-                            Status
-                        </th>
-
-                        <th>
-                            Lead
-                        </th>
-
-                        <th>
-                            Task
-                        </th>
-
-                        <th>
-                            Proposal
-                        </th>
-
-                        <th>
-                            Error
-                        </th>
-
-                    </tr>
-
-                </thead>
-
-                <tbody>
-
-                    {% for audit in audits %}
-
-                        <tr>
-
-                            <td>
-                                {{ audit.confirmed_at }}
-                            </td>
-
-                            <td>
-                                <code>
-                                    {{ audit.action }}
-                                </code>
-                            </td>
-
-                            <td>
-
-                                {% if audit.status == "executed" %}
-
-                                    <span class="badge text-bg-success">
-                                        Executed
-                                    </span>
-
-                                {% else %}
-
-                                    <span class="badge text-bg-danger">
-                                        Failed
-                                    </span>
-
-                                {% endif %}
-
-                            </td>
-
-                            <td>
-                                {{ audit.lead_id|default:"—" }}
-                            </td>
-
-                            <td>
-                                {{ audit.result_task_id|default:"—" }}
-                            </td>
-
-                            <td>
-
-                                <code>
-                                    {{ audit.proposal_id }}
-                                </code>
-
-                            </td>
-
-                            <td>
-                                {{ audit.error_code|default:"—" }}
-                            </td>
-
-                        </tr>
-
-                    {% empty %}
-
-                        <tr>
-
-                            <td
-                                colspan="7"
-                                class="text-center text-muted py-4"
-                            >
-                                No AI CRM actions have been recorded yet.
-                            </td>
-
-                        </tr>
-
-                    {% endfor %}
-
-                </tbody>
-
-            </table>
-
-        </div>
-
-    </div>
-
 </div>
 
 {% endblock %}

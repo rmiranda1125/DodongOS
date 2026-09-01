@@ -950,6 +950,6 @@ class DodongOSv1AcceptanceTests(TestCase):
         )
         self.assertContains(runs, "No automation runs")
         audit = self.client.get(reverse("ai:crm_action_audit"))
-        self.assertContains(audit, "No AI CRM actions")
+        self.assertContains(audit, "No AI actions have been confirmed yet")
         knowledge = self.client.get(reverse("knowledge:assistant"))
         self.assertContains(knowledge, "No knowledge documents")

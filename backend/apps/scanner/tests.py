@@ -485,8 +485,9 @@ class ScannerUiAuthTests(TestCase):
             reverse("scanner:candidate_detail", args=[self.candidate.id])
         )
         self.assertEqual(d.status_code, 200)
-        self.assertContains(d, "Score explanation")
+        self.assertContains(d, "Why it matches")
         self.assertContains(d, "This will create")
+        self.assertContains(d, "No CRM change has been made yet")
 
     def test_import_requires_post_and_works_once(self):
         self.client.force_login(self.staff)

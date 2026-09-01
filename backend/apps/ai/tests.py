@@ -2745,7 +2745,7 @@ class CRMAssistantUITests(_AuthedAssistantTestCase):
 
         self.assertContains(
             response,
-            "Dodong CRM Assistant",
+            "Dodong Assistant",
         )
 
         self.assertContains(
