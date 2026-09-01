@@ -5,7 +5,7 @@ See `docs/ROADMAP.md` for the detailed, authoritative progress tracker.
 Phase 1 ✅ Foundation
 Phase 2 ✅ AI Prototype
 Phase 3 ✅ AI Provider Layer
-Phase 4 🟡 Lead Scanner (iterative)
+Phase 4 ✅ Lead Scanner v1 (bounded; further source adapters are future work)
 Phase 5 ✅ CRM Foundation
 Phase 5.5 ✅ Agent-Ready CRM Tool Layer
 Phase 5.6 ✅ Documentation Sync

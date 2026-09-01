@@ -37,7 +37,7 @@ Instead of switching between many disconnected tools, Dodong OS aims to provide 
 ## Current Development Stage
 
 **Dodong OS v1.0.0 — release checkpoint.** The full implementation roadmap
-(Phases 1–11) is complete; Phase 4 (Lead Scanner) continues iteratively.
+(Phases 1–11) is complete, including a bounded Phase 4 (Lead Scanner v1).
 Live Azure deployment is prepared but not yet executed
 (`V1_RELEASE_READY_BUT_NOT_LIVE_DEPLOYED`).
 
@@ -48,9 +48,12 @@ lead note), each gated by proposal → signed token → explicit Confirm →
 verified executor → post-write verification → audit; deterministic
 background automation with an optional AI digest summary and deterministic
 fallback; a read-first RAG / knowledge assistant (lexical retrieval, no
-embeddings) that treats retrieved text as data; and a hardened production
-configuration (env-driven settings, PostgreSQL readiness, health/readiness
-endpoints, WhiteNoise, gunicorn, Docker, GitHub Actions CI).
+embeddings) that treats retrieved text as data; a bounded Lead Scanner v1
+(offline source adapters → deterministic normalization / dedup / explainable
+score → staff review queue → explicit, idempotent CRM import — the scanner
+never mutates the CRM on its own); and a hardened production configuration
+(env-driven settings, PostgreSQL readiness, health/readiness endpoints,
+WhiteNoise, gunicorn, Docker, GitHub Actions CI).
 
 **Safe AI write model:** the AI layer never touches the ORM directly and can
 never perform an autonomous CRM write. Every write needs an explicit human
@@ -58,7 +61,7 @@ Confirm with a valid, single-use, time-limited, tamper-evident signed
 proposal token over a CSRF-protected POST. Conversational phrases never
 confirm.
 
-**Version:** 1.0.0 &nbsp;·&nbsp; **Tests:** 532 passing (`python manage.py test`,
+**Version:** 1.0.0 &nbsp;·&nbsp; **Tests:** 567 passing (`python manage.py test`,
 zero real external AI calls) &nbsp;·&nbsp;
 Roadmap: `docs/ROADMAP.md` &nbsp;·&nbsp;
 Release notes: `docs/RELEASES/v1.0.0.md` &nbsp;·&nbsp;
@@ -95,7 +98,7 @@ Deployment: `docs/04_DEPLOYMENT/PRODUCTION.md`
 * ✅ Controlled read-only AI tool registry
 * ✅ Structured tool inputs and outputs
 * ✅ Structured AI-tool errors
-* ✅ **532 automated tests passing** (CRM, AI, automation, RAG, production hardening, v1.0 acceptance)
+* ✅ **567 automated tests passing** (CRM, AI, automation, RAG, lead scanner, production hardening, v1.0 acceptance)
 
 ---
 
@@ -575,7 +578,7 @@ apps/
 | Phase 1   | Foundation                        | ✅ Complete                 |
 | Phase 2   | AI Prototype                      | ✅ Complete                 |
 | Phase 3   | AI Provider Layer                 | ✅ Core foundation complete |
-| Phase 4   | Lead Scanner                      | 🟡 Iterative development   |
+| Phase 4   | Lead Scanner (v1)                 | ✅ Complete (bounded; more sources = future work) |
 | Phase 5   | CRM Foundation                    | ✅ Complete                 |
 | Phase 5.5 | Agent-Ready CRM Tool Layer        | ✅ Complete                 |
 | Phase 5.6 | Documentation Sync                | ✅ Complete                 |
@@ -594,7 +597,7 @@ apps/
 Phase 1     Foundation                     ✅
 Phase 2     AI Prototype                   ✅
 Phase 3     AI Provider Layer              ✅
-Phase 4     Lead Scanner                   🟡
+Phase 4     Lead Scanner (v1)              ✅
 Phase 5     CRM Foundation                 ✅
 Phase 5.5   Agent-Ready CRM Tools          ✅
 Phase 5.6   Documentation Sync             ✅
@@ -863,7 +866,7 @@ Automated testing is required for important CRM services and AI tools.
 Current relevant test baseline:
 
 ```text
-532 tests passing
+567 tests passing
 ```
 
 Run:
@@ -878,7 +881,7 @@ Expected result:
 ```text
 System check identified no issues.
 
-Ran 532 tests
+Ran 567 tests
 
 OK
 ```
@@ -1141,7 +1144,7 @@ Agent-Ready CRM Services
 Read-Only Tool Registry
       ✅
 
-532 Relevant Tests
+567 Relevant Tests
       ✅
 ```
 

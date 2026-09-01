@@ -8,9 +8,9 @@ For the broader long-term product, learning, AI, engineering, and business visio
 
 # Current Position
 
-**Current Phase:** none — the implementation roadmap is complete. **Dodong OS v1.0** is the current release checkpoint (`V1_RELEASE_READY_BUT_NOT_LIVE_DEPLOYED`). Phase 4 (Lead Scanner) remains iterative; further work is tracked under "Future work".
+**Current Phase:** none — Phases 1–11 are complete, including a bounded **Phase 4 — Lead Scanner v1**. **Dodong OS v1.0** is the current release checkpoint (`V1_RELEASE_READY_BUT_NOT_LIVE_DEPLOYED`). Additional scanner source connectors are tracked under "Future work".
 
-**Automated test baseline:** 532 passing tests
+**Automated test baseline:** 567 passing tests
 
 Canonical test command (from `backend/`): `python manage.py test`
 
@@ -18,7 +18,7 @@ Canonical test command (from `backend/`): `python manage.py test`
 Phase 1     Foundation                    ✅
 Phase 2     AI Prototype                  ✅
 Phase 3     AI Provider Layer             ✅
-Phase 4     Lead Scanner                  🟡 Iterative
+Phase 4     Lead Scanner (v1)             ✅
 Phase 5     CRM Foundation                ✅
 Phase 5.5   Agent-Ready CRM Tool Layer    ✅
 Phase 5.6   Documentation Sync            ✅
@@ -520,6 +520,70 @@ Release consolidation, not a new capability phase. Full details in
 
 ---
 
+# Phase 4 — Lead Scanner v1 — ✅ COMPLETE
+
+Closes the only area previously "iterative by design" with a stable v1
+boundary. The scanner is a **discovery** system: it never mutates the CRM.
+
+| Sub | Scope | Status |
+|---|---|---|
+| 4A | Scanner foundation — `LeadCandidate` / `LeadScanRun`, offline source adapters | ✅ |
+| 4B | Deterministic normalization + deduplication | ✅ |
+| 4C | Deterministic explainable qualification + scoring (+ optional AI note) | ✅ |
+| 4D | Staff review queue + explicit, idempotent CRM import | ✅ |
+| 4E | Scan-run history + acceptance suite | ✅ |
+
+**Boundary (architecture-tested):**
+
+```
+source adapter (offline: manual feed / CSV)
+  → normalization.py        # pure
+  → dedup.py                # pure - deterministic key, never AI
+  → scoring.py              # pure - explainable 0-100, config profile
+  → analysis.py (optional)  # AI note only; never changes score/decision
+  → services.py             # scanner ORM (LeadCandidate / LeadScanRun)
+  → review queue /scanner/  # staff only
+  → explicit staff POST
+  → apps/leads/services.import_scanner_candidate()  # the only CRM entry
+  → Lead
+```
+
+`checks`-equivalent modules (`adapters.py`, `normalization.py`, `dedup.py`,
+`scoring.py`, `analysis.py`, `views.py`, `management/commands/`) contain
+**no** ORM. `services.py` owns the scanner ORM and reaches the CRM only via
+`apps/leads/services.py` — it never calls `Lead.objects.*`.
+
+**Sources:** `manual` (structured in-memory feed) and `csv` (documented
+column set), both offline. `python manage.py scan_leads --source …` records
+a `LeadScanRun`, never imports, exits non-zero on source failure.
+**Deferred connectors:** LinkedIn (needs approved API), Reddit / OnlineJobs
+and any site that prohibits scraping or requires authentication — added
+later as independent adapters without reopening the phase.
+
+**Dedup key:** `sid:<source>:<identifier>` → `url:<canonical-url>` →
+`fp:<sha1(company|title|source)>`. Rescan updates the row and re-scores but
+preserves review/import status; `times_seen` increments.
+
+**Score:** skills 40 / work 20 / compensation 20 / title 15 / recency 5;
+any `excluded_terms` hit → 0. Bands `SCANNER_SCORE_HIGH`=80,
+`SCANNER_SCORE_MEDIUM`=60. Profile via `settings.SCANNER_PROFILE`
+(conservative default: Power BI / SQL skills, no remote/comp requirement).
+
+**Import safety:** explicit staff POST only; blocks on an existing CRM
+duplicate (`Lead.source_url` then `company_name` iexact); idempotent per
+candidate (`ALREADY_IMPORTED`); `imported_lead_id` links back; a context
+note is attached as a `LeadActivity`. No `AIActionAudit`, no confirmed-write
+executor. Source text (incl. prompt-injection attempts) is inert data.
+
+**Removed:** the Phase-3 prototype (URL scraper → GPT → auto CRM lead) and
+the orphaned `scanner.Lead` model.
+
+**Migration:** `scanner/0002` (create `LeadCandidate` + `LeadScanRun` +
+indexes, delete legacy `Lead`). Additive apart from the deliberate cleanup
+of the unused prototype model.
+
+---
+
 # Future work (post-v1.0, not scheduled)
 
 These are enhancements, not release blockers. No implementation phase is
@@ -530,6 +594,7 @@ opened for them.
 - `get_stale_leads` DB-side ranking; pagination for `/automation/runs/`
 - external automation "didn't run" / uptime alerting
 - application-level rate limiting on authenticated AI endpoints
-- Phase 4 (Lead Scanner) continues iteratively
+- **Lead Scanner sources:** additional adapters (LinkedIn API, RSS/API job
+  boards, etc.); AI-*suggested* (never authoritative) duplicate hints
 - live Azure deployment + PostgreSQL runtime verification + Docker image
   build (all prepared; pending infrastructure access)

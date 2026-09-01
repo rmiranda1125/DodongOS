@@ -36,8 +36,8 @@ The detailed implementation roadmap is maintained in:
 
 **Dodong OS v1.0 — release checkpoint** (`V1_RELEASE_READY_BUT_NOT_LIVE_DEPLOYED`).
 
-The full implementation roadmap (Phases 1–11) is complete; Phase 4 (Lead
-Scanner) continues iteratively. See `docs/ROADMAP.md` and
+The full implementation roadmap (Phases 1–11) is complete, including a
+bounded Phase 4 (Lead Scanner v1). See `docs/ROADMAP.md` and
 `docs/RELEASES/v1.0.0.md`.
 
 Delivered:
@@ -53,7 +53,9 @@ Delivered:
 - ✅ Production hardening (env-driven config, PostgreSQL readiness, health/
   readiness, WhiteNoise, gunicorn, Docker, CI, deployment runbook)
 - ✅ v1.0 UX polish, access-control review, integrated acceptance suite
-- ✅ 532 automated tests passing; zero real external AI calls
+- ✅ Lead Scanner v1 (offline source adapters, deterministic scoring,
+  staff review, explicit CRM import; no autonomous CRM writes)
+- ✅ 567 automated tests passing; zero real external AI calls
 
 ## Current Agent Architecture
 
