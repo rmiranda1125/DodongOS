@@ -1,6 +1,7 @@
+from django.db import transaction
 from django.utils import timezone
 
-from apps.automation.models import ScheduledCheckRun
+from apps.automation.models import CRMDigest, ScheduledCheckRun
 
 
 def start_check_run():
@@ -65,3 +66,112 @@ def finish_check_run_failed(
     )
 
     return run
+
+
+# =========================================================
+# CRM DIGEST PERSISTENCE
+# =========================================================
+
+
+def _upsert_digest_finding(*, digest_finding, seen_at):
+    """
+    Create or update one CRMDigest row for a shaped digest finding.
+
+    A shaped digest finding is a dict with keys:
+    dedup_key, finding_type, lead_id, task_id, summary, finding_data.
+    """
+
+    existing = CRMDigest.objects.filter(
+        dedup_key=digest_finding["dedup_key"],
+    ).first()
+
+    if existing is None:
+        return CRMDigest.objects.create(
+            dedup_key=digest_finding["dedup_key"],
+            finding_type=digest_finding["finding_type"],
+            lead_id=digest_finding.get("lead_id"),
+            task_id=digest_finding.get("task_id"),
+            summary=digest_finding["summary"],
+            finding_data=digest_finding["finding_data"],
+            first_seen_at=seen_at,
+            last_seen_at=seen_at,
+            resolved_at=None,
+            occurrence_count=1,
+        )
+
+    # Existing identity seen again: refresh the mutable fields,
+    # keep first_seen_at, reopen if it had been resolved.
+    existing.summary = digest_finding["summary"]
+    existing.finding_data = digest_finding["finding_data"]
+    existing.lead_id = digest_finding.get("lead_id")
+    existing.task_id = digest_finding.get("task_id")
+    existing.last_seen_at = seen_at
+    existing.resolved_at = None
+    existing.occurrence_count = existing.occurrence_count + 1
+
+    existing.save(
+        update_fields=[
+            "summary",
+            "finding_data",
+            "lead_id",
+            "task_id",
+            "last_seen_at",
+            "resolved_at",
+            "occurrence_count",
+            "updated_at",
+        ],
+    )
+
+    return existing
+
+
+def sync_digest_findings(
+    *,
+    digest_findings,
+    seen_at=None,
+):
+    """
+    Persist every shaped digest finding and resolve any previously
+    active CRMDigest row that is absent from this set.
+
+    Callers MUST only invoke this after a fully successful check
+    run. A failed or partial run must never reach here, so that
+    absent findings are never mistaken for resolved conditions.
+
+    Returns:
+        {"active": <int>, "resolved": <int>}
+    """
+
+    if seen_at is None:
+        seen_at = timezone.now()
+
+    active_keys = [
+        finding["dedup_key"]
+        for finding in digest_findings
+    ]
+
+    with transaction.atomic():
+
+        for finding in digest_findings:
+            _upsert_digest_finding(
+                digest_finding=finding,
+                seen_at=seen_at,
+            )
+
+        resolved = (
+            CRMDigest.objects.filter(
+                resolved_at__isnull=True,
+            )
+            .exclude(
+                dedup_key__in=active_keys,
+            )
+            .update(
+                resolved_at=seen_at,
+                updated_at=seen_at,
+            )
+        )
+
+    return {
+        "active": len(active_keys),
+        "resolved": resolved,
+    }

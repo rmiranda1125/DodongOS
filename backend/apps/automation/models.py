@@ -58,3 +58,84 @@ class ScheduledCheckRun(models.Model):
         return (
             f"ScheduledCheckRun {self.id} - {self.status}"
         )
+
+
+class CRMDigest(models.Model):
+    """
+    One durable row per deterministic CRM finding identity.
+
+    A finding identity is stable (see apps/automation/digest.py
+    ``build_dedup_key``) and is derived only from persisted CRM ids,
+    never from generated text or timestamps. Repeated runs update
+    the same row rather than inserting duplicates.
+
+    No AI-generated prose is stored here (that is Phase 6D).
+
+    ORM access to this model MUST go through
+    apps/automation/services.py.
+    """
+
+    FINDING_TYPE_CHOICES = [
+        ("due_soon_task", "Due-soon task"),
+        ("stale_lead", "Stale lead"),
+    ]
+
+    finding_type = models.CharField(
+        max_length=32,
+        choices=FINDING_TYPE_CHOICES,
+    )
+
+    lead_id = models.PositiveBigIntegerField(
+        null=True,
+        blank=True,
+    )
+
+    task_id = models.PositiveBigIntegerField(
+        null=True,
+        blank=True,
+    )
+
+    summary = models.TextField()
+
+    finding_data = models.JSONField(
+        default=dict,
+    )
+
+    dedup_key = models.CharField(
+        max_length=128,
+        unique=True,
+    )
+
+    first_seen_at = models.DateTimeField()
+
+    last_seen_at = models.DateTimeField()
+
+    resolved_at = models.DateTimeField(
+        null=True,
+        blank=True,
+    )
+
+    occurrence_count = models.PositiveIntegerField(
+        default=1,
+    )
+
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+    )
+
+    updated_at = models.DateTimeField(
+        auto_now=True,
+    )
+
+    class Meta:
+        ordering = [
+            "-last_seen_at",
+            "id",
+        ]
+
+    def __str__(self):
+        return (
+            f"CRMDigest {self.dedup_key} "
+            f"(x{self.occurrence_count})"
+        )
+

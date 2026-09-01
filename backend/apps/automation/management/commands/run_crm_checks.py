@@ -1,6 +1,7 @@
 from django.core.management.base import BaseCommand
 
 from apps.automation import checks as automation_checks
+from apps.automation import digest as automation_digest
 from apps.automation import services as automation_services
 
 
@@ -8,14 +9,20 @@ class Command(BaseCommand):
     """
     Run scheduled background CRM checks.
 
-    Phase 6B: runs the deterministic, read-only CRM checks
-    (due-soon tasks, stale leads) and records how many checks ran
-    and how many findings they produced. Findings are not persisted
-    yet — that is Phase 6C.
+    Phase 6C: runs the deterministic, read-only CRM checks
+    (due-soon tasks, stale leads), then persists and deduplicates
+    the findings into CRMDigest and resolves previously active
+    findings that are absent from this successful run. No AI
+    prose, notifications, or CRM writes.
+
+    ``findings_count`` on the run record is the number of findings
+    the current check run produced, not the number of CRMDigest
+    rows in the database.
 
     This module must not access the Django ORM directly. Run-record
-    persistence goes through apps/automation/services.py; CRM state
-    is read only through apps/automation/checks.py.
+    and digest persistence go through apps/automation/services.py;
+    CRM state is read only through apps/automation/checks.py;
+    dedup shaping goes through apps/automation/digest.py.
     """
 
     help = (
@@ -32,13 +39,19 @@ class Command(BaseCommand):
             # DETERMINISTIC CRM CHECKS
             # -----------------------------------------------------
             #
-            # Read-only. No finding persistence in Phase 6B.
+            # Read-only. Only a fully successful run below reaches
+            # digest persistence / resolution.
             #
 
             outcome = automation_checks.run_all_checks()
 
             checks_run = outcome["checks_run"]
-            findings_count = len(outcome["findings"])
+            findings = outcome["findings"]
+            findings_count = len(findings)
+
+            digest_result = automation_digest.persist_findings(
+                findings=findings,
+            )
 
             automation_services.finish_check_run_succeeded(
                 run=run,
@@ -50,7 +63,9 @@ class Command(BaseCommand):
                 self.style.SUCCESS(
                     f"CRM check run {run.id} succeeded "
                     f"(checks_run={checks_run}, "
-                    f"findings_count={findings_count})."
+                    f"findings_count={findings_count}, "
+                    f"digest_active={digest_result['active']}, "
+                    f"digest_resolved={digest_result['resolved']})."
                 )
             )
 

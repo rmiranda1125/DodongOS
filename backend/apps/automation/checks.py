@@ -59,7 +59,7 @@ def check_due_soon_tasks(*, within_hours=None):
     return [
         {
             "check": DUE_SOON_TASKS_CHECK,
-            "finding_type": "task_due_soon",
+            "finding_type": "due_soon_task",
             "lead_id": row["lead_id"],
             "object_id": row["id"],
             "summary": (
@@ -91,7 +91,7 @@ def check_stale_leads(*, stale_after_days=None):
     return [
         {
             "check": STALE_LEADS_CHECK,
-            "finding_type": "lead_stale",
+            "finding_type": "stale_lead",
             "lead_id": row["id"],
             "object_id": row["id"],
             "summary": (
