@@ -286,6 +286,33 @@ def build_write_proposal_from_message(
             ],
         }
 
+    #
+    # -----------------------------------------------------
+    # ADD LEAD NOTE
+    # -----------------------------------------------------
+    #
+
+    if action == "add_lead_note":
+
+        proposal_result = (
+            build_add_lead_note_proposal(
+                **route["arguments"]
+            )
+        )
+
+        if not proposal_result.get(
+            "success"
+        ):
+            return proposal_result
+
+        return {
+            "success": True,
+            "intent": route["intent"],
+            "proposal": proposal_result[
+                "proposal"
+            ],
+        }
+
     return {
         "success": False,
         "error": {

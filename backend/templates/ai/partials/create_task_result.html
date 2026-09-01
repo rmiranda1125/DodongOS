@@ -14,6 +14,10 @@
 
                     ✅ CRM Lead Status Changed
 
+                {% elif result.action == "add_lead_note" %}
+
+                    ✅ CRM Lead Note Added
+
                 {% else %}
 
                     ✅ CRM Task Created
@@ -61,6 +65,23 @@
                     <div class="mt-2">
                         Dodong verified the new lead status
                         in the CRM.
+                    </div>
+                </div>
+
+
+            {% elif result.action == "add_lead_note" %}
+
+                <div
+                    class="alert alert-success"
+                    role="alert"
+                >
+                    <strong>
+                        The lead note was added successfully.
+                    </strong>
+
+                    <div class="mt-2">
+                        Dodong verified the new note
+                        in the CRM activity timeline.
                     </div>
                 </div>
 
@@ -121,6 +142,53 @@
 
                     <dd class="col-sm-9">
                         {{ result.data.status }}
+                    </dd>
+
+                </dl>
+
+
+            {% elif result.action == "add_lead_note" %}
+
+                <!-- ================================================= -->
+                <!-- LEAD NOTE DETAILS -->
+                <!-- ================================================= -->
+
+                <dl class="row mb-0">
+
+                    <dt class="col-sm-3">
+                        Lead
+                    </dt>
+
+                    <dd class="col-sm-9">
+                        {{ result.data.company_name }}
+                        (#{{ result.data.lead_id }})
+                    </dd>
+
+
+                    <dt class="col-sm-3">
+                        Activity type
+                    </dt>
+
+                    <dd class="col-sm-9">
+                        {{ result.data.activity_type }}
+                    </dd>
+
+
+                    <dt class="col-sm-3">
+                        Note
+                    </dt>
+
+                    <dd class="col-sm-9">
+                        {{ result.data.description }}
+                    </dd>
+
+
+                    <dt class="col-sm-3">
+                        Activity ID
+                    </dt>
+
+                    <dd class="col-sm-9">
+                        {{ result.data.activity_id }}
                     </dd>
 
                 </dl>

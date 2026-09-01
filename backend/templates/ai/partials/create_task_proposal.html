@@ -270,6 +270,70 @@
 
 
             <!-- ================================================= -->
+            <!-- ADD LEAD NOTE PROPOSAL -->
+            <!-- ================================================= -->
+
+            {% elif result.proposal.action == "add_lead_note" %}
+
+                <!-- ================================================= -->
+                <!-- SAFETY NOTICE -->
+                <!-- ================================================= -->
+
+                <div
+                    class="alert alert-warning"
+                    role="alert"
+                >
+
+                    <strong>
+                        No CRM change has been made yet.
+                    </strong>
+
+                    <div class="mt-2">
+                        This note will be added only if
+                        you click
+                        <strong>Confirm Add Note</strong>.
+                    </div>
+
+                </div>
+
+
+                <!-- ================================================= -->
+                <!-- LEAD NOTE DETAILS -->
+                <!-- ================================================= -->
+
+                <dl class="row mb-0">
+
+                    <dt class="col-sm-3">
+                        Lead
+                    </dt>
+
+                    <dd class="col-sm-9">
+                        {{ result.proposal.lead.company_name }}
+                        (#{{ result.proposal.lead.id }})
+                    </dd>
+
+
+                    <dt class="col-sm-3">
+                        Lead status
+                    </dt>
+
+                    <dd class="col-sm-9">
+                        {{ result.proposal.lead.status }}
+                    </dd>
+
+
+                    <dt class="col-sm-3">
+                        Note
+                    </dt>
+
+                    <dd class="col-sm-9">
+                        {{ result.proposal.activity.description }}
+                    </dd>
+
+                </dl>
+
+
+            <!-- ================================================= -->
             <!-- UNKNOWN PROPOSAL ACTION -->
             <!-- ================================================= -->
 
@@ -298,7 +362,7 @@
             <!-- CONFIRMATION CONTROLS -->
             <!-- ================================================= -->
 
-            {% if result.proposal.action == "create_lead_task" or result.proposal.action == "complete_lead_task" or result.proposal.action == "change_lead_status" %}
+            {% if result.proposal.action == "create_lead_task" or result.proposal.action == "complete_lead_task" or result.proposal.action == "change_lead_status" or result.proposal.action == "add_lead_note" %}
 
                 <hr>
 
@@ -344,6 +408,10 @@
                             {% elif result.proposal.action == "change_lead_status" %}
 
                                 Confirm Status Change
+
+                            {% elif result.proposal.action == "add_lead_note" %}
+
+                                Confirm Add Note
 
                             {% else %}
 

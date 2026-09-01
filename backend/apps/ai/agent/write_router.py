@@ -92,6 +92,27 @@ CHANGE_LEAD_STATUS_PATTERN = re.compile(
     re.IGNORECASE | re.VERBOSE,
 )
 
+ADD_LEAD_NOTE_PATTERN = re.compile(
+    r"""
+    ^\s*
+    (?:please\s+)?
+    add
+    \s+
+    (?:a\s+)?
+    note
+    \s+
+    to
+    \s+
+    lead
+    \s*\#?\s*
+    (?P<lead_id>\d+)
+    \s*:\s*
+    (?P<note>.+?)
+    \s*$
+    """,
+    re.IGNORECASE | re.VERBOSE,
+)
+
 
 def route_crm_write_proposal_intent(message):
     """
@@ -259,6 +280,42 @@ def route_crm_write_proposal_intent(message):
             },
         }
 
+    #
+    # -----------------------------------------------------
+    # ADD LEAD NOTE
+    # -----------------------------------------------------
+    #
+
+    note_match = (
+        ADD_LEAD_NOTE_PATTERN.fullmatch(
+            message,
+        )
+    )
+
+    if note_match is not None:
+
+        lead_id = int(
+            note_match.group(
+                "lead_id"
+            )
+        )
+
+        note = (
+            note_match.group(
+                "note"
+            )
+            .strip()
+        )
+
+        return {
+            "success": True,
+            "intent": "add_lead_note_proposal",
+            "action": "add_lead_note",
+            "arguments": {
+                "lead_id": lead_id,
+                "note": note,
+            },
+        }
 
     #
     # -----------------------------------------------------

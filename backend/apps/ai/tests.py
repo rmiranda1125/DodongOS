@@ -5097,6 +5097,58 @@ class CRMWriteProposalRouterTests(TestCase):
             },
         )    
 
+    def test_routes_add_lead_note_request(self):
+        result = route_crm_write_proposal_intent(
+            (
+                "Add a note to lead 12: "
+                "Customer requested pricing."
+            )
+        )
+
+        self.assertTrue(
+            result["success"],
+        )
+
+        self.assertEqual(
+            result["intent"],
+            "add_lead_note_proposal",
+        )
+
+        self.assertEqual(
+            result["action"],
+            "add_lead_note",
+        )
+
+        self.assertEqual(
+            result["arguments"],
+            {
+                "lead_id": 12,
+                "note": "Customer requested pricing.",
+            },
+        )
+
+    def test_routes_polite_add_lead_note_request(self):
+        result = route_crm_write_proposal_intent(
+            (
+                "Please add note to lead #12: "
+                "Follow up next Monday."
+            )
+        )
+
+        self.assertTrue(
+            result["success"],
+        )
+
+        self.assertEqual(
+            result["arguments"]["lead_id"],
+            12,
+        )
+
+        self.assertEqual(
+            result["arguments"]["note"],
+            "Follow up next Monday.",
+        )
+
 class CRMNaturalLanguageTaskProposalTests(TestCase):
 
     def setUp(self):
@@ -8609,5 +8661,253 @@ class ConfirmedLeadNoteExecutorTests(TestCase):
 
         self.assertEqual(
             LeadActivity.objects.count(),
+            0,
+        )
+
+class CRMNaturalLanguageLeadNoteTests(TestCase):
+
+    def setUp(self):
+        self.lead = Lead.objects.create(
+            company_name="Acme Analytics",
+            job_title="Power BI Developer",
+            status="contacted",
+        )
+
+    def test_natural_language_builds_note_proposal(
+        self,
+    ):
+        result = build_write_proposal_from_message(
+            (
+                f"Add a note to lead {self.lead.id}: "
+                "Customer requested pricing."
+            )
+        )
+
+        self.assertTrue(
+            result["success"],
+        )
+
+        proposal = result["proposal"]
+
+        self.assertEqual(
+            proposal["action"],
+            "add_lead_note",
+        )
+
+        self.assertEqual(
+            proposal["lead"]["id"],
+            self.lead.id,
+        )
+
+        self.assertEqual(
+            proposal["activity"]["activity_type"],
+            "note",
+        )
+
+        self.assertEqual(
+            proposal["activity"]["description"],
+            "Customer requested pricing.",
+        )
+
+        self.assertTrue(
+            proposal["requires_confirmation"],
+        )
+
+    def test_note_proposal_does_not_create_activity(
+        self,
+    ):
+        result = build_write_proposal_from_message(
+            (
+                f"Add a note to lead {self.lead.id}: "
+                "Customer requested pricing."
+            )
+        )
+
+        self.assertTrue(
+            result["success"],
+        )
+
+        self.assertEqual(
+            LeadActivity.objects.count(),
+            0,
+        )
+
+        self.assertEqual(
+            AIActionAudit.objects.count(),
+            0,
+        )
+
+    def test_assistant_returns_note_proposal(
+        self,
+    ):
+        response = self.client.post(
+            reverse(
+                "ai:crm_assistant_ask",
+            ),
+            {
+                "message": (
+                    f"Add a note to lead {self.lead.id}: "
+                    "Customer requested pricing."
+                ),
+            },
+        )
+
+        self.assertEqual(
+            response.status_code,
+            200,
+        )
+
+        self.assertContains(
+            response,
+            "Confirm Add Note",
+        )
+
+        self.assertContains(
+            response,
+            "Acme Analytics",
+        )
+
+        self.assertContains(
+            response,
+            "Customer requested pricing.",
+        )
+
+        self.assertEqual(
+            LeadActivity.objects.count(),
+            0,
+        )
+
+    def test_confirm_post_adds_note(
+        self,
+    ):
+        proposal_response = self.client.post(
+            reverse(
+                "ai:crm_assistant_ask",
+            ),
+            {
+                "message": (
+                    f"Add a note to lead {self.lead.id}: "
+                    "Customer requested pricing."
+                ),
+            },
+        )
+
+        token = proposal_response.context[
+            "proposal_token"
+        ]
+
+        self.assertEqual(
+            LeadActivity.objects.count(),
+            0,
+        )
+
+        confirm_response = self.client.post(
+            reverse(
+                "ai:crm_assistant_task_confirm",
+            ),
+            {
+                "proposal_token": token,
+            },
+        )
+
+        self.assertEqual(
+            confirm_response.status_code,
+            200,
+        )
+
+        self.assertEqual(
+            LeadActivity.objects.count(),
+            1,
+        )
+
+        activity = LeadActivity.objects.get()
+
+        self.assertEqual(
+            activity.activity_type,
+            "note",
+        )
+
+        self.assertEqual(
+            activity.description,
+            "Customer requested pricing.",
+        )
+
+        self.assertEqual(
+            AIActionAudit.objects.count(),
+            1,
+        )
+
+        self.assertContains(
+            confirm_response,
+            "CRM Lead Note Added",
+        )
+
+    def test_chat_confirmation_cannot_add_note(
+        self,
+    ):
+        self.client.post(
+            reverse(
+                "ai:crm_assistant_ask",
+            ),
+            {
+                "message": (
+                    f"Add a note to lead {self.lead.id}: "
+                    "Customer requested pricing."
+                ),
+            },
+        )
+
+        for message in (
+            "Yes.",
+            "Confirm.",
+            "Go ahead.",
+            "Do it.",
+        ):
+            self.client.post(
+                reverse(
+                    "ai:crm_assistant_ask",
+                ),
+                {
+                    "message": message,
+                },
+            )
+
+        self.assertEqual(
+            LeadActivity.objects.count(),
+            0,
+        )
+
+        self.assertEqual(
+            AIActionAudit.objects.count(),
+            0,
+        )
+
+    def test_assistant_rejects_missing_lead_for_note(
+        self,
+    ):
+        response = self.client.post(
+            reverse(
+                "ai:crm_assistant_ask",
+            ),
+            {
+                "message": (
+                    "Add a note to lead 999999: "
+                    "Customer requested pricing."
+                ),
+            },
+        )
+
+        self.assertContains(
+            response,
+            "LEAD_NOT_FOUND",
+        )
+
+        self.assertEqual(
+            LeadActivity.objects.count(),
+            0,
+        )
+
+        self.assertEqual(
+            AIActionAudit.objects.count(),
             0,
         )
