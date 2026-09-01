@@ -8,9 +8,9 @@ For the broader long-term product, learning, AI, engineering, and business visio
 
 # Current Position
 
-**Current Phase:** Phase 7 — RAG / AI Memory (not started). Phases 6 and 9 are complete.
+**Current Phase:** Phase 10 — Production Hardening (not started). Phases 6, 7 and 9 are complete.
 
-**Automated test baseline:** 430 passing tests
+**Automated test baseline:** 483 passing tests
 
 Canonical test command (from `backend/`): `python manage.py test`
 
@@ -23,7 +23,7 @@ Phase 5     CRM Foundation                ✅
 Phase 5.5   Agent-Ready CRM Tool Layer    ✅
 Phase 5.6   Documentation Sync            ✅
 Phase 6     Background Automation         ✅
-Phase 7     RAG / AI Memory               ⏳
+Phase 7     RAG / AI Memory               ✅
 Phase 8     CRM Read Agent                ✅
 Phase 9     Controlled AI CRM Agent       ✅
 Phase 10    Production Hardening          ⏳
@@ -256,8 +256,126 @@ offers, which is a Phase 10 deployment concern, not app code.
 
 ---
 
+# Phase 7 — RAG / AI Memory — ✅ COMPLETE
+
+A safe, read-first knowledge/RAG capability. Deterministic knowledge
+retrieval is the source of truth; the AI provider only rephrases retrieved
+evidence and never has ORM access or write ability.
+
+**Subphase status**
+
+| Sub | Scope | Status |
+|---|---|---|
+| 7A | `apps.knowledge` app, `KnowledgeDocument` / `KnowledgeChunk` models, deterministic chunker | ✅ |
+| 7B | Deterministic lexical retrieval + `search_knowledge` read tool | ✅ |
+| 7C | `apps/ai/agent/rag_agent.py` grounded answer + deterministic fallback | ✅ |
+| 7D | Controlled ingestion service + staff admin/reindex + knowledge assistant UI | ✅ |
+| 7E | Full Phase 7 acceptance / safety / regression suite | ✅ |
+
+**Architecture**
+
+```
+question
+  → apps/ai/agent/rag_agent.run_rag_agent()          # no ORM
+      → execute_registered_tool("search_knowledge")   # read-only registry path
+          → apps/ai/tools/knowledge.search_knowledge_tool   # no ORM
+              → apps/knowledge/services.retrieve_knowledge  # ORM (active chunks only)
+                  → apps/knowledge/retrieval.rank_chunks    # pure lexical ranking
+      → deterministic evidence  →  provider prompt (evidence only)
+      → grounded answer   OR   deterministic evidence-only fallback
+
+ingestion:
+  approved source (manual / internal_note)
+    → apps/knowledge/services.ingest_document()   # validate + secret guard
+    → normalize → create/update KnowledgeDocument by (source_type, source_reference)
+    → rebuild all KnowledgeChunk rows deterministically
+staff admin: KnowledgeDocument add/change (save rebuilds chunks) + "Reindex selected"
+staff UI:   GET/POST /assistant/knowledge/
+```
+
+**ORM boundary (architecture-tested):** `chunking.py`, `retrieval.py`,
+`views.py`, `admin.py`, and `apps/ai/agent/rag_agent.py` contain **no**
+`.objects` access. Only `apps/knowledge/models.py` and
+`apps/knowledge/services.py` touch the knowledge ORM. `rag_agent.py` is
+covered by the existing `apps/ai/agent/*` ORM-boundary test.
+
+**Knowledge model**
+
+- `KnowledgeDocument(title, source_type[manual|internal_note],
+  source_reference, normalized_text, active, created_at, updated_at)` —
+  unique `(source_type, source_reference)`; re-ingesting the same identity
+  updates in place.
+- `KnowledgeChunk(document FK, chunk_index, content, metadata JSON,
+  created_at)` — unique `(document, chunk_index)`; always rebuilt as a set,
+  never edited individually.
+
+**Chunking:** deterministic; whitespace-normalized to single spaces; packs
+words up to `RAG_CHUNK_SIZE` chars/chunk; consecutive chunks share up to
+`RAG_CHUNK_OVERLAP` trailing chars; never empty; empty/whitespace input
+rejected; no AI involved.
+
+**Embedding / index strategy:** none — deterministic lexical index. The
+deployment is SQLite with no pgvector, numpy, or embedding libraries.
+`retrieval.rank_chunks` is a pure function returning the real stored
+chunks, so a pgvector/embedding ranker can replace it later without
+changing callers. **Deferred:** embeddings + pgvector, contingent on the
+PostgreSQL deployment (Phase 10).
+
+**Retrieval / ranking:** token-overlap score = (distinct query terms
+present in chunk) + (total query-term occurrences / chunk token count);
+ties break by `(document_id, chunk_index)`. Active documents only. Returns
+JSON-safe evidence: `document_id/title`, `source_type/reference`,
+`chunk_id/index`, `content`, `score`.
+
+**RAG answer / fallback:** `run_rag_agent` → grounded answer via provider
+when it returns non-blank text (`source="ai_provider"`); on provider
+error, timeout, or blank output → deterministic answer listing the
+retrieved evidence (`source="deterministic_fallback"`,
+`warning.code="AI_ANSWER_FAILED"`); no evidence →
+`warning.code="NO_KNOWLEDGE_MATCH"`. Never raises, never mutates, never
+calls a write tool.
+
+**Prompt-injection protections:** the prompt states retrieved excerpts are
+DATA and any embedded command / system-prompt / policy override must be
+ignored; only the application rules govern behaviour. It also forbids
+fabrication, forbids claiming live CRM state or that any action was taken,
+and forbids describing CRM writes. Ingestion additionally refuses obvious
+secret material (`OPENAI_API_KEY`, private-key headers, `PASSWORD=`, …) and
+only accepts `manual` / `internal_note` source types — no automatic
+filesystem, `.env`, or bulk-CRM ingestion.
+
+**Knowledge management route/admin:** staff-only knowledge assistant at
+`/assistant/knowledge/` (query UI + document list). Document CRUD is Django
+admin (`KnowledgeDocumentAdmin`); saving a document rebuilds its chunks via
+the service, and a "Reindex selected documents" bulk action is provided.
+`KnowledgeChunkAdmin` is read-only.
+
+**Settings (env-tunable):** `RAG_CHUNK_SIZE`=800, `RAG_CHUNK_OVERLAP`=120,
+`RAG_RETRIEVAL_LIMIT`=5, `RAG_AI_TIMEOUT_SECONDS`=15 (its own setting, not
+shared with automation; RAG also uses `max_retries=0`).
+
+**RAG + CRM read coexistence:** RAG does not replace the CRM read tools.
+Operational/factual CRM questions still route to the deterministic CRM read
+agent; knowledge/policy questions use `run_rag_agent`. **Deferred:**
+automatic combined routing ("which overdue leads violate our follow-up
+policy?") — for now a caller issues a CRM read and a RAG query separately.
+
+**Observability:** the RAG result already carries `source`, evidence
+count, and any `warning`. **Deferred:** persisting a retrieval/query log —
+would expand scope and risk storing sensitive prompts.
+
+**Deferred Phase 7 hardening (non-blocking):**
+- embeddings + pgvector semantic retrieval (needs PostgreSQL)
+- combined CRM+knowledge question routing
+- retrieval/query observability persistence
+- `retrieve_knowledge` loads all active chunks into memory then ranks in
+  Python — fine at current scale, revisit with a DB-side prefilter or
+  vector index as the corpus grows
+- knowledge assistant page has no pagination on the document list
+
+---
+
 # Not started
 
-- **Phase 7 — RAG / AI Memory:** no vector store or retrieval layer yet.
 - **Phase 10 — Production Hardening**
 - **Phase 11 — Dodong OS v1.0**
