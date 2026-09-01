@@ -1,94 +1,120 @@
 {% extends "base.html" %}
 
 {% block title %}
-Dashboard
+    Dodong OS
 {% endblock %}
 
 {% block content %}
 
-<h2>Dashboard</h2>
-
-<p>Welcome to Dodong OS 🚀</p>
-
-<div class="row">
-
-    <div class="col-md-3">
-
-        <div class="card">
-
-            <div class="card-body">
-
-                <h5>Companies</h5>
-
-                <h2>0</h2>
-
-            </div>
-
-        </div>
-
-    </div>
-
-    <div class="col-md-3">
-
-        <div class="card">
-
-            <div class="card-body">
-
-                <h5>Contacts</h5>
-
-                <h2>0</h2>
-
-            </div>
-
-        </div>
-
-    </div>
-
-    <div class="col-md-3">
-
-        <div class="card">
-
-            <div class="card-body">
-
-                <h5>Leads</h5>
-
-                <h2>0</h2>
-
-            </div>
-
-        </div>
-
-    </div>
-
+<div class="mb-4">
+    <h2 class="mb-1">Dodong OS</h2>
+    <p class="text-muted mb-0">
+        AI-assisted CRM &mdash; deterministic reads, controlled
+        writes, and a read-first knowledge assistant.
+        <span class="text-muted">v{{ DODONG_VERSION }}</span>
+    </p>
 </div>
 
-<hr>
+{% if not user.is_authenticated %}
+    <div class="alert alert-info" role="alert">
+        <a href="{% url 'admin:login' %}">Sign in</a> to use the
+        Dodong Assistant and CRM tools.
+    </div>
+{% endif %}
 
-<h3>HTMX Playground</h3>
+<div class="row g-3">
 
-<button
-    class="btn btn-success"
-    hx-get="{% url 'hello_htmx' %}"
-    hx-target="#result"
-    hx-swap="innerHTML">
+    <div class="col-md-4">
+        <div class="card h-100">
+            <div class="card-body">
+                <h5 class="card-title">CRM</h5>
+                <p class="card-text text-muted small">
+                    Leads, pipeline, tasks and activity history.
+                </p>
+                <a class="btn btn-sm btn-outline-primary"
+                   href="{% url 'leads:list' %}">Open leads</a>
+                <a class="btn btn-sm btn-outline-secondary"
+                   href="{% url 'leads:pipeline' %}">Pipeline</a>
+            </div>
+        </div>
+    </div>
 
-    Click Me
+    <div class="col-md-4">
+        <div class="card h-100">
+            <div class="card-body">
+                <h5 class="card-title">Dodong Assistant</h5>
+                <p class="card-text text-muted small">
+                    Ask about CRM data. Controlled changes always
+                    need an explicit Confirm step.
+                </p>
+                <a class="btn btn-sm btn-outline-primary"
+                   href="{% url 'ai:crm_assistant' %}">
+                    Open assistant
+                </a>
+            </div>
+        </div>
+    </div>
 
-</button>
+    {% if user.is_staff %}
+    <div class="col-md-4">
+        <div class="card h-100">
+            <div class="card-body">
+                <h5 class="card-title">Knowledge Assistant</h5>
+                <p class="card-text text-muted small">
+                    Answers grounded in approved stored knowledge.
+                </p>
+                <a class="btn btn-sm btn-outline-primary"
+                   href="{% url 'knowledge:assistant' %}">
+                    Open knowledge
+                </a>
+            </div>
+        </div>
+    </div>
 
-<div id="result" class="mt-3"></div>
+    <div class="col-md-4">
+        <div class="card h-100">
+            <div class="card-body">
+                <h5 class="card-title">Automation Runs</h5>
+                <p class="card-text text-muted small">
+                    History and status of background CRM checks.
+                </p>
+                <a class="btn btn-sm btn-outline-primary"
+                   href="{% url 'automation:run_history' %}">
+                    View runs
+                </a>
+            </div>
+        </div>
+    </div>
 
-<hr>
+    <div class="col-md-4">
+        <div class="card h-100">
+            <div class="card-body">
+                <h5 class="card-title">Action Audit</h5>
+                <p class="card-text text-muted small">
+                    Every confirmed AI-assisted CRM write.
+                </p>
+                <a class="btn btn-sm btn-outline-primary"
+                   href="{% url 'ai:crm_action_audit' %}">
+                    View audit
+                </a>
+            </div>
+        </div>
+    </div>
 
-<h3>Live Server Clock</h3>
-
-<div
-    hx-get="{% url 'server_time' %}"
-    hx-trigger="load, every 5s"
-    hx-target="this"
-    hx-swap="innerHTML">
-
-    Loading server time...
+    <div class="col-md-4">
+        <div class="card h-100">
+            <div class="card-body">
+                <h5 class="card-title">Admin</h5>
+                <p class="card-text text-muted small">
+                    Django admin: knowledge documents, users, and
+                    raw records.
+                </p>
+                <a class="btn btn-sm btn-outline-secondary"
+                   href="/admin/">Open admin</a>
+            </div>
+        </div>
+    </div>
+    {% endif %}
 
 </div>
 

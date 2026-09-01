@@ -59,9 +59,9 @@ class HealthEndpointTests(TestCase):
     def test_liveness_returns_ok_json(self):
         response = self.client.get(reverse("health_liveness"))
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(
-            json.loads(response.content), {"status": "ok"}
-        )
+        body = json.loads(response.content)
+        self.assertEqual(body["status"], "ok")
+        self.assertEqual(body["version"], "1.0.0")
 
     def test_liveness_does_not_call_ai_provider(self):
         with patch(
@@ -261,21 +261,57 @@ class DebugOffBehaviourTests(TestCase):
 
 class WriteEndpointProtectionTests(TestCase):
 
-    def test_confirm_endpoint_rejects_get(self):
+    def setUp(self):
+        from django.contrib.auth import get_user_model
+
+        self.user = get_user_model().objects.create(
+            username="write-endpoint-user"
+        )
+
+    def test_confirm_endpoint_requires_authentication(self):
+        # Anonymous -> redirect to login, never the view.
+        response = self.client.post(
+            reverse("ai:crm_assistant_task_confirm"),
+            {"proposal_token": "anything"},
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertIn("/admin/login/", response["Location"])
+
+    def test_confirm_endpoint_rejects_get_when_authenticated(self):
+        self.client.force_login(self.user)
         response = self.client.get(
             reverse("ai:crm_assistant_task_confirm")
         )
         self.assertEqual(response.status_code, 405)
 
-    def test_confirm_endpoint_requires_csrf(self):
+    def test_confirm_endpoint_requires_csrf_when_authenticated(self):
+        from django.contrib.auth import get_user_model
+
         csrf_client = Client(enforce_csrf_checks=True)
+        csrf_client.force_login(
+            get_user_model().objects.create(username="csrf-user")
+        )
         response = csrf_client.post(
             reverse("ai:crm_assistant_task_confirm"),
             {"proposal_token": "anything"},
         )
         self.assertEqual(response.status_code, 403)
 
-    def test_staff_only_routes_reject_anonymous(self):
+    def test_assistant_and_staff_routes_reject_anonymous(self):
+        for name in (
+            "ai:crm_assistant",
+            "ai:crm_action_audit",
+            "automation:run_history",
+            "knowledge:assistant",
+        ):
+            self.assertNotEqual(
+                self.client.get(reverse(name)).status_code,
+                200,
+                msg=name,
+            )
+
+    def test_non_staff_user_still_blocked_from_staff_surfaces(self):
+        self.client.force_login(self.user)
         for name in (
             "ai:crm_action_audit",
             "automation:run_history",
@@ -284,7 +320,15 @@ class WriteEndpointProtectionTests(TestCase):
             self.assertNotEqual(
                 self.client.get(reverse(name)).status_code,
                 200,
+                msg=name,
             )
+        # ...but the CRM Assistant is available to any authed user.
+        self.assertEqual(
+            self.client.get(
+                reverse("ai:crm_assistant")
+            ).status_code,
+            200,
+        )
 
 
 # =========================================================

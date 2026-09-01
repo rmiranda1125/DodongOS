@@ -9,6 +9,8 @@ from pathlib import Path
 import environ
 from django.core.exceptions import ImproperlyConfigured
 
+from config import __version__ as DODONG_VERSION
+
 # ==========================================================
 # Paths
 # ==========================================================
@@ -66,6 +68,10 @@ if not ALLOWED_HOSTS and not IS_PRODUCTION:
     ALLOWED_HOSTS = ["localhost", "127.0.0.1", "[::1]", "testserver"]
 
 CSRF_TRUSTED_ORIGINS = env.list("CSRF_TRUSTED_ORIGINS", default=[])
+
+# Login-required views redirect here (the built-in admin login is
+# the only login form Dodong OS ships in v1.0).
+LOGIN_URL = env("LOGIN_URL", default="/admin/login/")
 
 if IS_PRODUCTION and not ALLOWED_HOSTS:
     raise ImproperlyConfigured(
@@ -146,6 +152,7 @@ TEMPLATES = [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
+                "config.context_processors.version",
             ],
         },
     },

@@ -6,6 +6,7 @@ from django.views.decorators.http import (
 from django.contrib.admin.views.decorators import (
     staff_member_required,
 )
+from django.contrib.auth.decorators import login_required
 
 from apps.ai.agent.read_agent import (
     run_crm_read_agent_with_provider,
@@ -24,6 +25,7 @@ from apps.ai.agent.write_executor import (
 from apps.ai import audit_services
 
 
+@login_required
 @require_GET
 def crm_assistant(request):
     """
@@ -38,6 +40,7 @@ def crm_assistant(request):
     )
 
 
+@login_required
 @require_POST
 def crm_assistant_ask(request):
     """
@@ -159,6 +162,7 @@ def crm_assistant_ask(request):
     )
 
 
+@login_required
 @require_POST
 def crm_assistant_task_proposal(request):
     """
@@ -226,6 +230,7 @@ def crm_assistant_task_proposal(request):
     )
 
 
+@login_required
 @require_POST
 def crm_assistant_task_confirm(request):
     """

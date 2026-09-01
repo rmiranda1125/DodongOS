@@ -2711,7 +2711,25 @@ class CRMReadAgentRoutingTests(TestCase):
             result["answer"],
         )
 
-class CRMAssistantUITests(TestCase):
+
+class _AuthedAssistantTestCase(TestCase):
+    """
+    Base for tests that exercise the Dodong Assistant endpoints,
+    which now require an authenticated user (Phase 11). Subclasses
+    that define their own setUp must call super().setUp().
+    """
+
+    def setUp(self):
+        super().setUp()
+        from django.contrib.auth import get_user_model
+
+        self._assistant_user = get_user_model().objects.create(
+            username="assistant-tester",
+        )
+        self.client.force_login(self._assistant_user)
+
+
+class CRMAssistantUITests(_AuthedAssistantTestCase):
 
     def test_assistant_page_loads(self):
         response = self.client.get(
@@ -4217,9 +4235,10 @@ class CRMActionProposalTokenTests(TestCase):
             "INVALID_PROPOSAL_TOKEN",
         )
 
-class CRMTaskProposalViewTests(TestCase):
+class CRMTaskProposalViewTests(_AuthedAssistantTestCase):
 
     def setUp(self):
+        super().setUp()
         self.lead = Lead.objects.create(
             company_name="Acme Analytics",
             job_title="Power BI Developer",
@@ -4387,9 +4406,10 @@ class CRMTaskProposalViewTests(TestCase):
             0,
         )
 
-class CRMTaskConfirmationViewTests(TestCase):
+class CRMTaskConfirmationViewTests(_AuthedAssistantTestCase):
 
     def setUp(self):
+        super().setUp()
         self.lead = Lead.objects.create(
             company_name="Acme Analytics",
             job_title="Power BI Developer",
@@ -5302,9 +5322,10 @@ class CRMNaturalLanguageTaskProposalTests(TestCase):
             "Send pricing proposal",
         )
 
-class CRMAssistantNaturalLanguageWriteTests(TestCase):
+class CRMAssistantNaturalLanguageWriteTests(_AuthedAssistantTestCase):
 
     def setUp(self):
+        super().setUp()
         self.lead = Lead.objects.create(
             company_name="Acme Analytics",
             job_title="Power BI Developer",
@@ -5710,9 +5731,10 @@ class CRMAssistantNaturalLanguageWriteTests(TestCase):
             0,
         )
 
-class CRMNaturalLanguageWriteAcceptanceTests(TestCase):
+class CRMNaturalLanguageWriteAcceptanceTests(_AuthedAssistantTestCase):
 
     def setUp(self):
+        super().setUp()
         self.lead = Lead.objects.create(
             company_name="Acme Analytics",
             job_title="Power BI Developer",
@@ -6505,9 +6527,10 @@ class ChangeLeadStatusProposalTests(TestCase):
             second["proposal"]["proposal_id"],
         )
 
-class CRMNaturalLanguageTaskCompletionTests(TestCase):
+class CRMNaturalLanguageTaskCompletionTests(_AuthedAssistantTestCase):
 
     def setUp(self):
+        super().setUp()
         self.lead = Lead.objects.create(
             company_name="Acme Analytics",
             job_title="Power BI Developer",
@@ -6741,9 +6764,10 @@ class CRMNaturalLanguageTaskCompletionTests(TestCase):
             0,
         )
 
-class CRMTaskCompletionAcceptanceTests(TestCase):
+class CRMTaskCompletionAcceptanceTests(_AuthedAssistantTestCase):
 
     def setUp(self):
+        super().setUp()
         self.lead = Lead.objects.create(
             company_name="Acme Analytics",
             job_title="Power BI Developer",
@@ -7407,10 +7431,11 @@ class ConfirmedLeadStatusChangeExecutorTests(
         )
 
 class CRMNaturalLanguageLeadStatusChangeTests(
-    TestCase
+    _AuthedAssistantTestCase
 ):
 
     def setUp(self):
+        super().setUp()
         self.lead = Lead.objects.create(
             company_name="Acme Analytics",
             job_title="Power BI Developer",
@@ -7686,9 +7711,10 @@ class CRMNaturalLanguageLeadStatusChangeTests(
             0,
         )
 
-class CRMLeadStatusChangeAcceptanceTests(TestCase):
+class CRMLeadStatusChangeAcceptanceTests(_AuthedAssistantTestCase):
 
     def setUp(self):
+        super().setUp()
         self.lead = Lead.objects.create(
             company_name="Acme Analytics",
             job_title="Power BI Developer",
@@ -8670,9 +8696,10 @@ class ConfirmedLeadNoteExecutorTests(TestCase):
             0,
         )
 
-class CRMNaturalLanguageLeadNoteTests(TestCase):
+class CRMNaturalLanguageLeadNoteTests(_AuthedAssistantTestCase):
 
     def setUp(self):
+        super().setUp()
         self.lead = Lead.objects.create(
             company_name="Acme Analytics",
             job_title="Power BI Developer",
@@ -8918,7 +8945,7 @@ class CRMNaturalLanguageLeadNoteTests(TestCase):
             0,
         )
 
-class CRMLeadNoteAcceptanceTests(TestCase):
+class CRMLeadNoteAcceptanceTests(_AuthedAssistantTestCase):
     """
     Phase 9E4 acceptance / safety coverage for the
     controlled add_lead_note flow.
@@ -8929,6 +8956,7 @@ class CRMLeadNoteAcceptanceTests(TestCase):
     """
 
     def setUp(self):
+        super().setUp()
         self.lead = Lead.objects.create(
             company_name="Acme Analytics",
             job_title="Power BI Developer",

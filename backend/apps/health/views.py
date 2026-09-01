@@ -10,6 +10,7 @@ These are deliberately cheap and side-effect-free:
   configuration.
 """
 
+from django.conf import settings
 from django.db import connections
 from django.http import JsonResponse
 from django.views.decorators.http import require_GET
@@ -19,10 +20,13 @@ from django.views.decorators.http import require_GET
 def liveness(request):
     """
     Liveness: the process is up and can serve a request. No
-    dependencies are checked.
+    dependencies are checked. Reports the canonical release
+    version (not environment or config).
     """
 
-    return JsonResponse({"status": "ok"})
+    return JsonResponse(
+        {"status": "ok", "version": settings.DODONG_VERSION}
+    )
 
 
 @require_GET
