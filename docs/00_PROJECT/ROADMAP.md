@@ -14,4 +14,6 @@ Phase 7 ✅ RAG / AI Memory (7A–7E complete; deterministic lexical retrieval, 
 Phase 8 ✅ CRM Read Agent
 Phase 9 ✅ Controlled AI CRM Agent (Phase 9E complete, no Phase 9F)
 Phase 10 ✅ Production Hardening (Azure target; DEPLOYMENT_READY_BUT_NOT_EXECUTED)
-Phase 11 ⏳ Dodong OS v1.0
+Phase 11 ✅ Dodong OS v1.0 (release checkpoint; V1_RELEASE_READY_BUT_NOT_LIVE_DEPLOYED)
+
+Implementation roadmap complete. See docs/RELEASES/v1.0.0.md.

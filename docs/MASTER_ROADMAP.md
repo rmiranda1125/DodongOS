@@ -34,24 +34,26 @@ The detailed implementation roadmap is maintained in:
 
 ## Current Software Milestone
 
-**Phase 5.6 — Documentation Sync**
+**Dodong OS v1.0 — release checkpoint** (`V1_RELEASE_READY_BUT_NOT_LIVE_DEPLOYED`).
 
-Recently completed:
+The full implementation roadmap (Phases 1–11) is complete; Phase 4 (Lead
+Scanner) continues iteratively. See `docs/ROADMAP.md` and
+`docs/RELEASES/v1.0.0.md`.
 
-- ✅ CRM Foundation
-- ✅ CRM service layer
-- ✅ Lead task management
-- ✅ Pending-task detection
-- ✅ Overdue-task detection
-- ✅ Priority-task ranking
-- ✅ Lead lookup and search
-- ✅ Lead activity retrieval
-- ✅ Pipeline summary
-- ✅ Agent-Ready CRM Tool Layer
-- ✅ Eight registered read-only CRM tools
-- ✅ Controlled read-only tool dispatcher
-- ✅ Structured tool inputs and outputs
-- ✅ 86 relevant CRM + AI automated tests passing
+Delivered:
+
+- ✅ CRM foundation (leads, statuses, tasks, notes, activity timeline)
+- ✅ CRM Read Agent + read-only tool registry
+- ✅ Four confirmed CRM write actions (proposal → signed token → Confirm →
+  verified executor → audit); no autonomous writes
+- ✅ Background automation (deterministic checks, digest, optional AI
+  summary + deterministic fallback, overlap/stale-run guards)
+- ✅ RAG / AI memory (controlled ingestion, deterministic chunking + lexical
+  retrieval, grounded answers, prompt-injection boundary)
+- ✅ Production hardening (env-driven config, PostgreSQL readiness, health/
+  readiness, WhiteNoise, gunicorn, Docker, CI, deployment runbook)
+- ✅ v1.0 UX polish, access-control review, integrated acceptance suite
+- ✅ 532 automated tests passing; zero real external AI calls
 
 ## Current Agent Architecture
 

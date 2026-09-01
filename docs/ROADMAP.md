@@ -8,9 +8,9 @@ For the broader long-term product, learning, AI, engineering, and business visio
 
 # Current Position
 
-**Current Phase:** Phase 11 — Dodong OS v1.0 (not started). Phases 6, 7, 9 and 10 are complete.
+**Current Phase:** none — the implementation roadmap is complete. **Dodong OS v1.0** is the current release checkpoint (`V1_RELEASE_READY_BUT_NOT_LIVE_DEPLOYED`). Phase 4 (Lead Scanner) remains iterative; further work is tracked under "Future work".
 
-**Automated test baseline:** 512 passing tests
+**Automated test baseline:** 532 passing tests
 
 Canonical test command (from `backend/`): `python manage.py test`
 
@@ -27,7 +27,7 @@ Phase 7     RAG / AI Memory               ✅
 Phase 8     CRM Read Agent                ✅
 Phase 9     Controlled AI CRM Agent       ✅
 Phase 10    Production Hardening          ✅
-Phase 11    Dodong OS v1.0               ⏳
+Phase 11    Dodong OS v1.0               ✅
 ```
 
 ---
@@ -481,6 +481,55 @@ succeeds under production settings (137 files / 411 post-processed).
 
 ---
 
-# Not started
+# Phase 11 — Dodong OS v1.0 — ✅ COMPLETE
 
-- **Phase 11 — Dodong OS v1.0**
+Release consolidation, not a new capability phase. Full details in
+`docs/RELEASES/v1.0.0.md`.
+
+- **Version:** canonical `backend/config/__init__.py` `__version__ = "1.0.0"`
+  → `settings.DODONG_VERSION` → `/health/` payload, UI footer, README,
+  release notes. Single source; deployment injects the commit SHA
+  separately (see runbook).
+- **Access control:** the Dodong Assistant (page, ask, task proposal, task
+  confirm) now requires an authenticated user (`@login_required`,
+  `LOGIN_URL=/admin/login/`). Anonymous requests can no longer reach the
+  read agent or create/confirm a write proposal. Staff-only surfaces
+  (Action Audit, Automation Runs, Knowledge Assistant, Admin) unchanged.
+  Signed token, expiry, single-use replay protection, CSRF and POST-only
+  are all preserved.
+- **Navigation / UX:** navbar re-branded "Dodong OS" with sign in/out;
+  sidebar rebuilt (CRM / AI / Operations groups, no dead `#` links,
+  staff links hidden from non-staff, version line); the developer HTMX
+  playground home page replaced with a minimal v1 landing (area cards).
+  Assistant, proposal/result, knowledge, automation and audit pages
+  already carried labels, empty states and HTMX loading indicators.
+- **v1.0 acceptance suite:** `DodongOSv1AcceptanceTests` (18) proves the
+  integrated behaviour — auth matrix, CRM read, all four controlled writes
+  (proposal→confirm→audit→replay-blocked→tamper-rejected), chat phrases
+  never confirm, note length limit, automation read-only + fallback,
+  RAG ingest/retrieve/answer/fallback, prompt-injection-is-data, health &
+  readiness safety, landing links, empty states, version.
+- **Tests:** `python manage.py test` → **532** (512 → 532). `check` clean;
+  `check --deploy` clean but for the intentional `security.W021`
+  (HSTS preload opt-in); `makemigrations --check` clean; `migrate --plan`
+  clean; `collectstatic` OK under production settings. **No schema
+  changes / no new migrations in Phase 11.** Zero real external AI calls.
+- **Deployment:** `V1_RELEASE_READY_BUT_NOT_LIVE_DEPLOYED` — Azure account
+  not available in this environment; all artifacts, commands and the
+  runbook are complete.
+
+---
+
+# Future work (post-v1.0, not scheduled)
+
+These are enhancements, not release blockers. No implementation phase is
+opened for them.
+
+- pgvector / semantic embeddings for RAG (needs the PostgreSQL deployment)
+- automatic combined CRM-data + knowledge-policy question routing
+- `get_stale_leads` DB-side ranking; pagination for `/automation/runs/`
+- external automation "didn't run" / uptime alerting
+- application-level rate limiting on authenticated AI endpoints
+- Phase 4 (Lead Scanner) continues iteratively
+- live Azure deployment + PostgreSQL runtime verification + Docker image
+  build (all prepared; pending infrastructure access)

@@ -36,20 +36,33 @@ Instead of switching between many disconnected tools, Dodong OS aims to provide 
 
 ## Current Development Stage
 
-**Phase 10 — Production Hardening ✅ complete. Next: Phase 11 — Dodong OS v1.0.**
+**Dodong OS v1.0.0 — release checkpoint.** The full implementation roadmap
+(Phases 1–11) is complete; Phase 4 (Lead Scanner) continues iteratively.
+Live Azure deployment is prepared but not yet executed
+(`V1_RELEASE_READY_BUT_NOT_LIVE_DEPLOYED`).
 
-Phases 1–3, 5, 5.5, 6, 7, 8, 9 and 10 are complete; Phase 4 (Lead Scanner) is
-iterative. Dodong OS now has: the CRM foundation, a deterministic CRM read
-agent, four controlled confirmed-write actions (create task, complete task,
-change status, add note) each gated by proposal → signed token → explicit
-Confirm → verified executor → audit, deterministic background automation with
-an optional AI digest summary, a read-first RAG / AI-memory layer, and
-repo-side production hardening (env-driven config, PostgreSQL readiness,
-health/readiness endpoints, WhiteNoise, gunicorn, Docker, CI, and a full
-deployment runbook at `docs/04_DEPLOYMENT/PRODUCTION.md`).
+Dodong OS provides: the CRM foundation (leads, pipeline, tasks, notes,
+activities); a deterministic CRM Read Assistant; four controlled
+confirmed-write actions (create task, complete task, change lead status, add
+lead note), each gated by proposal → signed token → explicit Confirm →
+verified executor → post-write verification → audit; deterministic
+background automation with an optional AI digest summary and deterministic
+fallback; a read-first RAG / knowledge assistant (lexical retrieval, no
+embeddings) that treats retrieved text as data; and a hardened production
+configuration (env-driven settings, PostgreSQL readiness, health/readiness
+endpoints, WhiteNoise, gunicorn, Docker, GitHub Actions CI).
 
-**Canonical test baseline: 512 passing** (`python manage.py test`).
-Authoritative tracker: `docs/ROADMAP.md`.
+**Safe AI write model:** the AI layer never touches the ORM directly and can
+never perform an autonomous CRM write. Every write needs an explicit human
+Confirm with a valid, single-use, time-limited, tamper-evident signed
+proposal token over a CSRF-protected POST. Conversational phrases never
+confirm.
+
+**Version:** 1.0.0 &nbsp;·&nbsp; **Tests:** 532 passing (`python manage.py test`,
+zero real external AI calls) &nbsp;·&nbsp;
+Roadmap: `docs/ROADMAP.md` &nbsp;·&nbsp;
+Release notes: `docs/RELEASES/v1.0.0.md` &nbsp;·&nbsp;
+Deployment: `docs/04_DEPLOYMENT/PRODUCTION.md`
 
 ### Completed
 
@@ -82,7 +95,7 @@ Authoritative tracker: `docs/ROADMAP.md`.
 * ✅ Controlled read-only AI tool registry
 * ✅ Structured tool inputs and outputs
 * ✅ Structured AI-tool errors
-* ✅ **512 automated tests passing** (CRM, AI, automation, RAG, production hardening)
+* ✅ **532 automated tests passing** (CRM, AI, automation, RAG, production hardening, v1.0 acceptance)
 
 ---
 
@@ -571,7 +584,7 @@ apps/
 | Phase 8   | AI Assistant / CRM Read Agent     | ✅ Complete                 |
 | Phase 9   | Controlled AI CRM Agent           | ✅ Complete                 |
 | Phase 10  | Production Deployment / Hardening | ✅ Complete (ready, not yet deployed) |
-| Phase 11  | Dodong OS v1.0                    | ⏳ Planned                  |
+| Phase 11  | Dodong OS v1.0                    | ✅ Complete (release checkpoint) |
 
 ---
 
@@ -590,7 +603,7 @@ Phase 7     RAG / Memory                   ✅
 Phase 8     CRM Read Agent                 ✅
 Phase 9     Controlled AI CRM Agent        ✅
 Phase 10    Production Hardening           ✅  (ready, not yet deployed)
-Phase 11    Dodong OS v1.0                 ← CURRENT
+Phase 11    Dodong OS v1.0                 ✅  (release checkpoint)
 ```
 
 ---
@@ -850,7 +863,7 @@ Automated testing is required for important CRM services and AI tools.
 Current relevant test baseline:
 
 ```text
-512 tests passing
+532 tests passing
 ```
 
 Run:
@@ -865,7 +878,7 @@ Expected result:
 ```text
 System check identified no issues.
 
-Ran 512 tests
+Ran 532 tests
 
 OK
 ```
@@ -1128,7 +1141,7 @@ Agent-Ready CRM Services
 Read-Only Tool Registry
       ✅
 
-512 Relevant Tests
+532 Relevant Tests
       ✅
 ```
 
