@@ -1,0 +1,63 @@
+{% comment %}
+Shared primary navigation. Rendered in the desktop sidebar and the
+mobile offcanvas. Only shows links the current user may use.
+{% endcomment %}
+
+<div class="dodong-nav-group">CRM</div>
+
+<a class="dodong-nav-link {% if request.path == '/' %}active{% endif %}"
+   href="/">
+    <i class="bi bi-house-door"></i> Home
+</a>
+<a class="dodong-nav-link {% if request.path == '/leads/' %}active{% endif %}"
+   href="{% url 'leads:list' %}">
+    <i class="bi bi-people"></i> Leads
+</a>
+<a class="dodong-nav-link {% if '/leads/pipeline' in request.path %}active{% endif %}"
+   href="{% url 'leads:pipeline' %}">
+    <i class="bi bi-kanban"></i> Pipeline
+</a>
+<a class="dodong-nav-link {% if '/leads/dashboard' in request.path %}active{% endif %}"
+   href="{% url 'leads:dashboard' %}">
+    <i class="bi bi-check2-square"></i> Tasks &amp; Activity
+</a>
+
+<div class="dodong-nav-group">AI</div>
+
+<a class="dodong-nav-link {% if request.path == '/assistant/' %}active{% endif %}"
+   href="{% url 'ai:crm_assistant' %}">
+    <i class="bi bi-stars"></i> Dodong Assistant
+</a>
+{% if user.is_staff %}
+<a class="dodong-nav-link {% if '/assistant/knowledge' in request.path %}active{% endif %}"
+   href="{% url 'knowledge:assistant' %}">
+    <i class="bi bi-journal-text"></i> Knowledge Assistant
+</a>
+{% endif %}
+
+{% if user.is_staff %}
+<div class="dodong-nav-group">Growth</div>
+<a class="dodong-nav-link {% if request.path|slice:':9' == '/scanner/' %}active{% endif %}"
+   href="{% url 'scanner:review_queue' %}">
+    <i class="bi bi-radar"></i> Lead Scanner
+</a>
+
+<div class="dodong-nav-group">Operations</div>
+<a class="dodong-nav-link {% if '/automation/runs' in request.path %}active{% endif %}"
+   href="{% url 'automation:run_history' %}">
+    <i class="bi bi-arrow-repeat"></i> Automation Runs
+</a>
+<a class="dodong-nav-link {% if '/assistant/audit' in request.path %}active{% endif %}"
+   href="{% url 'ai:crm_action_audit' %}">
+    <i class="bi bi-shield-check"></i> Action Audit
+</a>
+
+<div class="dodong-nav-group">Administration</div>
+<a class="dodong-nav-link" href="/admin/">
+    <i class="bi bi-gear"></i> Admin
+</a>
+{% endif %}
+
+<div class="dodong-sidebar-footer">
+    Dodong OS v{{ DODONG_VERSION }}
+</div>

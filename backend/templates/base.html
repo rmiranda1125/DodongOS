@@ -1,133 +1,61 @@
 {% load static %}
-
 <!DOCTYPE html>
-<html lang="en">
-
+<html lang="en" data-bs-theme="light">
 <head>
-
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <meta
-        name="viewport"
-        content="width=device-width, initial-scale=1.0"
-    >
-
-    <title>
-        {% block title %}
-            Dodong OS
-        {% endblock %}
-    </title>
-
-
-    <!-- ================================================= -->
-    <!-- BOOTSTRAP CSS -->
-    <!-- ================================================= -->
+    <title>{% block title %}Dodong OS{% endblock %} · Dodong OS</title>
 
     <link
         href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/css/bootstrap.min.css"
-        rel="stylesheet"
-    >
-
-
-    <!-- ================================================= -->
-    <!-- HTMX -->
-    <!-- ================================================= -->
-
-    <script
-        src="https://unpkg.com/htmx.org@2.0.6"
-    ></script>
-
-
-    <!-- ================================================= -->
-    <!-- CUSTOM CSS -->
-    <!-- ================================================= -->
-
+        rel="stylesheet">
     <link
-        rel="stylesheet"
-        href="{% static 'css/style.css' %}"
-    >
+        href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css"
+        rel="stylesheet">
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+    <link rel="stylesheet" href="{% static 'css/dodong.css' %}">
 
+    <script src="https://unpkg.com/htmx.org@2.0.6"></script>
 
-    <!-- ================================================= -->
-    <!-- CSRF -->
-    <!-- ================================================= -->
-
-    <meta
-        name="csrf-token"
-        content="{{ csrf_token }}"
-    >
-
+    <meta name="csrf-token" content="{{ csrf_token }}">
 </head>
 
+<body hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
 
-<body>
+    {% include "partials/topbar.html" %}
 
-    <!-- ================================================= -->
-    <!-- NAVBAR -->
-    <!-- ================================================= -->
+    <div class="dodong-shell">
 
-    {% include "partials/navbar.html" %}
+        {# Desktop sidebar #}
+        <nav class="dodong-sidebar d-none d-lg-block" aria-label="Primary">
+            {% include "partials/sidebar_nav.html" %}
+        </nav>
 
-
-    <!-- ================================================= -->
-    <!-- MAIN LAYOUT -->
-    <!-- ================================================= -->
-
-    <div class="row">
-
-        <!-- SIDEBAR -->
-
-        <div class="col-md-2 p-0">
-
-            {% include "partials/sidebar.html" %}
-
+        {# Mobile offcanvas sidebar #}
+        <div class="offcanvas offcanvas-start dodong-sidebar text-bg-dark"
+             tabindex="-1" id="dodongSidebar" aria-label="Primary navigation">
+            <div class="offcanvas-header">
+                <span class="fw-semibold">Dodong OS</span>
+                <button type="button" class="btn-close btn-close-white"
+                        data-bs-dismiss="offcanvas" aria-label="Close"></button>
+            </div>
+            <div class="offcanvas-body p-0">
+                {% include "partials/sidebar_nav.html" %}
+            </div>
         </div>
 
-
-        <!-- MAIN CONTENT -->
-
-        <div class="col-md-10 p-4">
-
-            {% block content %}
-            {% endblock %}
-
-        </div>
+        <main class="dodong-main" id="main-content">
+            {% block content %}{% endblock %}
+        </main>
 
     </div>
 
-
-    <!-- ================================================= -->
-    <!-- DODONG OS CUSTOM MODAL -->
-    <!-- ================================================= -->
-
     {% include "components/modal.html" %}
 
+    {% block extra_js %}{% endblock %}
 
-    <!-- ================================================= -->
-    <!-- PAGE-SPECIFIC JAVASCRIPT -->
-    <!-- ================================================= -->
-
-    {% block extra_js %}
-    {% endblock %}
-
-
-    <!-- ================================================= -->
-    <!-- BOOTSTRAP JS -->
-    <!-- ================================================= -->
-
-    <script
-        src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/js/bootstrap.bundle.min.js"
-    ></script>
-
-
-    <!-- ================================================= -->
-    <!-- DODONG OS JS -->
-    <!-- ================================================= -->
-
-    <script
-        src="{% static 'js/dodong.js' %}"
-    ></script>
-
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="{% static 'js/dodong.js' %}"></script>
 </body>
-
 </html>

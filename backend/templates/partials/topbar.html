@@ -1,0 +1,29 @@
+<nav class="navbar bg-dark border-bottom border-secondary px-3" data-bs-theme="dark">
+    <div class="d-flex align-items-center gap-2">
+        <button class="btn btn-sm btn-outline-light d-lg-none" type="button"
+                data-bs-toggle="offcanvas" data-bs-target="#dodongSidebar"
+                aria-controls="dodongSidebar" aria-label="Open navigation">
+            <i class="bi bi-list"></i>
+        </button>
+        <a class="navbar-brand mb-0 h5" href="/">Dodong&nbsp;OS</a>
+    </div>
+
+    <div class="d-flex align-items-center gap-2">
+        {% if user.is_authenticated %}
+            <span class="navbar-text small d-none d-sm-inline">
+                {{ user.get_username }}
+                {% if user.is_staff %}
+                    <span class="badge text-bg-secondary">staff</span>
+                {% endif %}
+            </span>
+            <a class="btn btn-sm btn-outline-light" href="{% url 'admin:logout' %}">
+                <i class="bi bi-box-arrow-right"></i>
+                <span class="d-none d-sm-inline">Sign out</span>
+            </a>
+        {% else %}
+            <a class="btn btn-sm btn-outline-light" href="{% url 'admin:login' %}">
+                <i class="bi bi-box-arrow-in-right"></i> Sign in
+            </a>
+        {% endif %}
+    </div>
+</nav>
