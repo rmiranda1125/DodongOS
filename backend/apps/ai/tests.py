@@ -8911,3 +8911,798 @@ class CRMNaturalLanguageLeadNoteTests(TestCase):
             AIActionAudit.objects.count(),
             0,
         )
+
+class CRMLeadNoteAcceptanceTests(TestCase):
+    """
+    Phase 9E4 acceptance / safety coverage for the
+    controlled add_lead_note flow.
+
+    These tests add no new write capability. They only
+    prove the existing lead-note flow keeps its safety
+    boundary and does not disturb the other flows.
+    """
+
+    def setUp(self):
+        self.lead = Lead.objects.create(
+            company_name="Acme Analytics",
+            job_title="Power BI Developer",
+            status="contacted",
+        )
+
+        self.existing_task = LeadTask.objects.create(
+            lead=self.lead,
+            title="Send pricing proposal",
+            task_type="follow_up",
+            priority="high",
+            status="pending",
+        )
+
+        self.note_message = (
+            f"Add a note to lead {self.lead.id}: "
+            "Customer requested pricing."
+        )
+
+    def _request_note(self):
+        return self.client.post(
+            reverse(
+                "ai:crm_assistant_ask",
+            ),
+            {
+                "message": self.note_message,
+            },
+        )
+
+    def _build_note_proposal(self):
+        result = build_add_lead_note_proposal(
+            lead_id=self.lead.id,
+            note="Customer requested pricing.",
+        )
+
+        self.assertTrue(
+            result["success"],
+        )
+
+        return result["proposal"]
+
+    # -----------------------------------------------------
+    # PROPOSAL ONLY -- NO WRITE BEFORE CONFIRMATION
+    # -----------------------------------------------------
+
+    def test_acceptance_note_proposal_performs_no_write(
+        self,
+    ):
+        response = self._request_note()
+
+        self.assertEqual(
+            response.status_code,
+            200,
+        )
+
+        self.assertContains(
+            response,
+            "Confirm Add Note",
+        )
+
+        self.assertContains(
+            response,
+            "Customer requested pricing.",
+        )
+
+        self.assertEqual(
+            LeadActivity.objects.count(),
+            0,
+        )
+
+        self.assertEqual(
+            AIActionAudit.objects.count(),
+            0,
+        )
+
+    def test_acceptance_build_proposal_creates_nothing(
+        self,
+    ):
+        result = build_write_proposal_from_message(
+            self.note_message,
+        )
+
+        self.assertTrue(
+            result["success"],
+        )
+
+        self.assertEqual(
+            result["proposal"]["action"],
+            "add_lead_note",
+        )
+
+        self.assertTrue(
+            result["proposal"]["requires_confirmation"],
+        )
+
+        self.assertEqual(
+            LeadActivity.objects.count(),
+            0,
+        )
+
+        self.assertEqual(
+            AIActionAudit.objects.count(),
+            0,
+        )
+
+    # -----------------------------------------------------
+    # INPUT REJECTION
+    # -----------------------------------------------------
+
+    def test_acceptance_blank_note_is_rejected(
+        self,
+    ):
+        # Whitespace-only note through the message pipeline.
+        result = build_write_proposal_from_message(
+            f"Add a note to lead {self.lead.id}:  \t  ",
+        )
+
+        self.assertFalse(
+            result["success"],
+        )
+
+        self.assertEqual(
+            result["error"]["code"],
+            "INVALID_NOTE",
+        )
+
+        # Whitespace-only note at the proposal boundary.
+        boundary = build_add_lead_note_proposal(
+            lead_id=self.lead.id,
+            note="     ",
+        )
+
+        self.assertFalse(
+            boundary["success"],
+        )
+
+        self.assertEqual(
+            boundary["error"]["code"],
+            "INVALID_NOTE",
+        )
+
+        # Over HTTP a blank note never reaches a
+        # confirmation proposal and performs no write.
+        response = self.client.post(
+            reverse(
+                "ai:crm_assistant_ask",
+            ),
+            {
+                "message": (
+                    f"Add a note to lead {self.lead.id}:     "
+                ),
+            },
+        )
+
+        self.assertNotContains(
+            response,
+            "Confirm Add Note",
+        )
+
+        self.assertNotIn(
+            "proposal_token",
+            response.context,
+        )
+
+        self.assertEqual(
+            LeadActivity.objects.count(),
+            0,
+        )
+
+        self.assertEqual(
+            AIActionAudit.objects.count(),
+            0,
+        )
+
+    def test_acceptance_missing_lead_is_rejected(
+        self,
+    ):
+        result = build_write_proposal_from_message(
+            "Add a note to lead 999999: "
+            "Customer requested pricing.",
+        )
+
+        self.assertFalse(
+            result["success"],
+        )
+
+        self.assertEqual(
+            result["error"]["code"],
+            "LEAD_NOT_FOUND",
+        )
+
+        response = self.client.post(
+            reverse(
+                "ai:crm_assistant_ask",
+            ),
+            {
+                "message": (
+                    "Add a note to lead 999999: "
+                    "Customer requested pricing."
+                ),
+            },
+        )
+
+        self.assertContains(
+            response,
+            "LEAD_NOT_FOUND",
+        )
+
+        self.assertEqual(
+            LeadActivity.objects.count(),
+            0,
+        )
+
+        self.assertEqual(
+            AIActionAudit.objects.count(),
+            0,
+        )
+
+    # -----------------------------------------------------
+    # CONFIRMED EXECUTION
+    # -----------------------------------------------------
+
+    def test_acceptance_confirm_creates_single_verified_note(
+        self,
+    ):
+        proposal_response = self._request_note()
+
+        token = proposal_response.context[
+            "proposal_token"
+        ]
+
+        self.assertEqual(
+            LeadActivity.objects.count(),
+            0,
+        )
+
+        confirm_response = self.client.post(
+            reverse(
+                "ai:crm_assistant_task_confirm",
+            ),
+            {
+                "proposal_token": token,
+            },
+        )
+
+        self.assertEqual(
+            confirm_response.status_code,
+            200,
+        )
+
+        self.assertContains(
+            confirm_response,
+            "CRM Lead Note Added",
+        )
+
+        self.assertEqual(
+            LeadActivity.objects.count(),
+            1,
+        )
+
+        activity = LeadActivity.objects.get()
+
+        # Re-read the stored note and verify every field.
+        verified = lead_services.get_lead_activity_by_id(
+            activity_id=activity.id,
+        )
+
+        self.assertIsNotNone(
+            verified,
+        )
+
+        self.assertEqual(
+            verified.lead_id,
+            self.lead.id,
+        )
+
+        self.assertEqual(
+            verified.activity_type,
+            "note",
+        )
+
+        self.assertEqual(
+            verified.description,
+            "Customer requested pricing.",
+        )
+
+    def test_acceptance_single_executed_audit_is_recorded(
+        self,
+    ):
+        proposal = self._build_note_proposal()
+
+        result = execute_confirmed_proposal(
+            proposal=proposal,
+            confirmed=True,
+        )
+
+        self.assertTrue(
+            result["success"],
+        )
+
+        self.assertEqual(
+            AIActionAudit.objects.count(),
+            1,
+        )
+
+        audit = AIActionAudit.objects.get()
+
+        self.assertEqual(
+            audit.action,
+            "add_lead_note",
+        )
+
+        self.assertEqual(
+            audit.status,
+            "executed",
+        )
+
+        self.assertEqual(
+            audit.lead_id,
+            self.lead.id,
+        )
+
+        self.assertEqual(
+            str(audit.proposal_id),
+            proposal["proposal_id"],
+        )
+
+        # A note is not a task.
+        self.assertIsNone(
+            audit.result_task_id,
+        )
+
+    # -----------------------------------------------------
+    # REPLAY + TAMPER + MALFORMED PROPOSALS
+    # -----------------------------------------------------
+
+    def test_acceptance_signed_proposal_replay_is_blocked(
+        self,
+    ):
+        proposal_response = self._request_note()
+
+        token = proposal_response.context[
+            "proposal_token"
+        ]
+
+        first = self.client.post(
+            reverse(
+                "ai:crm_assistant_task_confirm",
+            ),
+            {
+                "proposal_token": token,
+            },
+        )
+
+        self.assertEqual(
+            first.status_code,
+            200,
+        )
+
+        self.assertEqual(
+            LeadActivity.objects.count(),
+            1,
+        )
+
+        second = self.client.post(
+            reverse(
+                "ai:crm_assistant_task_confirm",
+            ),
+            {
+                "proposal_token": token,
+            },
+        )
+
+        self.assertEqual(
+            second.status_code,
+            200,
+        )
+
+        self.assertContains(
+            second,
+            "PROPOSAL_ALREADY_USED",
+        )
+
+        self.assertEqual(
+            LeadActivity.objects.count(),
+            1,
+        )
+
+        self.assertEqual(
+            AIActionAudit.objects.count(),
+            1,
+        )
+
+    def test_acceptance_tampered_token_is_blocked(
+        self,
+    ):
+        proposal_response = self._request_note()
+
+        token = proposal_response.context[
+            "proposal_token"
+        ]
+
+        tampered = (
+            token[:-1]
+            + (
+                "A"
+                if token[-1] != "A"
+                else "B"
+            )
+        )
+
+        response = self.client.post(
+            reverse(
+                "ai:crm_assistant_task_confirm",
+            ),
+            {
+                "proposal_token": tampered,
+            },
+        )
+
+        self.assertContains(
+            response,
+            "INVALID_PROPOSAL_TOKEN",
+        )
+
+        self.assertEqual(
+            LeadActivity.objects.count(),
+            0,
+        )
+
+        self.assertEqual(
+            AIActionAudit.objects.count(),
+            0,
+        )
+
+    def test_acceptance_wrong_action_proposal_cannot_execute(
+        self,
+    ):
+        proposal = self._build_note_proposal()
+        proposal["action"] = "wipe_database"
+
+        result = execute_confirmed_proposal(
+            proposal=proposal,
+            confirmed=True,
+        )
+
+        self.assertFalse(
+            result["success"],
+        )
+
+        self.assertEqual(
+            result["error"]["code"],
+            "UNSUPPORTED_WRITE_ACTION",
+        )
+
+        self.assertEqual(
+            LeadActivity.objects.count(),
+            0,
+        )
+
+    def test_acceptance_note_cannot_ride_a_task_proposal(
+        self,
+    ):
+        proposal = self._build_note_proposal()
+        proposal["action"] = "create_lead_task"
+
+        result = execute_confirmed_proposal(
+            proposal=proposal,
+            confirmed=True,
+        )
+
+        self.assertFalse(
+            result["success"],
+        )
+
+        self.assertEqual(
+            LeadActivity.objects.filter(
+                activity_type="note",
+            ).count(),
+            0,
+        )
+
+        self.assertEqual(
+            AIActionAudit.objects.filter(
+                status="executed",
+            ).count(),
+            0,
+        )
+
+    def test_acceptance_malformed_proposals_cannot_execute(
+        self,
+    ):
+        missing_boundary = self._build_note_proposal()
+        del missing_boundary["requires_confirmation"]
+
+        bad_state = self._build_note_proposal()
+        bad_state["status"] = "draft"
+
+        bad_arguments = self._build_note_proposal()
+        bad_arguments["arguments"] = ["lead_id"]
+
+        for proposal, expected_code in (
+            (missing_boundary, "INVALID_PROPOSAL"),
+            (bad_state, "INVALID_PROPOSAL_STATE"),
+            (bad_arguments, "INVALID_PROPOSAL"),
+        ):
+            result = execute_confirmed_proposal(
+                proposal=proposal,
+                confirmed=True,
+            )
+
+            self.assertFalse(
+                result["success"],
+            )
+
+            self.assertEqual(
+                result["error"]["code"],
+                expected_code,
+            )
+
+        self.assertEqual(
+            LeadActivity.objects.count(),
+            0,
+        )
+
+        self.assertEqual(
+            AIActionAudit.objects.filter(
+                status="executed",
+            ).count(),
+            0,
+        )
+
+    # -----------------------------------------------------
+    # CHAT WORDS CANNOT CONFIRM
+    # -----------------------------------------------------
+
+    def test_acceptance_chat_words_cannot_confirm_note(
+        self,
+    ):
+        self._request_note()
+
+        for message in (
+            "Yes",
+            "Confirm",
+            "Go ahead",
+            "Do it",
+        ):
+            self.client.post(
+                reverse(
+                    "ai:crm_assistant_ask",
+                ),
+                {
+                    "message": message,
+                },
+            )
+
+        self.assertEqual(
+            LeadActivity.objects.count(),
+            0,
+        )
+
+        self.assertEqual(
+            AIActionAudit.objects.count(),
+            0,
+        )
+
+    # -----------------------------------------------------
+    # OTHER FLOWS REMAIN INTACT
+    # -----------------------------------------------------
+
+    def test_acceptance_create_task_flow_still_works(
+        self,
+    ):
+        proposal_response = self.client.post(
+            reverse(
+                "ai:crm_assistant_ask",
+            ),
+            {
+                "message": (
+                    "Create a follow-up task "
+                    f"for lead {self.lead.id} "
+                    "to Call customer."
+                ),
+            },
+        )
+
+        token = proposal_response.context[
+            "proposal_token"
+        ]
+
+        self.client.post(
+            reverse(
+                "ai:crm_assistant_task_confirm",
+            ),
+            {
+                "proposal_token": token,
+            },
+        )
+
+        created_task = (
+            LeadTask.objects
+            .exclude(
+                id=self.existing_task.id,
+            )
+            .get()
+        )
+
+        self.assertEqual(
+            created_task.title,
+            "Call customer",
+        )
+
+    def test_acceptance_complete_task_flow_still_works(
+        self,
+    ):
+        proposal_response = self.client.post(
+            reverse(
+                "ai:crm_assistant_ask",
+            ),
+            {
+                "message": (
+                    f"Complete task {self.existing_task.id}."
+                ),
+            },
+        )
+
+        token = proposal_response.context[
+            "proposal_token"
+        ]
+
+        self.client.post(
+            reverse(
+                "ai:crm_assistant_task_confirm",
+            ),
+            {
+                "proposal_token": token,
+            },
+        )
+
+        self.existing_task.refresh_from_db()
+
+        self.assertEqual(
+            self.existing_task.status,
+            "completed",
+        )
+
+        self.assertIsNotNone(
+            self.existing_task.completed_at,
+        )
+
+    def test_acceptance_status_change_flow_still_works(
+        self,
+    ):
+        proposal_response = self.client.post(
+            reverse(
+                "ai:crm_assistant_ask",
+            ),
+            {
+                "message": (
+                    f"Move lead {self.lead.id} "
+                    "to qualified."
+                ),
+            },
+        )
+
+        token = proposal_response.context[
+            "proposal_token"
+        ]
+
+        self.client.post(
+            reverse(
+                "ai:crm_assistant_task_confirm",
+            ),
+            {
+                "proposal_token": token,
+            },
+        )
+
+        self.lead.refresh_from_db()
+
+        self.assertEqual(
+            self.lead.status,
+            "qualified",
+        )
+
+    @patch(
+        "apps.ai.views."
+        "run_crm_read_agent_with_provider"
+    )
+    def test_acceptance_read_agent_behavior_unchanged(
+        self,
+        mock_run_agent,
+    ):
+        mock_run_agent.return_value = {
+            "success": True,
+            "tool_used": "get_lead",
+            "answer": "Acme Analytics is in contacted.",
+            "data": [],
+            "response_source": "ai_provider",
+        }
+
+        response = self.client.post(
+            reverse(
+                "ai:crm_assistant_ask",
+            ),
+            {
+                "message": (
+                    f"Show me lead {self.lead.id}."
+                ),
+            },
+        )
+
+        self.assertEqual(
+            response.status_code,
+            200,
+        )
+
+        mock_run_agent.assert_called_once_with(
+            message=f"Show me lead {self.lead.id}.",
+        )
+
+        self.assertContains(
+            response,
+            "Acme Analytics is in contacted.",
+        )
+
+        self.assertEqual(
+            LeadActivity.objects.count(),
+            0,
+        )
+
+        self.assertEqual(
+            AIActionAudit.objects.count(),
+            0,
+        )
+
+    # -----------------------------------------------------
+    # ARCHITECTURE BOUNDARY
+    # -----------------------------------------------------
+
+    def test_acceptance_agent_modules_have_no_direct_orm(
+        self,
+    ):
+        agent_directory = (
+            Path(__file__).resolve().parent
+            / "agent"
+        )
+
+        forbidden_patterns = (
+            "Lead.objects",
+            "LeadTask.objects",
+            "LeadActivity.objects",
+            ".objects.filter(",
+            ".objects.create(",
+            ".objects.get(",
+            ".objects.update(",
+            ".objects.delete(",
+        )
+
+        violations = []
+
+        for file_path in agent_directory.glob("*.py"):
+            source = file_path.read_text(
+                encoding="utf-8",
+            )
+
+            for pattern in forbidden_patterns:
+                if pattern in source:
+                    violations.append(
+                        (
+                            file_path.name,
+                            pattern,
+                        )
+                    )
+
+        self.assertEqual(
+            violations,
+            [],
+            msg=(
+                "Agent modules must not access the "
+                f"Django ORM directly: {violations}"
+            ),
+        )
