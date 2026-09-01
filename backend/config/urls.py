@@ -48,4 +48,9 @@ urlpatterns = [
     include("apps.ai.urls"),
     ),
 
+    path(
+    "automation/",
+    include("apps.automation.urls"),
+    ),
+
 ]

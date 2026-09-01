@@ -20,7 +20,9 @@ class Command(BaseCommand):
     deterministic fallback summary and never changes the run
     outcome: ScheduledCheckRun success/failure reflects the
     deterministic checks and digest persistence, not provider
-    availability. The summary is not persisted (deferred to 6E).
+    availability. Phase 6E1: the summary outcome (status, source,
+    text, error) is persisted on the ScheduledCheckRun for staff
+    observability.
 
     ``findings_count`` on the run record is the number of findings
     the current check run produced, not the number of CRMDigest
@@ -81,6 +83,11 @@ class Command(BaseCommand):
                     "summary": "",
                     "error": str(summary_exc),
                 }
+
+            automation_services.record_run_summary(
+                run=run,
+                summary_result=summary_result,
+            )
 
             automation_services.finish_check_run_succeeded(
                 run=run,

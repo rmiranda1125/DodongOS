@@ -1,0 +1,180 @@
+{% extends "base.html" %}
+
+{% block title %}
+    Automation Run History
+{% endblock %}
+
+
+{% block content %}
+
+<div class="container-fluid">
+
+    <div class="d-flex justify-content-between align-items-center mb-4">
+
+        <div>
+
+            <h2 class="mb-1">
+                Automation Run History
+            </h2>
+
+            <p class="text-muted mb-0">
+                Recent background CRM check runs and their
+                optional AI summaries.
+            </p>
+
+        </div>
+
+    </div>
+
+
+    <div
+        class="alert alert-info"
+        role="alert"
+    >
+        This page is read-only and available only to staff
+        users. A deterministic-fallback summary is a degraded
+        but successful run, not a failed CRM check.
+    </div>
+
+
+    <div class="card shadow-sm">
+
+        <div class="table-responsive">
+
+            <table class="table table-hover mb-0 align-middle">
+
+                <thead>
+
+                    <tr>
+                        <th>Started</th>
+                        <th>Finished</th>
+                        <th>Status</th>
+                        <th>Checks</th>
+                        <th>Findings</th>
+                        <th>Summary</th>
+                        <th>Summary text</th>
+                        <th>Summary error</th>
+                    </tr>
+
+                </thead>
+
+                <tbody>
+
+                    {% for run in runs %}
+
+                        <tr>
+
+                            <td>
+                                {{ run.started_at }}
+                            </td>
+
+                            <td>
+                                {{ run.finished_at|default:"—" }}
+                            </td>
+
+                            <td>
+
+                                {% if run.status == "succeeded" %}
+
+                                    <span class="badge text-bg-success">
+                                        Succeeded
+                                    </span>
+
+                                {% elif run.status == "failed" %}
+
+                                    <span class="badge text-bg-danger">
+                                        Failed
+                                    </span>
+
+                                {% else %}
+
+                                    <span class="badge text-bg-secondary">
+                                        {{ run.status }}
+                                    </span>
+
+                                {% endif %}
+
+                                {% if run.error_message %}
+
+                                    <div class="small text-danger mt-1">
+                                        {{ run.error_message }}
+                                    </div>
+
+                                {% endif %}
+
+                            </td>
+
+                            <td>
+                                {{ run.checks_run }}
+                            </td>
+
+                            <td>
+                                {{ run.findings_count }}
+                            </td>
+
+                            <td>
+
+                                {% if run.summary_status %}
+
+                                    {% if run.summary_status == "AI_SUMMARY_OK" %}
+
+                                        <span class="badge text-bg-success">
+                                            AI summary OK
+                                        </span>
+
+                                    {% else %}
+
+                                        <span class="badge text-bg-warning">
+                                            AI summary failed
+                                        </span>
+
+                                    {% endif %}
+
+                                    <div class="small text-muted mt-1">
+                                        {{ run.summary_source|default:"—" }}
+                                    </div>
+
+                                {% else %}
+
+                                    —
+
+                                {% endif %}
+
+                            </td>
+
+                            <td style="white-space: pre-wrap; max-width: 28rem;">
+                                {{ run.summary_text|default:"—" }}
+                            </td>
+
+                            <td style="white-space: pre-wrap; max-width: 20rem;">
+                                {{ run.summary_error|default:"—" }}
+                            </td>
+
+                        </tr>
+
+                    {% empty %}
+
+                        <tr>
+
+                            <td
+                                colspan="8"
+                                class="text-center text-muted py-4"
+                            >
+                                No automation runs have been recorded yet.
+                            </td>
+
+                        </tr>
+
+                    {% endfor %}
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+    </div>
+
+</div>
+
+{% endblock %}

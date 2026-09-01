@@ -68,6 +68,75 @@ def finish_check_run_failed(
     return run
 
 
+def record_run_summary(
+    *,
+    run,
+    summary_result,
+):
+    """
+    Persist the optional AI summary outcome on a check run.
+
+    ``summary_result`` is the dict returned by
+    apps/automation/summary.summarize_digest(). Only the
+    observational fields are stored (status, source, text,
+    error) - never the prompt payload or provider internals.
+
+    This must only be called for a run whose deterministic
+    checks and digest persistence succeeded.
+    """
+
+    run.summary_status = summary_result.get("status", "") or ""
+    run.summary_source = summary_result.get("source", "") or ""
+    run.summary_text = summary_result.get("summary", "") or ""
+    run.summary_error = summary_result.get("error") or ""
+
+    run.save(
+        update_fields=[
+            "summary_status",
+            "summary_source",
+            "summary_text",
+            "summary_error",
+        ],
+    )
+
+    return run
+
+
+def get_recent_check_runs(
+    *,
+    limit=50,
+):
+    """
+    Return recent check runs as JSON-safe dicts, newest first.
+    """
+
+    if (
+        not isinstance(limit, int)
+        or isinstance(limit, bool)
+        or limit < 1
+    ):
+        limit = 50
+
+    runs = ScheduledCheckRun.objects.all()[:limit]
+
+    return [
+        {
+            "id": run.id,
+            "started_at": run.started_at,
+            "finished_at": run.finished_at,
+            "status": run.status,
+            "checks_run": run.checks_run,
+            "findings_count": run.findings_count,
+            "error_message": run.error_message,
+            "summary_status": run.summary_status,
+            "summary_source": run.summary_source,
+            "summary_text": run.summary_text,
+            "summary_error": run.summary_error,
+        }
+        for run in runs
+    ]
+
+
 # =========================================================
 # CRM DIGEST PERSISTENCE
 # =========================================================

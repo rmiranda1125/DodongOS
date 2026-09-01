@@ -49,9 +49,53 @@ class ScheduledCheckRun(models.Model):
         default="",
     )
 
+    # -----------------------------------------------------
+    # Optional AI summary outcome (Phase 6E1).
+    #
+    # These mirror apps/automation/summary.summarize_digest()
+    # and are observational only: a deterministic-fallback
+    # summary is a degraded-but-successful run, never a failure.
+    # No AI prose is stored on CRMDigest.
+    # -----------------------------------------------------
+
+    SUMMARY_STATUS_CHOICES = [
+        ("AI_SUMMARY_OK", "AI summary OK"),
+        ("AI_SUMMARY_FAILED", "AI summary failed"),
+    ]
+
+    SUMMARY_SOURCE_CHOICES = [
+        ("ai_provider", "AI provider"),
+        ("deterministic_fallback", "Deterministic fallback"),
+    ]
+
+    summary_status = models.CharField(
+        max_length=32,
+        choices=SUMMARY_STATUS_CHOICES,
+        blank=True,
+        default="",
+    )
+
+    summary_source = models.CharField(
+        max_length=32,
+        choices=SUMMARY_SOURCE_CHOICES,
+        blank=True,
+        default="",
+    )
+
+    summary_text = models.TextField(
+        blank=True,
+        default="",
+    )
+
+    summary_error = models.TextField(
+        blank=True,
+        default="",
+    )
+
     class Meta:
         ordering = [
             "-started_at",
+            "-id",
         ]
 
     def __str__(self):

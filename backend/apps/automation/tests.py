@@ -4,12 +4,15 @@ from io import StringIO
 from pathlib import Path
 from unittest.mock import patch
 
+from django.contrib.auth import get_user_model
 from django.core.management import call_command
 from django.test import TestCase
+from django.urls import reverse
 from django.utils import timezone
 
 from apps.ai.models import AIActionAudit
 from apps.automation import digest as automation_digest
+from apps.automation import services as automation_services
 from apps.automation.models import CRMDigest, ScheduledCheckRun
 from apps.leads.models import Lead, LeadActivity, LeadTask
 
@@ -984,3 +987,271 @@ class CRMDigestAISummaryCommandTests(TestCase):
 
         self.assertEqual(before, after)
         self.assertEqual(CRMDigest.objects.count(), 1)
+
+
+
+# =========================================================
+# PHASE 6E1 - AUTOMATION OBSERVABILITY + SUMMARY HISTORY
+# =========================================================
+
+
+class _RunHistoryTestBase(TestCase):
+
+    def setUp(self):
+        self.lead = Lead.objects.create(
+            company_name="Acme Analytics",
+            job_title="Power BI Developer",
+            status="contacted",
+        )
+
+        LeadTask.objects.create(
+            lead=self.lead,
+            title="Call back",
+            task_type="follow_up",
+            priority="high",
+            status="pending",
+            due_date=timezone.now() + timedelta(hours=6),
+        )
+
+    def _run_with_provider_ok(self, text="OPS SUMMARY TEXT"):
+        with patch(
+            _PATCH_SUMMARY_PROVIDER,
+            return_value=_FakeProvider(text),
+        ):
+            call_command("run_crm_checks", stdout=StringIO())
+
+    def _run_with_provider_failure(self):
+        with patch(
+            _PATCH_SUMMARY_PROVIDER,
+            side_effect=RuntimeError("provider offline"),
+        ):
+            call_command("run_crm_checks", stdout=StringIO())
+
+    def _run_with_check_failure(self):
+        with patch(
+            "apps.automation.management.commands."
+            "run_crm_checks.automation_checks.run_all_checks",
+            side_effect=RuntimeError("check boom"),
+        ):
+            with self.assertRaises(RuntimeError):
+                call_command("run_crm_checks", stdout=StringIO())
+
+
+class ScheduledCheckRunSummaryPersistenceTests(_RunHistoryTestBase):
+
+    def test_successful_ai_summary_is_persisted(self):
+        self._run_with_provider_ok("Two items need attention.")
+
+        run = ScheduledCheckRun.objects.latest("id")
+
+        self.assertEqual(run.status, "succeeded")
+        self.assertEqual(run.summary_status, "AI_SUMMARY_OK")
+        self.assertEqual(run.summary_source, "ai_provider")
+        self.assertEqual(
+            run.summary_text,
+            "Two items need attention.",
+        )
+        self.assertEqual(run.summary_error, "")
+
+    def test_deterministic_fallback_summary_is_persisted(self):
+        self._run_with_provider_failure()
+
+        run = ScheduledCheckRun.objects.latest("id")
+
+        self.assertEqual(run.status, "succeeded")
+        self.assertEqual(
+            run.summary_status,
+            "AI_SUMMARY_FAILED",
+        )
+        self.assertEqual(
+            run.summary_source,
+            "deterministic_fallback",
+        )
+        self.assertIn("due-soon task", run.summary_text)
+        self.assertIn("provider offline", run.summary_error)
+
+    def test_provider_failure_leaves_run_succeeded(self):
+        self._run_with_provider_failure()
+
+        run = ScheduledCheckRun.objects.latest("id")
+
+        self.assertEqual(run.status, "succeeded")
+
+    def test_check_failure_leaves_run_failed(self):
+        self._run_with_check_failure()
+
+        run = ScheduledCheckRun.objects.latest("id")
+
+        self.assertEqual(run.status, "failed")
+        self.assertIn("check boom", run.error_message)
+
+    def test_failed_run_does_not_persist_ai_outcome(self):
+        self._run_with_check_failure()
+
+        run = ScheduledCheckRun.objects.latest("id")
+
+        self.assertEqual(run.summary_status, "")
+        self.assertEqual(run.summary_source, "")
+        self.assertEqual(run.summary_text, "")
+        self.assertEqual(run.summary_error, "")
+
+    def test_crmdigest_has_no_ai_summary_prose(self):
+        marker = "ZZZ_AI_PROSE_MARKER_ZZZ"
+
+        self._run_with_provider_ok(marker)
+
+        for row in CRMDigest.objects.all():
+            self.assertNotIn(marker, row.summary)
+            self.assertNotIn(marker, json.dumps(row.finding_data))
+
+    def test_summary_persistence_does_not_mutate_crm_or_audit(self):
+        LeadActivity.objects.create(
+            lead=self.lead,
+            activity_type="note",
+            description="Initial contact.",
+        )
+
+        counts = (
+            Lead.objects.count(),
+            LeadTask.objects.count(),
+            LeadActivity.objects.count(),
+            AIActionAudit.objects.count(),
+        )
+
+        self._run_with_provider_ok()
+        self._run_with_provider_failure()
+
+        self.assertEqual(
+            counts,
+            (
+                Lead.objects.count(),
+                LeadTask.objects.count(),
+                LeadActivity.objects.count(),
+                AIActionAudit.objects.count(),
+            ),
+        )
+
+
+class AutomationRunHistoryServiceTests(_RunHistoryTestBase):
+
+    def test_recent_runs_are_newest_first(self):
+        self._run_with_provider_ok("first")
+        self._run_with_provider_ok("second")
+        self._run_with_provider_failure()
+
+        runs = automation_services.get_recent_check_runs(limit=10)
+
+        ids = [row["id"] for row in runs]
+
+        self.assertEqual(
+            ids,
+            sorted(ids, reverse=True),
+        )
+
+        self.assertEqual(
+            runs[0]["summary_status"],
+            "AI_SUMMARY_FAILED",
+        )
+
+    def test_recent_runs_expose_summary_observability_fields(self):
+        self._run_with_provider_ok("visible summary text")
+
+        row = automation_services.get_recent_check_runs(
+            limit=1,
+        )[0]
+
+        for key in (
+            "started_at",
+            "finished_at",
+            "status",
+            "checks_run",
+            "findings_count",
+            "summary_status",
+            "summary_source",
+            "summary_text",
+            "summary_error",
+        ):
+            self.assertIn(key, row)
+
+        self.assertEqual(
+            row["summary_text"],
+            "visible summary text",
+        )
+
+
+class AutomationRunHistoryViewTests(_RunHistoryTestBase):
+
+    def setUp(self):
+        super().setUp()
+
+        User = get_user_model()
+
+        self.staff_user = User.objects.create_user(
+            username="automationstaff",
+            password="test-password",
+            is_staff=True,
+        )
+
+        self.plain_user = User.objects.create_user(
+            username="automationplain",
+            password="test-password",
+            is_staff=False,
+        )
+
+    def test_anonymous_user_is_rejected(self):
+        response = self.client.get(
+            reverse("automation:run_history"),
+        )
+
+        self.assertNotEqual(response.status_code, 200)
+
+    def test_non_staff_user_is_rejected(self):
+        self.client.force_login(self.plain_user)
+
+        response = self.client.get(
+            reverse("automation:run_history"),
+        )
+
+        self.assertNotEqual(response.status_code, 200)
+
+    def test_staff_user_can_view_history(self):
+        self.client.force_login(self.staff_user)
+
+        response = self.client.get(
+            reverse("automation:run_history"),
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Automation Run History")
+
+    def test_history_renders_ai_and_fallback_summaries(self):
+        self._run_with_provider_ok("AI GENERATED LINE")
+        self._run_with_provider_failure()
+
+        self.client.force_login(self.staff_user)
+
+        response = self.client.get(
+            reverse("automation:run_history"),
+        )
+
+        self.assertContains(response, "AI summary OK")
+        self.assertContains(response, "AI summary failed")
+        self.assertContains(response, "AI GENERATED LINE")
+        self.assertContains(response, "provider offline")
+
+    def test_history_page_lists_runs_newest_first(self):
+        self._run_with_provider_ok("older run")
+        self._run_with_provider_ok("newer run")
+
+        self.client.force_login(self.staff_user)
+
+        response = self.client.get(
+            reverse("automation:run_history"),
+        )
+
+        content = response.content.decode()
+
+        self.assertLess(
+            content.index("newer run"),
+            content.index("older run"),
+        )
