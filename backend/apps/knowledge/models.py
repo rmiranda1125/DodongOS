@@ -57,6 +57,9 @@ class KnowledgeDocument(models.Model):
             "-updated_at",
             "-id",
         ]
+        indexes = [
+            models.Index(fields=["active"]),
+        ]
         constraints = [
             models.UniqueConstraint(
                 fields=[

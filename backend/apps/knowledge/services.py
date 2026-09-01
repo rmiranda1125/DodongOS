@@ -115,6 +115,12 @@ def ingest_document(
             "Document text cannot be empty."
         )
 
+    if len(normalized) > settings.KNOWLEDGE_DOC_MAX_CHARS:
+        raise KnowledgeIngestionError(
+            "Document exceeds the maximum size of "
+            f"{settings.KNOWLEDGE_DOC_MAX_CHARS} characters."
+        )
+
     if chunking.looks_like_secret(normalized):
         raise KnowledgeIngestionError(
             "Refusing to ingest content that looks like a "
@@ -196,6 +202,18 @@ def retrieve_knowledge(*, query, limit=None):
             "error": {
                 "code": "INVALID_QUERY",
                 "message": "A non-empty query is required.",
+            },
+        }
+
+    if len(query) > settings.RAG_QUERY_MAX_CHARS:
+        return {
+            "success": False,
+            "error": {
+                "code": "QUERY_TOO_LONG",
+                "message": (
+                    "Query exceeds the maximum length of "
+                    f"{settings.RAG_QUERY_MAX_CHARS} characters."
+                ),
             },
         }
 

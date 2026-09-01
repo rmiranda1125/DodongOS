@@ -1,3 +1,5 @@
+from django.conf import settings
+
 from apps.leads import services as lead_services
 
 
@@ -187,6 +189,18 @@ def add_lead_note_tool(
     cleaned_description = (
         description.strip()
     )
+
+    if len(cleaned_description) > settings.CRM_NOTE_MAX_LENGTH:
+        return {
+            "success": False,
+            "error": {
+                "code": "NOTE_TOO_LONG",
+                "message": (
+                    "Lead note exceeds the maximum length of "
+                    f"{settings.CRM_NOTE_MAX_LENGTH} characters."
+                ),
+            },
+        }
 
     lead = lead_services.get_lead_by_id(
         lead_id=lead_id,

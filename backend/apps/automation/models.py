@@ -97,6 +97,9 @@ class ScheduledCheckRun(models.Model):
             "-started_at",
             "-id",
         ]
+        indexes = [
+            models.Index(fields=["status"]),
+        ]
 
     def __str__(self):
         return (
@@ -175,6 +178,10 @@ class CRMDigest(models.Model):
         ordering = [
             "-last_seen_at",
             "id",
+        ]
+        indexes = [
+            models.Index(fields=["resolved_at"]),
+            models.Index(fields=["finding_type", "resolved_at"]),
         ]
 
     def __str__(self):

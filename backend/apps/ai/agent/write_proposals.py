@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.utils.dateparse import parse_datetime
 import uuid
 
@@ -555,6 +556,18 @@ def build_add_lead_note_proposal(
         }
 
     cleaned_note = note.strip()
+
+    if len(cleaned_note) > settings.CRM_NOTE_MAX_LENGTH:
+        return {
+            "success": False,
+            "error": {
+                "code": "NOTE_TOO_LONG",
+                "message": (
+                    "Lead note exceeds the maximum length of "
+                    f"{settings.CRM_NOTE_MAX_LENGTH} characters."
+                ),
+            },
+        }
 
     lead = lead_services.get_lead_by_id(
         lead_id=lead_id,
