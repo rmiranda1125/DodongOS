@@ -41,7 +41,20 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
 
-        run = automation_services.start_check_run()
+        try:
+            run = automation_services.start_check_run()
+        except automation_services.OverlappingRunError as exc:
+            #
+            # An earlier run is still in progress (and is not stale).
+            # This is normal cron overlap, not a failure: do nothing,
+            # touch no CRM data, create no run/digest records.
+            #
+            self.stdout.write(
+                self.style.WARNING(
+                    f"run_crm_checks skipped: {exc}"
+                )
+            )
+            return
 
         try:
             #

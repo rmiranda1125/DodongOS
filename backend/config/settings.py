@@ -200,6 +200,17 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 #   CRM_STALE_LEAD_DAYS - an active lead is "stale" when it has had
 #                         no meaningful activity for this many days.
 #
+# Hardening (Phase 6E2), also env-tunable product decisions:
+#
+#   CRM_AUTOMATION_STALE_RUN_MINUTES - a ScheduledCheckRun stuck in
+#       "running" for longer than this is treated as a crashed
+#       process: it is marked failed (STALE_RUN_RECOVERED) so a new
+#       run can start. Must be comfortably longer than a healthy run.
+#   CRM_AUTOMATION_AI_TIMEOUT_SECONDS - bounded network timeout for
+#       the optional AI digest summary during automation only. A
+#       timeout degrades to the deterministic fallback; it never
+#       fails the run. Interactive AI usage is unaffected.
+#
 
 CRM_DUE_SOON_HOURS = env.int(
     "CRM_DUE_SOON_HOURS",
@@ -209,4 +220,14 @@ CRM_DUE_SOON_HOURS = env.int(
 CRM_STALE_LEAD_DAYS = env.int(
     "CRM_STALE_LEAD_DAYS",
     default=14,
+)
+
+CRM_AUTOMATION_STALE_RUN_MINUTES = env.int(
+    "CRM_AUTOMATION_STALE_RUN_MINUTES",
+    default=30,
+)
+
+CRM_AUTOMATION_AI_TIMEOUT_SECONDS = env.int(
+    "CRM_AUTOMATION_AI_TIMEOUT_SECONDS",
+    default=15,
 )

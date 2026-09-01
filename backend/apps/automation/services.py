@@ -1,20 +1,99 @@
+from datetime import timedelta
+
+from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
 
 from apps.automation.models import CRMDigest, ScheduledCheckRun
 
 
-def start_check_run():
+STALE_RUN_RECOVERED = "STALE_RUN_RECOVERED"
+
+
+class OverlappingRunError(Exception):
+    """
+    Raised when a non-stale ``running`` ScheduledCheckRun already
+    exists, so a new run must not start.
+    """
+
+    def __init__(self, *, active_run_id):
+        self.active_run_id = active_run_id
+        super().__init__(
+            f"another check run (#{active_run_id}) is already "
+            "running"
+        )
+
+
+def _stale_cutoff(*, now, stale_after_minutes):
+    if stale_after_minutes is None:
+        stale_after_minutes = (
+            settings.CRM_AUTOMATION_STALE_RUN_MINUTES
+        )
+
+    return now - timedelta(minutes=stale_after_minutes)
+
+
+def start_check_run(*, now=None, stale_after_minutes=None):
     """
     Create and return one new, in-progress check run record.
 
-    This is the only place allowed to call
-    ScheduledCheckRun.objects.create().
+    Overlapping-run protection (Phase 6E2):
+
+    - A ``running`` record older than the stale threshold is assumed
+      to be a crashed process: it is finalized as ``failed`` with
+      error ``STALE_RUN_RECOVERED`` (history is never deleted), and
+      the new run is then allowed to start.
+    - A ``running`` record younger than the stale threshold blocks
+      the new run: ``OverlappingRunError`` is raised and no new
+      record, CRM read, or digest write happens.
+
+    This is the only place allowed to create a ScheduledCheckRun.
     """
 
-    return ScheduledCheckRun.objects.create(
-        status="running",
+    if now is None:
+        now = timezone.now()
+
+    cutoff = _stale_cutoff(
+        now=now,
+        stale_after_minutes=stale_after_minutes,
     )
+
+    with transaction.atomic():
+
+        running = list(
+            ScheduledCheckRun.objects
+            .select_for_update()
+            .filter(status="running")
+        )
+
+        for record in running:
+
+            if record.started_at <= cutoff:
+                record.status = "failed"
+                record.finished_at = now
+                record.error_message = STALE_RUN_RECOVERED
+                record.save(
+                    update_fields=[
+                        "status",
+                        "finished_at",
+                        "error_message",
+                    ],
+                )
+
+        active = [
+            record
+            for record in running
+            if record.started_at > cutoff
+        ]
+
+        if active:
+            raise OverlappingRunError(
+                active_run_id=active[0].id,
+            )
+
+        return ScheduledCheckRun.objects.create(
+            status="running",
+        )
 
 
 def finish_check_run_succeeded(

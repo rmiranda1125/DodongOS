@@ -1186,15 +1186,13 @@ class AutomationRunHistoryViewTests(_RunHistoryTestBase):
 
         User = get_user_model()
 
-        self.staff_user = User.objects.create_user(
+        self.staff_user = User.objects.create(
             username="automationstaff",
-            password="test-password",
             is_staff=True,
         )
 
-        self.plain_user = User.objects.create_user(
+        self.plain_user = User.objects.create(
             username="automationplain",
-            password="test-password",
             is_staff=False,
         )
 
@@ -1255,3 +1253,524 @@ class AutomationRunHistoryViewTests(_RunHistoryTestBase):
             content.index("newer run"),
             content.index("older run"),
         )
+
+
+# =========================================================
+# PHASE 6E2 - HARDENING + FINAL PHASE 6 ACCEPTANCE
+# =========================================================
+
+from django.test import override_settings
+
+from apps.automation import checks as automation_checks
+
+
+class _TimeoutProvider:
+    def analyze(self, prompt):
+        raise TimeoutError("provider request timed out")
+
+
+class _Phase6Base(TestCase):
+
+    def setUp(self):
+        User = get_user_model()
+        # No passwords: these tests use force_login, and password
+        # hashing is the dominant cost in setUp otherwise.
+        self.staff_user = User.objects.create(
+            username="phase6staff",
+            is_staff=True,
+        )
+        self.plain_user = User.objects.create(
+            username="phase6plain",
+            is_staff=False,
+        )
+
+    # --- fixtures ---
+
+    def _lead(self, *, status="contacted", created_days_ago=0):
+        lead = Lead.objects.create(
+            company_name=f"Lead {status} {created_days_ago}",
+            job_title="Analyst",
+            status=status,
+        )
+        if created_days_ago:
+            Lead.objects.filter(id=lead.id).update(
+                created_at=timezone.now()
+                - timedelta(days=created_days_ago),
+            )
+            lead.refresh_from_db()
+        return lead
+
+    def _due_soon_task(self, *, lead=None, hours=6, status="pending",
+                       title="Call back"):
+        return LeadTask.objects.create(
+            lead=lead or self._lead(),
+            title=title,
+            task_type="follow_up",
+            priority="high",
+            status=status,
+            due_date=timezone.now() + timedelta(hours=hours),
+        )
+
+    # --- command runners ---
+
+    def _run(self, *, provider=None, factory_side_effect=None):
+        kwargs = {}
+        if factory_side_effect is not None:
+            kwargs["side_effect"] = factory_side_effect
+        else:
+            kwargs["return_value"] = provider or _FakeProvider("ok")
+        with patch(_PATCH_SUMMARY_PROVIDER, **kwargs):
+            call_command("run_crm_checks", stdout=StringIO(),
+                         stderr=StringIO())
+
+    def _run_ok(self, text="OPS SUMMARY"):
+        self._run(provider=_FakeProvider(text))
+
+    def _run_fallback(self):
+        self._run(factory_side_effect=RuntimeError("provider offline"))
+
+    def _run_timeout(self):
+        self._run(provider=_TimeoutProvider())
+
+    def _run_check_failure(self):
+        with patch(
+            "apps.automation.management.commands."
+            "run_crm_checks.automation_checks.run_all_checks",
+            side_effect=RuntimeError("check boom"),
+        ):
+            with self.assertRaises(RuntimeError):
+                call_command("run_crm_checks", stdout=StringIO(),
+                             stderr=StringIO())
+
+    def _seed_running(self, *, minutes_old=0):
+        run = automation_services.start_check_run()
+        if minutes_old:
+            ScheduledCheckRun.objects.filter(id=run.id).update(
+                started_at=timezone.now()
+                - timedelta(minutes=minutes_old),
+            )
+            run.refresh_from_db()
+        return run
+
+    def _crm_snapshot(self):
+        return (
+            Lead.objects.count(),
+            LeadTask.objects.count(),
+            LeadActivity.objects.count(),
+            AIActionAudit.objects.count(),
+        )
+
+
+class AutomationOverlapAndStaleRunTests(_Phase6Base):
+
+    def test_active_running_record_blocks_new_run(self):
+        run1 = self._seed_running()
+
+        with self.assertRaises(
+            automation_services.OverlappingRunError
+        ) as ctx:
+            automation_services.start_check_run()
+
+        self.assertEqual(ctx.exception.active_run_id, run1.id)
+
+    def test_blocked_run_via_command_performs_no_mutation(self):
+        self._seed_running()
+        self._due_soon_task()
+        snapshot = self._crm_snapshot()
+
+        self._run_ok()
+
+        self.assertEqual(ScheduledCheckRun.objects.count(), 1)
+        self.assertEqual(CRMDigest.objects.count(), 0)
+        self.assertEqual(self._crm_snapshot(), snapshot)
+
+    def test_stale_running_record_is_recovered(self):
+        stale = self._seed_running(minutes_old=45)
+
+        new_run = automation_services.start_check_run()
+
+        stale.refresh_from_db()
+        self.assertEqual(stale.status, "failed")
+        self.assertEqual(
+            stale.error_message,
+            automation_services.STALE_RUN_RECOVERED,
+        )
+        self.assertIsNotNone(stale.finished_at)
+
+        self.assertEqual(new_run.status, "running")
+        self.assertEqual(ScheduledCheckRun.objects.count(), 2)
+
+    def test_stale_recovery_then_command_runs_normally(self):
+        stale = self._seed_running(minutes_old=45)
+        self._due_soon_task()
+
+        self._run_ok()
+
+        stale.refresh_from_db()
+        self.assertEqual(stale.status, "failed")
+        self.assertEqual(
+            stale.error_message,
+            automation_services.STALE_RUN_RECOVERED,
+        )
+
+        latest = ScheduledCheckRun.objects.latest("id")
+        self.assertEqual(latest.status, "succeeded")
+        self.assertEqual(CRMDigest.objects.count(), 1)
+
+    @override_settings(CRM_AUTOMATION_STALE_RUN_MINUTES=1)
+    def test_stale_threshold_is_configurable(self):
+        stale = self._seed_running(minutes_old=2)
+
+        automation_services.start_check_run()
+
+        stale.refresh_from_db()
+        self.assertEqual(stale.status, "failed")
+
+
+class AutomationAITimeoutConfigTests(_Phase6Base):
+
+    @patch("apps.ai.providers.gpt_luna.OpenAI")
+    def test_factory_forwards_timeout_and_retries_to_openai(
+        self, mock_openai
+    ):
+        from apps.ai.providers.factory import AIProviderFactory
+
+        AIProviderFactory.create(timeout=15, max_retries=0)
+        _, kwargs = mock_openai.call_args
+        self.assertEqual(kwargs.get("timeout"), 15)
+        self.assertEqual(kwargs.get("max_retries"), 0)
+
+        mock_openai.reset_mock()
+        AIProviderFactory.create()
+        _, kwargs = mock_openai.call_args
+        self.assertNotIn("timeout", kwargs)
+        self.assertNotIn("max_retries", kwargs)
+
+    @patch("apps.ai.ollama_client.Client")
+    def test_ollama_client_forwards_timeout(self, mock_client):
+        from apps.ai.ollama_client import OllamaClient
+
+        OllamaClient(timeout=15)
+        _, kwargs = mock_client.call_args
+        self.assertEqual(kwargs.get("timeout"), 15)
+
+        mock_client.reset_mock()
+        OllamaClient()
+        _, kwargs = mock_client.call_args
+        self.assertIsNone(kwargs.get("timeout"))
+
+    @override_settings(CRM_AUTOMATION_AI_TIMEOUT_SECONDS=7)
+    @patch("apps.automation.summary.AIProviderFactory.create")
+    def test_summary_uses_configured_automation_timeout(
+        self, mock_create
+    ):
+        mock_create.return_value = _FakeProvider("ok")
+
+        automation_summary.summarize_digest(
+            digest_findings=_shaped(_raw_due_soon(task_id=1)),
+        )
+
+        _, kwargs = mock_create.call_args
+        self.assertEqual(kwargs.get("timeout"), 7)
+        self.assertEqual(kwargs.get("max_retries"), 0)
+
+    def test_provider_timeout_degrades_without_failing_run(self):
+        self._due_soon_task()
+
+        self._run_timeout()
+
+        run = ScheduledCheckRun.objects.latest("id")
+        self.assertEqual(run.status, "succeeded")
+        self.assertEqual(run.summary_status, "AI_SUMMARY_FAILED")
+        self.assertEqual(
+            run.summary_source, "deterministic_fallback"
+        )
+        self.assertIn("timed out", run.summary_error)
+        self.assertEqual(CRMDigest.objects.count(), 1)
+
+
+class Phase6BackgroundAutomationAcceptanceTests(_Phase6Base):
+
+    # --- scheduling / run lifecycle ---
+
+    def test_normal_run_creates_one_finalized_record(self):
+        self._run_ok()
+
+        self.assertEqual(ScheduledCheckRun.objects.count(), 1)
+        run = ScheduledCheckRun.objects.get()
+        self.assertEqual(run.status, "succeeded")
+        self.assertIsNotNone(run.finished_at)
+        self.assertEqual(run.checks_run, 2)
+        self.assertEqual(run.findings_count, 0)
+
+    def test_failed_deterministic_run_finalizes_failed(self):
+        self._due_soon_task()
+        self._run_check_failure()
+
+        run = ScheduledCheckRun.objects.latest("id")
+        self.assertEqual(run.status, "failed")
+        self.assertIn("check boom", run.error_message)
+        self.assertEqual(CRMDigest.objects.count(), 0)
+        self.assertEqual(run.summary_status, "")
+
+    def test_stale_run_recovered_in_acceptance(self):
+        stale = self._seed_running(minutes_old=45)
+        automation_services.start_check_run()
+        stale.refresh_from_db()
+        self.assertEqual(stale.status, "failed")
+        self.assertEqual(
+            stale.error_message,
+            automation_services.STALE_RUN_RECOVERED,
+        )
+
+    def test_active_running_blocks_overlap_no_mutation(self):
+        self._seed_running()
+        self._due_soon_task()
+        snapshot = self._crm_snapshot()
+
+        self._run_ok()
+
+        self.assertEqual(CRMDigest.objects.count(), 0)
+        self.assertEqual(self._crm_snapshot(), snapshot)
+
+    # --- deterministic checks ---
+
+    def test_due_soon_and_stale_leads_detected(self):
+        lead = self._lead(created_days_ago=40)
+        self._due_soon_task(lead=lead)
+
+        self._run_ok()
+
+        keys = set(
+            CRMDigest.objects.values_list("dedup_key", flat=True)
+        )
+        self.assertTrue(any(k.startswith("due_soon_task:")
+                            for k in keys))
+        self.assertTrue(any(k.startswith("stale_lead:")
+                            for k in keys))
+
+        run = ScheduledCheckRun.objects.latest("id")
+        self.assertEqual(run.findings_count, 2)
+
+    def test_won_and_lost_leads_excluded(self):
+        self._lead(status="won", created_days_ago=90)
+        self._lead(status="lost", created_days_ago=90)
+
+        self._run_ok()
+
+        self.assertFalse(
+            CRMDigest.objects.filter(
+                finding_type="stale_lead"
+            ).exists()
+        )
+
+    @override_settings(CRM_DUE_SOON_HOURS=1)
+    def test_thresholds_still_configurable_narrow(self):
+        self._due_soon_task(hours=6)
+        result = automation_checks.run_all_checks()
+        self.assertEqual(len(result["findings"]), 0)
+
+    def test_thresholds_still_configurable_default(self):
+        self._due_soon_task(hours=6)
+        result = automation_checks.run_all_checks()
+        self.assertEqual(len(result["findings"]), 1)
+
+    # --- digest ---
+
+    def test_findings_persisted_and_deduplicated(self):
+        self._due_soon_task()
+
+        self._run_ok()
+        self._run_ok()
+
+        self.assertEqual(CRMDigest.objects.count(), 1)
+        self.assertEqual(
+            CRMDigest.objects.get().occurrence_count, 2
+        )
+
+    def test_absent_finding_resolves_after_successful_run(self):
+        task = self._due_soon_task()
+        self._run_ok()
+
+        task.status = "completed"
+        task.save(update_fields=["status", "updated_at"])
+        self._run_ok()
+
+        row = CRMDigest.objects.get()
+        self.assertIsNotNone(row.resolved_at)
+
+    def test_failed_run_does_not_resolve_prior_findings(self):
+        task = self._due_soon_task()
+        self._run_ok()
+
+        task.status = "completed"
+        task.save(update_fields=["status", "updated_at"])
+        self._run_check_failure()
+
+        row = CRMDigest.objects.get()
+        self.assertIsNone(row.resolved_at)
+
+    def test_resolved_finding_can_reopen(self):
+        task = self._due_soon_task()
+        self._run_ok()
+        original_id = CRMDigest.objects.get().id
+
+        task.status = "completed"
+        task.save(update_fields=["status", "updated_at"])
+        self._run_ok()
+
+        task.status = "pending"
+        task.due_date = timezone.now() + timedelta(hours=6)
+        task.save(update_fields=["status", "due_date", "updated_at"])
+        self._run_ok()
+
+        row = CRMDigest.objects.get()
+        self.assertEqual(row.id, original_id)
+        self.assertIsNone(row.resolved_at)
+        self.assertGreaterEqual(row.occurrence_count, 2)
+
+    # --- AI summary ---
+
+    def test_successful_provider_summary_persisted(self):
+        self._due_soon_task()
+        self._run_ok("A concise operational summary.")
+
+        run = ScheduledCheckRun.objects.latest("id")
+        self.assertEqual(run.summary_status, "AI_SUMMARY_OK")
+        self.assertEqual(run.summary_source, "ai_provider")
+        self.assertEqual(
+            run.summary_text, "A concise operational summary."
+        )
+
+    def test_provider_error_uses_fallback_without_failing_run(self):
+        self._due_soon_task()
+        self._run_fallback()
+
+        run = ScheduledCheckRun.objects.latest("id")
+        self.assertEqual(run.status, "succeeded")
+        self.assertEqual(run.summary_status, "AI_SUMMARY_FAILED")
+        self.assertEqual(
+            run.summary_source, "deterministic_fallback"
+        )
+        self.assertIn("provider offline", run.summary_error)
+        self.assertEqual(CRMDigest.objects.count(), 1)
+
+    def test_no_ai_prose_in_crmdigest(self):
+        marker = "ZZ_AI_PROSE_MARKER_ZZ"
+        self._due_soon_task()
+        self._run_ok(marker)
+
+        for row in CRMDigest.objects.all():
+            self.assertNotIn(marker, row.summary)
+            self.assertNotIn(
+                marker, json.dumps(row.finding_data)
+            )
+
+    # --- safety ---
+
+    def test_no_crm_or_audit_mutation_across_paths(self):
+        self._due_soon_task()
+        self._lead(created_days_ago=40)
+        baseline = self._crm_snapshot()
+
+        self._run_ok()
+        self._run_fallback()
+        self._seed_running()
+        self._run_ok()          # blocked
+        ScheduledCheckRun.objects.filter(
+            status="running"
+        ).update(
+            started_at=timezone.now() - timedelta(minutes=90)
+        )
+        self._run_check_failure()
+
+        self.assertEqual(self._crm_snapshot(), baseline)
+
+    def test_confirmed_write_executor_never_invoked(self):
+        self._due_soon_task()
+
+        with patch(
+            "apps.ai.tools.registry.execute_confirmed_write_tool"
+        ) as mock_write, patch(
+            "apps.ai.agent.write_executor.execute_confirmed_proposal"
+        ) as mock_exec:
+            self._run_ok()
+            self._run_fallback()
+
+        mock_write.assert_not_called()
+        mock_exec.assert_not_called()
+
+    def test_automation_orchestration_modules_have_no_orm(self):
+        base = Path(automation_summary.__file__).resolve().parent
+        checked = []
+        for name in (
+            "checks.py", "digest.py", "summary.py", "views.py",
+        ):
+            src = (base / name).read_text(encoding="utf-8")
+            checked.append(name)
+            self.assertNotIn(".objects", src)
+        cmd = (
+            base / "management" / "commands" / "run_crm_checks.py"
+        ).read_text(encoding="utf-8")
+        self.assertNotIn(".objects", cmd)
+        self.assertEqual(len(checked), 4)
+
+    def test_existing_ai_agent_orm_boundary_still_holds(self):
+        from apps.ai.agent import response as _agent_anchor
+
+        agent_dir = Path(_agent_anchor.__file__).resolve().parent
+        for path in agent_dir.glob("*.py"):
+            src = path.read_text(encoding="utf-8")
+            for pattern in (
+                ".objects.filter(", ".objects.create(",
+                ".objects.get(", ".objects.update(",
+                ".objects.delete(",
+            ):
+                self.assertNotIn(pattern, src, msg=path.name)
+
+    # --- observability ---
+
+    def test_run_history_records_counts_and_summary_status(self):
+        self._due_soon_task()
+        self._run_ok("visible summary")
+
+        row = automation_services.get_recent_check_runs(limit=1)[0]
+        self.assertEqual(row["checks_run"], 2)
+        self.assertEqual(row["findings_count"], 1)
+        self.assertEqual(row["summary_status"], "AI_SUMMARY_OK")
+        self.assertEqual(row["summary_text"], "visible summary")
+
+    def test_staff_history_page_renders_all_run_kinds(self):
+        self._due_soon_task()
+        self._run_ok("AI LINE ALPHA")
+        self._run_fallback()
+        self._run_check_failure()
+
+        self.client.force_login(self.staff_user)
+        response = self.client.get(
+            reverse("automation:run_history")
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Succeeded")
+        self.assertContains(response, "Failed")
+        self.assertContains(response, "AI summary OK")
+        self.assertContains(response, "AI summary failed")
+
+        content = response.content.decode()
+        self.assertLess(
+            content.index("check boom"),
+            content.index("AI LINE ALPHA"),
+        )
+
+    def test_history_page_rejects_non_staff(self):
+        response = self.client.get(
+            reverse("automation:run_history")
+        )
+        self.assertNotEqual(response.status_code, 200)
+
+        self.client.force_login(self.plain_user)
+        response = self.client.get(
+            reverse("automation:run_history")
+        )
+        self.assertNotEqual(response.status_code, 200)

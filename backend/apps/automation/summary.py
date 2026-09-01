@@ -16,11 +16,19 @@ persistence succeeded.
 
 import json
 
+from django.conf import settings
+
 from apps.ai.providers.factory import AIProviderFactory
 
 
 AI_SUMMARY_OK = "AI_SUMMARY_OK"
 AI_SUMMARY_FAILED = "AI_SUMMARY_FAILED"
+
+# Background automation must never wait on the AI provider the way
+# an interactive caller can. A bounded timeout + no retries means a
+# slow/hanging provider degrades quickly to the deterministic
+# fallback instead of stalling the whole cron run.
+_AUTOMATION_AI_MAX_RETRIES = 0
 
 DUE_SOON_TASK = "due_soon_task"
 STALE_LEAD = "stale_lead"
@@ -160,11 +168,13 @@ def summarize_digest(*, digest_findings, provider=None):
     )
 
     try:
-        active_provider = (
-            provider
-            if provider is not None
-            else AIProviderFactory.create()
-        )
+        if provider is not None:
+            active_provider = provider
+        else:
+            active_provider = AIProviderFactory.create(
+                timeout=settings.CRM_AUTOMATION_AI_TIMEOUT_SECONDS,
+                max_retries=_AUTOMATION_AI_MAX_RETRIES,
+            )
 
         prompt = build_summary_prompt(
             payload=payload,
