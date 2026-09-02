@@ -32,6 +32,17 @@
     </div>
 </div>
 
+{% if candidate.source_url %}
+    <div class="mb-3">
+        <a href="{{ candidate.source_url }}"
+           class="btn btn-outline-primary"
+           rel="nofollow noopener noreferrer" target="_blank">
+            <i class="bi bi-box-arrow-up-right"></i>
+            Open original job posting
+        </a>
+    </div>
+{% endif %}
+
 <div class="row g-3">
 
     {# ---------- LEFT: candidate information ---------- #}
@@ -69,6 +80,31 @@
         <div class="card mb-3">
             <div class="card-header">Why it matches</div>
             <div class="card-body">
+                {% if candidate.skills_analysis.matching_required or candidate.skills_analysis.missing_required %}
+                    <div class="mb-2">
+                        {% if candidate.skills_analysis.matching_required %}
+                            <div class="small text-success">
+                                <i class="bi bi-check2"></i>
+                                Matches required skills:
+                                {{ candidate.skills_analysis.matching_required|join:", " }}
+                            </div>
+                        {% endif %}
+                        {% if candidate.skills_analysis.missing_required %}
+                            <div class="small text-warning">
+                                <i class="bi bi-exclamation-triangle"></i>
+                                Missing skills:
+                                {{ candidate.skills_analysis.missing_required|join:", " }}
+                            </div>
+                        {% endif %}
+                        {% if candidate.skills_analysis.matching_preferred %}
+                            <div class="small text-meta">
+                                <i class="bi bi-plus-circle"></i>
+                                Preferred skills:
+                                {{ candidate.skills_analysis.matching_preferred|join:", " }}
+                            </div>
+                        {% endif %}
+                    </div>
+                {% endif %}
                 {% for key, value in candidate.score_components.items %}
                     <div class="d-flex justify-content-between small">
                         <span class="text-capitalize">{{ key }}</span>

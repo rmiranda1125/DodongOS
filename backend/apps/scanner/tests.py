@@ -526,7 +526,7 @@ class ScannerUiAuthTests(TestCase):
 
 class ScannerArchitectureSafetyTests(TestCase):
 
-    ORM_OWNING = {"models.py", "services.py", "tests.py"}
+    ORM_OWNING = {"models.py", "services.py"}
     FORBIDDEN = (
         ".objects.",
         ".objects(",
@@ -540,6 +540,8 @@ class ScannerArchitectureSafetyTests(TestCase):
         violations = []
         for path in base.rglob("*.py"):
             if path.name in self.ORM_OWNING:
+                continue
+            if path.name == "tests.py" or path.name.startswith("test_"):
                 continue
             if "migrations" in path.parts or "__pycache__" in path.parts:
                 continue

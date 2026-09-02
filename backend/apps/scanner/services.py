@@ -16,7 +16,14 @@ from django.db import transaction
 from django.utils import timezone
 
 from apps.leads import services as lead_services
-from apps.scanner import adapters, analysis, dedup, normalization, scoring
+from apps.scanner import (
+    adapters,
+    analysis,
+    dedup,
+    job_url_scanner,
+    normalization,
+    scoring,
+)
 from apps.scanner.models import LeadCandidate, LeadScanRun
 
 
@@ -41,13 +48,16 @@ def _finish_run(*, run, status, **fields):
     return run
 
 
-def upsert_candidate(*, raw, run=None, with_ai=False, now=None):
+def upsert_candidate(
+    *, raw, run=None, with_ai=False, now=None, default_status="new"
+):
     """
     Normalize, dedup, score and persist one raw candidate.
 
     Returns ("created" | "updated", LeadCandidate). Rediscovering an
     existing candidate updates its data and re-scores it but never
-    changes its review/import ``status``.
+    changes its review/import ``status``. ``default_status`` only
+    applies to a freshly created candidate.
     """
 
     now = now or timezone.now()
@@ -89,8 +99,10 @@ def upsert_candidate(*, raw, run=None, with_ai=False, now=None):
                 score=score_result["score"],
                 score_components=score_result["components"],
                 score_reasons=score_result["reasons"],
+                skills_analysis=score_result.get("skills", {}),
                 qualification=qualification,
                 ai_note=ai_note,
+                status=default_status,
             )
             return "created", candidate
 
@@ -121,6 +133,7 @@ def upsert_candidate(*, raw, run=None, with_ai=False, now=None):
         existing.score = score_result["score"]
         existing.score_components = score_result["components"]
         existing.score_reasons = score_result["reasons"]
+        existing.skills_analysis = score_result.get("skills", {})
         existing.qualification = qualification
         if ai_note:
             existing.ai_note = ai_note
@@ -194,6 +207,90 @@ def run_scan(*, source, config=None, with_ai=False, now=None):
         row_errors=row_errors,
     )
     return run
+
+
+# =========================================================
+# JOB URL SCAN (paste-a-link, single opportunity)
+# =========================================================
+
+def scan_job_url(*, url, with_ai=False, now=None, fetch=None, provider=None):
+    """
+    Scan one public job-posting URL and upsert it as a candidate.
+
+    Records a LeadScanRun (source="job_url"). NEVER creates a CRM
+    lead - a new candidate starts in the ``discovered`` state and
+    still requires an explicit staff import.
+
+    Returns on success:
+        {"success": True, "created": bool, "candidate_id": int,
+         "company_name": str, "opportunity_title": str, "score": int,
+         "qualification": str, "run_id": int}
+    Returns on failure (no exception is raised to the caller):
+        {"success": False, "error": {"code": str, "message": str},
+         "run_id": int}
+    """
+
+    now = now or timezone.now()
+    run = _record_run_started(source="job_url")
+
+    try:
+        raw = job_url_scanner.scan_job_url(
+            url, fetch=fetch, provider=provider
+        )
+    except job_url_scanner.JobUrlError as exc:
+        _finish_run(
+            run=run,
+            status="failed",
+            error_message=f"{exc.code}: {exc.user_message}",
+        )
+        return {
+            "success": False,
+            "error": {"code": exc.code, "message": exc.user_message},
+            "run_id": run.id,
+        }
+    except Exception as exc:  # pragma: no cover - defensive
+        _finish_run(
+            run=run,
+            status="failed",
+            error_message=f"{type(exc).__name__}: {exc}",
+        )
+        return {
+            "success": False,
+            "error": {
+                "code": "SCAN_ERROR",
+                "message": (
+                    "Unable to scan this job posting right now."
+                ),
+            },
+            "run_id": run.id,
+        }
+
+    outcome, candidate = upsert_candidate(
+        raw=raw,
+        run=run,
+        with_ai=with_ai,
+        now=now,
+        default_status="discovered",
+    )
+
+    _finish_run(
+        run=run,
+        status="succeeded",
+        candidates_seen=1,
+        candidates_created=1 if outcome == "created" else 0,
+        candidates_updated=1 if outcome == "updated" else 0,
+    )
+
+    return {
+        "success": True,
+        "created": outcome == "created",
+        "candidate_id": candidate.id,
+        "company_name": candidate.company_name,
+        "opportunity_title": candidate.opportunity_title,
+        "score": candidate.score,
+        "qualification": candidate.qualification,
+        "run_id": run.id,
+    }
 
 
 # =========================================================

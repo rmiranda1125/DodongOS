@@ -568,3 +568,42 @@ SCANNER_CSV_MAX_BYTES = env.int(
     "SCANNER_CSV_MAX_BYTES",
     default=2_000_000,
 )
+
+# ----------------------------------------------------------
+# Job URL scanner (paste-a-link discovery)
+# ----------------------------------------------------------
+#
+# Fetches ONE public job posting page and runs it through the same
+# normalize -> dedup -> deterministic score -> review queue pipeline
+# as every other source. Never creates a CRM lead.
+#
+# The fetched page is untrusted input:
+#   - only http/https, no redirects to private/loopback/link-local IPs
+#   - bounded timeout, bounded response size, bounded redirects
+#   - HTML is reduced to text; no scripts are ever executed or rendered
+#
+SCANNER_URL_FETCH_TIMEOUT = env.float(
+    "SCANNER_URL_FETCH_TIMEOUT",
+    default=8.0,
+)
+SCANNER_URL_MAX_BYTES = env.int(
+    "SCANNER_URL_MAX_BYTES",
+    default=2_500_000,
+)
+SCANNER_URL_MAX_REDIRECTS = env.int(
+    "SCANNER_URL_MAX_REDIRECTS",
+    default=3,
+)
+SCANNER_URL_USER_AGENT = env(
+    "SCANNER_URL_USER_AGENT",
+    default=(
+        "DodongOS-LeadScanner/1.0 "
+        "(+https://dodong.local/scanner)"
+    ),
+)
+# Escape hatch for local development only: allow fetching private /
+# loopback addresses. MUST stay False in production.
+SCANNER_URL_ALLOW_PRIVATE = env.bool(
+    "SCANNER_URL_ALLOW_PRIVATE",
+    default=False,
+)

@@ -88,13 +88,26 @@ def score_candidate(normalized, *, profile=None, now=None):
                 "recency": 0,
             },
             "reasons": [f"Excluded term present: {', '.join(sorted(excluded))}"],
+            "skills": {
+                "matching_required": [],
+                "missing_required": [
+                    s.lower() for s in profile["required_skills"] if s
+                ],
+                "matching_preferred": [],
+            },
         }
 
     # --- skills (max 40) ---
     required = [s.lower() for s in profile["required_skills"] if s]
     preferred = [s.lower() for s in profile["preferred_skills"] if s]
     req_hits = [s for s in required if s in text]
+    req_missing = [s for s in required if s not in text]
     pref_hits = [s for s in preferred if s in text]
+    skills_analysis = {
+        "matching_required": req_hits,
+        "missing_required": req_missing,
+        "matching_preferred": pref_hits,
+    }
 
     if required:
         skills = 30 * (len(req_hits) / len(required))
@@ -172,4 +185,9 @@ def score_candidate(normalized, *, profile=None, now=None):
     }
     total = int(min(100, sum(components.values())))
 
-    return {"score": total, "components": components, "reasons": reasons}
+    return {
+        "score": total,
+        "components": components,
+        "reasons": reasons,
+        "skills": skills_analysis,
+    }

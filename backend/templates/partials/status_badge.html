@@ -4,7 +4,7 @@ Unified status badge.  Usage:
 kinds: lead | task | scanner | qualification | automation | audit
 {% endcomment %}
 {% with v=value|lower %}
-<span class="badge dodong-status text-bg-{% if v == "won" or v == "completed" or v == "succeeded" or v == "executed" or v == "imported" or v == "approved" or v == "high" %}success{% elif v == "lost" or v == "failed" or v == "rejected" or v == "urgent" %}danger{% elif v == "pending" or v == "running" or v == "new" or v == "medium" or v == "reviewed" %}warning{% elif v == "qualified" or v == "in_progress" or v == "contacted" or v == "proposal" %}info{% else %}secondary{% endif %}">
+<span class="badge dodong-status text-bg-{% if v == "won" or v == "completed" or v == "succeeded" or v == "executed" or v == "imported" or v == "approved" or v == "high" %}success{% elif v == "lost" or v == "failed" or v == "rejected" or v == "urgent" %}danger{% elif v == "pending" or v == "running" or v == "new" or v == "discovered" or v == "medium" or v == "reviewed" %}warning{% elif v == "qualified" or v == "in_progress" or v == "contacted" or v == "proposal" %}info{% else %}secondary{% endif %}">
     {{ value|default:"—" }}
 </span>
 {% endwith %}

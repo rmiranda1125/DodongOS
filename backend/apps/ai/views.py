@@ -22,6 +22,9 @@ from apps.ai.agent.write_proposals import (
 from apps.ai.agent.write_executor import (
     execute_confirmed_proposal,
 )
+from apps.ai.agent.outreach_agent import (
+    draft_lead_outreach,
+)
 from apps.ai import audit_services
 
 
@@ -287,6 +290,35 @@ def crm_assistant_task_confirm(request):
     return render(
         request,
         "ai/partials/create_task_result.html",
+        {
+            "result": result,
+        },
+    )
+
+
+@login_required
+@require_POST
+def lead_outreach_draft(request, lead_id):
+    """
+    Draft a first-contact message for one CRM lead.
+
+    Read + generate only. This endpoint never writes to the CRM
+    and never contacts the lead - it returns editable draft text.
+    """
+
+    tone = request.POST.get(
+        "tone",
+        "",
+    ).strip() or None
+
+    result = draft_lead_outreach(
+        lead_id=lead_id,
+        tone=tone,
+    )
+
+    return render(
+        request,
+        "ai/partials/lead_outreach_draft.html",
         {
             "result": result,
         },

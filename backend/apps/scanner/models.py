@@ -20,6 +20,7 @@ class LeadCandidate(models.Model):
     """
 
     STATUS_CHOICES = [
+        ("discovered", "Discovered"),
         ("new", "New"),
         ("reviewed", "Reviewed"),
         ("approved", "Approved"),
@@ -77,6 +78,7 @@ class LeadCandidate(models.Model):
     score = models.PositiveIntegerField(default=0)
     score_components = models.JSONField(default=dict)
     score_reasons = models.JSONField(default=list)
+    skills_analysis = models.JSONField(default=dict)
     qualification = models.CharField(
         max_length=8,
         choices=QUALIFICATION_CHOICES,

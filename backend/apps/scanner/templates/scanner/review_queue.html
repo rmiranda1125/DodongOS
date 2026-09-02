@@ -27,6 +27,28 @@
     </div>
 </div>
 
+<div class="card dodong-card-tight mb-3">
+  <div class="card-body">
+    <h2 class="h6 mb-1">Scan a job posting</h2>
+    <p class="small text-meta mb-2">
+        Paste a public job posting URL to analyse it against your
+        skills. It is added here as <code>discovered</code> &mdash;
+        nothing becomes a CRM lead until you import it.
+    </p>
+    <form method="post" action="{% url 'scanner:scan_url' %}"
+          class="d-flex gap-2 flex-wrap">
+        {% csrf_token %}
+        <input type="url" name="job_url" class="form-control form-control-sm"
+               style="min-width: 18rem; flex: 1 1 20rem;"
+               placeholder="https://example.com/job-posting"
+               aria-label="Job posting URL" required>
+        <button class="btn btn-sm btn-primary" type="submit">
+            <i class="bi bi-search"></i> Scan job
+        </button>
+    </form>
+  </div>
+</div>
+
 <form method="get" class="card dodong-card-tight mb-3">
   <div class="card-body">
     <div class="row g-2 align-items-end">
@@ -89,7 +111,22 @@
                         <div class="text-meta dodong-truncate">
                             {{ c.opportunity_title|default:"—" }}
                         </div>
-                        {% if c.score_reasons %}
+                        {% if c.skills_analysis.matching_required or c.skills_analysis.missing_required %}
+                            {% if c.skills_analysis.matching_required %}
+                                <div class="small text-success">
+                                    <i class="bi bi-check2"></i>
+                                    Matches required skills:
+                                    {{ c.skills_analysis.matching_required|join:", " }}
+                                </div>
+                            {% endif %}
+                            {% if c.skills_analysis.missing_required %}
+                                <div class="small text-warning">
+                                    <i class="bi bi-exclamation-triangle"></i>
+                                    Missing skills:
+                                    {{ c.skills_analysis.missing_required|join:", " }}
+                                </div>
+                            {% endif %}
+                        {% elif c.score_reasons %}
                             <div class="small text-success">
                                 <i class="bi bi-check2"></i>
                                 {{ c.score_reasons.0|truncatechars:70 }}

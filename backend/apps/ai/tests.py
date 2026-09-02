@@ -9879,3 +9879,238 @@ class CRMReminderReadToolTests(TestCase):
 
         self.assertTrue(due["success"])
         self.assertTrue(stale["success"])
+
+
+# =========================================================
+# LEAD OUTREACH DRAFT
+# =========================================================
+
+from apps.ai.agent.outreach_agent import (  # noqa: E402
+    build_lead_outreach_prompt,
+    draft_lead_outreach,
+)
+
+
+class LeadOutreachDraftAgentTests(TestCase):
+    """
+    The outreach draft is READ + GENERATE only: it pulls verified
+    lead data through the read-only get_lead tool and never writes
+    to the CRM.
+    """
+
+    def setUp(self):
+        self.lead = Lead.objects.create(
+            company_name="Acme Analytics",
+            job_title="Power BI Developer",
+            industry="Software",
+            country="Australia",
+            status="new",
+        )
+
+    def test_draft_uses_verified_lead_data_and_returns_text(self):
+        provider = FakeAIProvider(
+            response="Hi Acme Analytics team, ...",
+        )
+
+        result = draft_lead_outreach(
+            lead_id=self.lead.id,
+            provider=provider,
+        )
+
+        self.assertTrue(result["success"])
+        self.assertEqual(
+            result["draft"],
+            "Hi Acme Analytics team, ...",
+        )
+        self.assertEqual(result["draft_source"], "ai_provider")
+        self.assertEqual(
+            result["company_name"],
+            "Acme Analytics",
+        )
+        self.assertEqual(len(provider.prompts), 1)
+        self.assertIn("Acme Analytics", provider.prompts[0])
+
+    def test_prompt_contains_only_verified_lead_data_rules(self):
+        prompt = build_lead_outreach_prompt(
+            lead={"company_name": "Acme Analytics"},
+            tone="professional",
+        )
+
+        self.assertIn("Acme Analytics", prompt)
+        self.assertIn("Use only the supplied lead data", prompt)
+
+    def test_invalid_lead_id_is_rejected(self):
+        result = draft_lead_outreach(
+            lead_id=0,
+            provider=FakeAIProvider(),
+        )
+
+        self.assertFalse(result["success"])
+        self.assertEqual(
+            result["error"]["code"],
+            "INVALID_LEAD_ID",
+        )
+
+    def test_unknown_lead_returns_error(self):
+        result = draft_lead_outreach(
+            lead_id=999_999,
+            provider=FakeAIProvider(),
+        )
+
+        self.assertFalse(result["success"])
+        self.assertEqual(
+            result["error"]["code"],
+            "LEAD_NOT_FOUND",
+        )
+
+    def test_provider_failure_falls_back_deterministically(self):
+        result = draft_lead_outreach(
+            lead_id=self.lead.id,
+            provider=FailingAIProvider(),
+        )
+
+        self.assertTrue(result["success"])
+        self.assertEqual(
+            result["draft_source"],
+            "deterministic_fallback",
+        )
+        self.assertIn("Acme Analytics", result["draft"])
+
+    def test_invalid_tone_defaults_to_professional(self):
+        result = draft_lead_outreach(
+            lead_id=self.lead.id,
+            tone="aggressive",
+            provider=FakeAIProvider(),
+        )
+
+        self.assertTrue(result["success"])
+        self.assertEqual(result["tone"], "professional")
+
+    def test_draft_never_writes_to_crm(self):
+        before = (
+            Lead.objects.count(),
+            LeadActivity.objects.count(),
+            LeadTask.objects.count(),
+        )
+
+        draft_lead_outreach(
+            lead_id=self.lead.id,
+            provider=FakeAIProvider(),
+        )
+
+        after = (
+            Lead.objects.count(),
+            LeadActivity.objects.count(),
+            LeadTask.objects.count(),
+        )
+
+        self.assertEqual(before, after)
+
+
+class LeadOutreachDraftViewTests(_AuthedAssistantTestCase):
+
+    def setUp(self):
+        super().setUp()
+        self.lead = Lead.objects.create(
+            company_name="Acme Analytics",
+            job_title="Power BI Developer",
+            status="new",
+        )
+
+    def test_view_requires_login(self):
+        self.client.logout()
+
+        response = self.client.post(
+            reverse(
+                "ai:lead_outreach_draft",
+                args=[self.lead.id],
+            ),
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertIn("/login", response["Location"])
+
+    def test_view_rejects_get(self):
+        response = self.client.get(
+            reverse(
+                "ai:lead_outreach_draft",
+                args=[self.lead.id],
+            ),
+        )
+
+        self.assertEqual(response.status_code, 405)
+
+    def test_lead_detail_page_shows_outreach_card(self):
+        response = self.client.get(
+            reverse(
+                "leads:detail",
+                args=[self.lead.id],
+            ),
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Contact this lead")
+        self.assertContains(
+            response,
+            reverse(
+                "ai:lead_outreach_draft",
+                args=[self.lead.id],
+            ),
+        )
+
+    @patch("apps.ai.views.draft_lead_outreach")
+    def test_view_renders_draft_partial(
+        self,
+        mock_draft,
+    ):
+        mock_draft.return_value = {
+            "success": True,
+            "lead_id": self.lead.id,
+            "company_name": "Acme Analytics",
+            "tone": "friendly",
+            "draft": "Hi Acme Analytics team, quick note.",
+            "draft_source": "ai_provider",
+        }
+
+        response = self.client.post(
+            reverse(
+                "ai:lead_outreach_draft",
+                args=[self.lead.id],
+            ),
+            {"tone": "friendly"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Draft outreach message")
+        self.assertContains(
+            response,
+            "Hi Acme Analytics team, quick note.",
+        )
+        mock_draft.assert_called_once_with(
+            lead_id=self.lead.id,
+            tone="friendly",
+        )
+
+    @patch("apps.ai.views.draft_lead_outreach")
+    def test_view_renders_error_partial(
+        self,
+        mock_draft,
+    ):
+        mock_draft.return_value = {
+            "success": False,
+            "error": {
+                "code": "LEAD_NOT_FOUND",
+                "message": "Lead 999999 was not found.",
+            },
+        }
+
+        response = self.client.post(
+            reverse(
+                "ai:lead_outreach_draft",
+                args=[999_999],
+            ),
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Could not draft a message")
+        self.assertContains(response, "LEAD_NOT_FOUND")

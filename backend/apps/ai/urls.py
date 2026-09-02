@@ -32,4 +32,9 @@ urlpatterns = [
     views.crm_action_audit,
     name="crm_action_audit",
     ),
+    path(
+    "lead/<int:lead_id>/outreach/",
+    views.lead_outreach_draft,
+    name="lead_outreach_draft",
+    ),
 ]

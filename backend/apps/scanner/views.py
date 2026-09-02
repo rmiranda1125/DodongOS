@@ -44,6 +44,7 @@ def review_queue(request):
             "selected_source": source,
             "selected_min_score": min_score,
             "status_choices": [
+                "discovered",
                 "new",
                 "reviewed",
                 "approved",
@@ -170,6 +171,46 @@ def upload_csv(request):
             f"{run.rows_rejected} rejected.",
         )
     return render(request, "scanner/upload.html", context)
+
+
+@staff_member_required
+@require_http_methods(["GET", "POST"])
+def scan_job_url(request):
+    """
+    Staff-only: paste ONE public job posting URL and run it through
+    the job_url scanner. Discovery only - this never creates a CRM
+    lead. A new opportunity lands in the review queue as
+    ``discovered`` for explicit import.
+    """
+
+    context = {}
+
+    if request.method == "GET":
+        return render(request, "scanner/scan_url.html", context)
+
+    url = (request.POST.get("job_url") or "").strip()
+    context["submitted_url"] = url
+
+    if not url:
+        context["error"] = "Paste a job posting URL first."
+        return render(request, "scanner/scan_url.html", context)
+
+    result = scanner_services.scan_job_url(url=url)
+    context["result"] = result
+
+    if not result["success"]:
+        messages.warning(request, result["error"]["message"])
+        return render(request, "scanner/scan_url.html", context)
+
+    if result["created"]:
+        messages.success(
+            request,
+            "Job posting scanned. Review it before importing.",
+        )
+    else:
+        messages.info(request, "This job has already been scanned.")
+
+    return render(request, "scanner/scan_url.html", context)
 
 
 @staff_member_required
