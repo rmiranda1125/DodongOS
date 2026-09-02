@@ -19,6 +19,8 @@ from django.urls import path, include
 
 urlpatterns = [
 
+    path("", include("apps.health.urls")),
+
     path("admin/", admin.site.urls),
 
     path("", include("apps.dashboard.urls")),
@@ -41,6 +43,21 @@ urlpatterns = [
     path(
     "leadfinder/",
     include("apps.leadfinder.urls"),
+    ),
+
+    path(
+    "assistant/",
+    include("apps.ai.urls"),
+    ),
+
+    path(
+    "assistant/knowledge/",
+    include("apps.knowledge.urls"),
+    ),
+
+    path(
+    "automation/",
+    include("apps.automation.urls"),
     ),
 
 ]

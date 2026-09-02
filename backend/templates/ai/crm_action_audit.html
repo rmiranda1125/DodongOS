@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block title %}Dodong Action Audit{% endblock %}
+
+{% block content %}
+
+<div class="dodong-page-header">
+    <div>
+        <h1 class="dodong-page-title">Dodong Action Audit</h1>
+        <p class="dodong-page-desc">
+            Every confirmed AI-assisted CRM write. Read-only, staff
+            access.
+        </p>
+    </div>
+    <a href="{% url 'ai:crm_assistant' %}" class="btn btn-sm btn-outline-secondary">
+        <i class="bi bi-arrow-left"></i> Assistant
+    </a>
+</div>
+
+<div class="card">
+    <div class="table-responsive">
+        <table class="table table-hover mb-0">
+            <thead>
+                <tr>
+                    <th>Time</th>
+                    <th>Action</th>
+                    <th>Status</th>
+                    <th>Lead</th>
+                    <th>Task</th>
+                    <th>Proposal ID</th>
+                    <th>Error</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for audit in audits %}
+                <tr>
+                    <td class="small">{{ audit.confirmed_at|date:"M j, H:i:s" }}</td>
+                    <td><code>{{ audit.action }}</code></td>
+                    <td>
+                        {% if audit.status == "executed" %}
+                            <span class="badge dodong-status text-bg-success">Executed</span>
+                        {% else %}
+                            <span class="badge dodong-status text-bg-danger">Failed</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ audit.lead_id|default:"—" }}</td>
+                    <td>{{ audit.result_task_id|default:"—" }}</td>
+                    <td>
+                        <code class="small" title="{{ audit.proposal_id }}">
+                            {{ audit.proposal_id|stringformat:"s"|slice:":8" }}…
+                        </code>
+                    </td>
+                    <td class="small text-danger">{{ audit.error_code|default:"—" }}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="7">
+                        <div class="dodong-empty">
+                            <i class="bi bi-shield-check"></i>
+                            No AI actions have been confirmed yet.
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% endblock %}

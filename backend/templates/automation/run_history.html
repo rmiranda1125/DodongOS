@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% block title %}Automation Run History{% endblock %}
+
+{% block content %}
+
+<div class="dodong-page-header">
+    <div>
+        <h1 class="dodong-page-title">Automation Run History</h1>
+        <p class="dodong-page-desc">
+            Recent background CRM check runs and their optional AI
+            summaries. Read-only, staff access.
+        </p>
+    </div>
+</div>
+
+<div class="alert alert-info small" role="alert">
+    A deterministic-fallback summary is a degraded-but-successful
+    run, not a failed CRM check.
+</div>
+
+<div class="card">
+    <div class="table-responsive">
+        <table class="table table-hover mb-0">
+            <thead>
+                <tr>
+                    <th>Started</th>
+                    <th>Status</th>
+                    <th>Checks</th>
+                    <th>Findings</th>
+                    <th>Summary</th>
+                    <th>Detail</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for run in runs %}
+                <tr>
+                    <td class="small">
+                        {{ run.started_at|date:"M j, H:i" }}
+                        <div class="text-meta">
+                            {% if run.finished_at %}
+                                → {{ run.finished_at|date:"H:i:s" }}
+                            {% else %}running{% endif %}
+                        </div>
+                    </td>
+                    <td>
+                        {% if run.status == "succeeded" %}
+                            <span class="badge dodong-status text-bg-success">Succeeded</span>
+                        {% elif run.status == "failed" %}
+                            <span class="badge dodong-status text-bg-danger">Failed</span>
+                        {% else %}
+                            <span class="badge dodong-status text-bg-warning">{{ run.status }}</span>
+                        {% endif %}
+                        {% if run.error_message %}
+                            <div class="small text-danger mt-1">{{ run.error_message }}</div>
+                        {% endif %}
+                    </td>
+                    <td>{{ run.checks_run }}</td>
+                    <td>{{ run.findings_count }}</td>
+                    <td>
+                        {% if run.summary_status == "AI_SUMMARY_OK" %}
+                            <span class="badge dodong-status text-bg-success">AI summary OK</span>
+                        {% elif run.summary_status %}
+                            <span class="badge dodong-status text-bg-warning">AI summary failed</span>
+                            <div class="small text-warning mt-1">
+                                AI unavailable — deterministic summary used.
+                            </div>
+                        {% else %}
+                            <span class="text-meta">—</span>
+                        {% endif %}
+                    </td>
+                    <td class="small" style="white-space: pre-wrap; max-width: 28rem;">
+                        {{ run.summary_text|default:"—" }}
+                        {% if run.summary_error %}
+                            <div class="text-meta">{{ run.summary_error }}</div>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="6">
+                        <div class="dodong-empty">
+                            <i class="bi bi-arrow-repeat"></i>
+                            No automation runs have been recorded yet.
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% endblock %}

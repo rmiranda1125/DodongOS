@@ -1,0 +1,390 @@
+{% if result.success %}
+
+    <div class="card shadow-sm border-success">
+
+        <div class="card-header bg-light">
+
+            <strong>
+
+                {% if result.action == "complete_lead_task" %}
+
+                    ✅ CRM Task Completed
+
+                {% elif result.action == "change_lead_status" %}
+
+                    ✅ CRM Lead Status Changed
+
+                {% elif result.action == "add_lead_note" %}
+
+                    ✅ CRM Lead Note Added
+
+                {% else %}
+
+                    ✅ CRM Task Created
+
+                {% endif %}
+
+            </strong>
+
+        </div>
+
+
+        <div class="card-body">
+
+            <!-- ================================================= -->
+            <!-- SUCCESS MESSAGE -->
+            <!-- ================================================= -->
+
+            {% if result.action == "complete_lead_task" %}
+
+                <div
+                    class="alert alert-success"
+                    role="alert"
+                >
+                    <strong>
+                        The task was completed successfully.
+                    </strong>
+
+                    <div class="mt-2">
+                        Dodong verified the task is marked
+                        completed in the CRM.
+                    </div>
+                </div>
+
+
+            {% elif result.action == "change_lead_status" %}
+
+                <div
+                    class="alert alert-success"
+                    role="alert"
+                >
+                    <strong>
+                        The lead status was changed successfully.
+                    </strong>
+
+                    <div class="mt-2">
+                        Dodong verified the new lead status
+                        in the CRM.
+                    </div>
+                </div>
+
+
+            {% elif result.action == "add_lead_note" %}
+
+                <div
+                    class="alert alert-success"
+                    role="alert"
+                >
+                    <strong>
+                        The lead note was added successfully.
+                    </strong>
+
+                    <div class="mt-2">
+                        Dodong verified the new note
+                        in the CRM activity timeline.
+                    </div>
+                </div>
+
+
+            {% else %}
+
+                <div
+                    class="alert alert-success"
+                    role="alert"
+                >
+                    <strong>
+                        The task was created successfully.
+                    </strong>
+
+                    <div class="mt-2">
+                        Dodong verified that the new task
+                        exists in the CRM.
+                    </div>
+                </div>
+
+            {% endif %}
+
+
+            <!-- ================================================= -->
+            <!-- RESULT DETAILS -->
+            <!-- ================================================= -->
+
+            {% if result.action == "change_lead_status" %}
+
+                <!-- ================================================= -->
+                <!-- LEAD STATUS CHANGE DETAILS -->
+                <!-- ================================================= -->
+
+                <dl class="row mb-0">
+
+                    <dt class="col-sm-3">
+                        Lead
+                    </dt>
+
+                    <dd class="col-sm-9">
+                        {{ result.data.company_name }}
+                        (#{{ result.data.lead_id }})
+                    </dd>
+
+
+                    <dt class="col-sm-3">
+                        Previous status
+                    </dt>
+
+                    <dd class="col-sm-9">
+                        {{ result.data.previous_status }}
+                    </dd>
+
+
+                    <dt class="col-sm-3">
+                        New status
+                    </dt>
+
+                    <dd class="col-sm-9">
+                        {{ result.data.status }}
+                    </dd>
+
+                </dl>
+
+
+            {% elif result.action == "add_lead_note" %}
+
+                <!-- ================================================= -->
+                <!-- LEAD NOTE DETAILS -->
+                <!-- ================================================= -->
+
+                <dl class="row mb-0">
+
+                    <dt class="col-sm-3">
+                        Lead
+                    </dt>
+
+                    <dd class="col-sm-9">
+                        {{ result.data.company_name }}
+                        (#{{ result.data.lead_id }})
+                    </dd>
+
+
+                    <dt class="col-sm-3">
+                        Activity type
+                    </dt>
+
+                    <dd class="col-sm-9">
+                        {{ result.data.activity_type }}
+                    </dd>
+
+
+                    <dt class="col-sm-3">
+                        Note
+                    </dt>
+
+                    <dd class="col-sm-9">
+                        {{ result.data.description }}
+                    </dd>
+
+
+                    <dt class="col-sm-3">
+                        Activity ID
+                    </dt>
+
+                    <dd class="col-sm-9">
+                        {{ result.data.activity_id }}
+                    </dd>
+
+                </dl>
+
+
+            {% else %}
+
+                <!-- ================================================= -->
+                <!-- CREATED / COMPLETED TASK DETAILS -->
+                <!-- ================================================= -->
+
+                <dl class="row mb-0">
+
+                    <dt class="col-sm-3">
+                        Task
+                    </dt>
+
+                    <dd class="col-sm-9">
+                        {{ result.data.title }}
+                    </dd>
+
+
+                    <dt class="col-sm-3">
+                        Lead ID
+                    </dt>
+
+                    <dd class="col-sm-9">
+                        {{ result.data.lead_id }}
+                    </dd>
+
+
+                    <dt class="col-sm-3">
+                        Priority
+                    </dt>
+
+                    <dd class="col-sm-9">
+                        {{ result.data.priority }}
+                    </dd>
+
+
+                    <dt class="col-sm-3">
+                        Status
+                    </dt>
+
+                    <dd class="col-sm-9">
+                        {{ result.data.status }}
+                    </dd>
+
+
+                    <dt class="col-sm-3">
+                        Task ID
+                    </dt>
+
+                    <dd class="col-sm-9">
+                        {{ result.data.id }}
+                    </dd>
+
+                </dl>
+
+            {% endif %}
+
+
+            <!-- ================================================= -->
+            <!-- NAVIGATION -->
+            <!-- ================================================= -->
+
+            <div class="mt-4">
+
+                <a
+                    href="{% url 'ai:crm_assistant' %}"
+                    class="btn btn-outline-primary"
+                >
+                    Back to Dodong Assistant
+                </a>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+{% else %}
+
+    <div
+        class="alert alert-danger shadow-sm"
+        role="alert"
+    >
+
+        <!-- ================================================= -->
+        <!-- ALREADY USED -->
+        <!-- ================================================= -->
+
+        {% if result.error.code == "PROPOSAL_ALREADY_USED" %}
+
+            <strong>
+                This action was already processed.
+            </strong>
+
+            <div class="mt-2">
+                Dodong did not create another task.
+                The original proposal can only be executed once.
+            </div>
+
+
+        <!-- ================================================= -->
+        <!-- EXPIRED -->
+        <!-- ================================================= -->
+
+        {% elif result.error.code == "PROPOSAL_EXPIRED" %}
+
+            <strong>
+                This proposal has expired.
+            </strong>
+
+            <div class="mt-2">
+                No CRM change was made.
+                Please prepare the task again.
+            </div>
+
+
+        <!-- ================================================= -->
+        <!-- INVALID TOKEN -->
+        <!-- ================================================= -->
+
+        {% elif result.error.code == "INVALID_PROPOSAL_TOKEN" %}
+
+            <strong>
+                This proposal could not be verified.
+            </strong>
+
+            <div class="mt-2">
+                No CRM change was made.
+            </div>
+
+
+        <!-- ================================================= -->
+        <!-- GENERIC ERROR -->
+        <!-- ================================================= -->
+
+        {% else %}
+
+            <strong>
+                CRM action was not executed.
+            </strong>
+
+            <div class="mt-2">
+
+                {% if result.error.message %}
+
+                    {{ result.error.message }}
+
+                {% else %}
+
+                    The CRM action could not be completed.
+
+                {% endif %}
+
+            </div>
+
+        {% endif %}
+
+
+        <!-- ================================================= -->
+        <!-- ERROR CODE -->
+        <!-- ================================================= -->
+
+        {% if result.error.code %}
+
+            <div class="small text-muted mt-3">
+
+                Code:
+                <code>
+                    {{ result.error.code }}
+                </code>
+
+            </div>
+
+        {% endif %}
+
+
+        <!-- ================================================= -->
+        <!-- NAVIGATION -->
+        <!-- ================================================= -->
+
+        <div class="mt-3">
+
+            <a
+                href="{% url 'ai:crm_assistant' %}"
+                class="btn btn-outline-secondary btn-sm"
+            >
+                Back to Dodong Assistant
+            </a>
+
+        </div>
+
+    </div>
+
+{% endif %}

@@ -1,95 +1,156 @@
 {% extends "base.html" %}
-
-{% block title %}
-Dashboard
-{% endblock %}
+{% block title %}Home{% endblock %}
 
 {% block content %}
 
-<h2>Dashboard</h2>
-
-<p>Welcome to Dodong OS 🚀</p>
-
-<div class="row">
-
-    <div class="col-md-3">
-
-        <div class="card">
-
-            <div class="card-body">
-
-                <h5>Companies</h5>
-
-                <h2>0</h2>
-
-            </div>
-
-        </div>
-
+<div class="dodong-page-header">
+    <div>
+        <h1 class="dodong-page-title">
+            {{ greeting|default:"Dodong OS" }}
+        </h1>
+        <p class="dodong-page-desc">
+            AI-assisted CRM — deterministic reads, controlled writes,
+            and a read-first knowledge assistant.
+            <span class="text-meta">v{{ DODONG_VERSION }}</span>
+        </p>
     </div>
-
-    <div class="col-md-3">
-
-        <div class="card">
-
-            <div class="card-body">
-
-                <h5>Contacts</h5>
-
-                <h2>0</h2>
-
-            </div>
-
-        </div>
-
-    </div>
-
-    <div class="col-md-3">
-
-        <div class="card">
-
-            <div class="card-body">
-
-                <h5>Leads</h5>
-
-                <h2>0</h2>
-
-            </div>
-
-        </div>
-
-    </div>
-
 </div>
 
-<hr>
+{% if not user.is_authenticated %}
+    <div class="alert alert-info" role="alert">
+        <a href="{% url 'admin:login' %}">Sign in</a> to use the
+        Dodong Assistant and CRM tools.
+    </div>
+{% endif %}
 
-<h3>HTMX Playground</h3>
+{% if user.is_staff %}
 
-<button
-    class="btn btn-success"
-    hx-get="{% url 'hello_htmx' %}"
-    hx-target="#result"
-    hx-swap="innerHTML">
+    {# ---- Summary tiles ---- #}
+    <div class="row g-3 mb-1">
+        <div class="col-6 col-lg-3">
+            <div class="card dodong-card-tight h-100">
+                <div class="card-body">
+                    <div class="text-meta">Leads</div>
+                    <div class="h3 mb-0">{{ total_leads }}</div>
+                    <a class="small" href="{% url 'leads:list' %}">View leads</a>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-lg-3">
+            <div class="card dodong-card-tight h-100">
+                <div class="card-body">
+                    <div class="text-meta">Pending tasks</div>
+                    <div class="h3 mb-0">{{ pending_task_count }}</div>
+                    <a class="small" href="{% url 'leads:dashboard' %}">Open tasks</a>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-lg-3">
+            <div class="card dodong-card-tight h-100">
+                <div class="card-body">
+                    <div class="text-meta">Scanner — high priority</div>
+                    <div class="h3 mb-0">{{ high_priority_candidate_count }}</div>
+                    <a class="small" href="{% url 'scanner:review_queue' %}?status=new&min_score={{ 0 }}">Review candidates</a>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-lg-3">
+            <div class="card dodong-card-tight h-100">
+                <div class="card-body">
+                    <div class="text-meta">Last automation run</div>
+                    {% if latest_run %}
+                        {% include "partials/status_badge.html" with value=latest_run.status kind="automation" %}
+                        <div class="small text-meta mt-1">
+                            {{ latest_run.started_at|date:"M j, H:i" }}
+                        </div>
+                    {% else %}
+                        <div class="small text-meta">No runs yet</div>
+                    {% endif %}
+                    <a class="small d-block" href="{% url 'automation:run_history' %}">Run history</a>
+                </div>
+            </div>
+        </div>
+    </div>
 
-    Click Me
+    {# ---- Needs attention ---- #}
+    <div class="row g-3 mt-1">
+        <div class="col-lg-6">
+            <div class="card h-100">
+                <div class="card-header d-flex justify-content-between">
+                    <span>Overdue tasks</span>
+                    <span class="badge text-bg-{% if overdue_task_count %}danger{% else %}secondary{% endif %}">
+                        {{ overdue_task_count }}
+                    </span>
+                </div>
+                <div class="list-group list-group-flush">
+                    {% for task in overdue_tasks %}
+                        <div class="list-group-item d-flex justify-content-between">
+                            <span class="dodong-truncate">{{ task.title }}</span>
+                            <span class="text-meta">{{ task.lead.company_name }}</span>
+                        </div>
+                    {% empty %}
+                        <div class="list-group-item text-meta">
+                            Nothing overdue. 🎉
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
 
-</button>
+        <div class="col-lg-6">
+            <div class="card h-100">
+                <div class="card-header d-flex justify-content-between">
+                    <span>High-priority scanner candidates</span>
+                    <span class="badge text-bg-{% if high_priority_candidate_count %}success{% else %}secondary{% endif %}">
+                        {{ high_priority_candidate_count }}
+                    </span>
+                </div>
+                <div class="list-group list-group-flush">
+                    {% for c in high_priority_candidates %}
+                        <a class="list-group-item d-flex justify-content-between"
+                           href="{% url 'scanner:candidate_detail' c.id %}">
+                            <span class="dodong-truncate">
+                                {{ c.company_name }} — {{ c.opportunity_title|default:"opportunity" }}
+                            </span>
+                            <span class="badge text-bg-success">{{ c.score }}</span>
+                        </a>
+                    {% empty %}
+                        <div class="list-group-item text-meta">
+                            No new high-priority candidates.
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
 
-<div id="result" class="mt-3"></div>
+{% endif %}
 
-<hr>
-
-<h3>Live Server Clock</h3>
-
-<div
-    hx-get="{% url 'server_time' %}"
-    hx-trigger="load, every 5s"
-    hx-target="this"
-    hx-swap="innerHTML">
-
-    Loading server time...
-
+{# ---- Navigation cards (everyone) ---- #}
+<div class="row g-3 mt-2">
+    <div class="col-sm-6 col-lg-4">
+        <div class="card h-100"><div class="card-body">
+            <h3 class="h6"><i class="bi bi-people me-1"></i> CRM</h3>
+            <p class="text-meta">Leads, pipeline, tasks and activity history.</p>
+            <a class="btn btn-sm btn-outline-primary" href="{% url 'leads:list' %}">Open leads</a>
+        </div></div>
+    </div>
+    <div class="col-sm-6 col-lg-4">
+        <div class="card h-100"><div class="card-body">
+            <h3 class="h6"><i class="bi bi-stars me-1"></i> Dodong Assistant</h3>
+            <p class="text-meta">Ask about CRM data. Changes always need an explicit Confirm.</p>
+            <a class="btn btn-sm btn-outline-primary" href="{% url 'ai:crm_assistant' %}">Open assistant</a>
+        </div></div>
+    </div>
+    {% if user.is_staff %}
+    <div class="col-sm-6 col-lg-4">
+        <div class="card h-100"><div class="card-body">
+            <h3 class="h6"><i class="bi bi-radar me-1"></i> Lead Scanner</h3>
+            <p class="text-meta">Review discovered opportunities before importing them.</p>
+            <a class="btn btn-sm btn-outline-primary" href="{% url 'scanner:review_queue' %}">Open scanner</a>
+        </div></div>
+    </div>
+    {% endif %}
 </div>
 
 {% endblock %}

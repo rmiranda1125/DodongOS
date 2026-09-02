@@ -22,6 +22,61 @@ Eventually it becomes my own AI employee.
 
 ---
 
+# Current Implementation Status
+
+> Updated: August 21, 2026
+
+Dodong OS implementation has progressed beyond the original learning-phase timeline documented below.
+
+The detailed implementation roadmap is maintained in:
+
+`docs/ROADMAP.md`
+
+## Current Software Milestone
+
+**Dodong OS v1.0 — release checkpoint** (`V1_RELEASE_READY_BUT_NOT_LIVE_DEPLOYED`).
+
+The full implementation roadmap (Phases 1–11) is complete, including a
+bounded Phase 4 (Lead Scanner v1). See `docs/ROADMAP.md` and
+`docs/RELEASES/v1.0.0.md`.
+
+Delivered:
+
+- ✅ CRM foundation (leads, statuses, tasks, notes, activity timeline)
+- ✅ CRM Read Agent + read-only tool registry
+- ✅ Four confirmed CRM write actions (proposal → signed token → Confirm →
+  verified executor → audit); no autonomous writes
+- ✅ Background automation (deterministic checks, digest, optional AI
+  summary + deterministic fallback, overlap/stale-run guards)
+- ✅ RAG / AI memory (controlled ingestion, deterministic chunking + lexical
+  retrieval, grounded answers, prompt-injection boundary)
+- ✅ Production hardening (env-driven config, PostgreSQL readiness, health/
+  readiness, WhiteNoise, gunicorn, Docker, CI, deployment runbook)
+- ✅ v1.0 UX polish, access-control review, integrated acceptance suite
+- ✅ Lead Scanner v1 (offline source adapters, deterministic scoring,
+  staff review, explicit CRM import; no autonomous CRM writes)
+- ✅ 567 automated tests passing; zero real external AI calls
+
+## Current Agent Architecture
+
+```text
+Future CRM Read Agent
+        |
+        v
+Read-Only Tool Registry
+        |
+        v
+CRM Tools
+        |
+        v
+CRM Services
+        |
+        v
+Django ORM
+        |
+        v
+Database
+
 # Development Tracks
 
 We develop **three tracks in parallel**.

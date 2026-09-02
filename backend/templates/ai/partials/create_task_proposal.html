@@ -1,0 +1,470 @@
+{% if result.success %}
+
+    <div class="card shadow-sm border-warning">
+
+        <div class="card-header">
+            <strong>
+                Proposed CRM Change
+            </strong>
+        </div>
+
+
+        <div class="card-body">
+
+            <!-- ================================================= -->
+            <!-- ORIGINAL USER REQUEST -->
+            <!-- ================================================= -->
+
+            {% if user_message %}
+
+                <div class="mb-3">
+
+                    <div class="small text-muted mb-1">
+                        You asked
+                    </div>
+
+                    <div class="border-start border-3 ps-3">
+                        {{ user_message }}
+                    </div>
+
+                </div>
+
+            {% endif %}
+
+
+            <!-- ================================================= -->
+            <!-- CREATE TASK PROPOSAL -->
+            <!-- ================================================= -->
+
+            {% if result.proposal.action == "create_lead_task" %}
+
+                <!-- ================================================= -->
+                <!-- SAFETY NOTICE -->
+                <!-- ================================================= -->
+
+                <div
+                    class="alert alert-warning"
+                    role="alert"
+                >
+
+                    <strong>
+                        No CRM change has been made yet.
+                    </strong>
+
+                    <div class="mt-2">
+                        Nothing has changed in your CRM.
+                        This proposal will execute only if you click
+                        <strong>Confirm Create Task</strong>.
+                    </div>
+
+                </div>
+
+
+                <!-- ================================================= -->
+                <!-- PROPOSED TASK DETAILS -->
+                <!-- ================================================= -->
+
+                <dl class="row mb-0">
+
+                    <dt class="col-sm-3">
+                        Lead
+                    </dt>
+
+                    <dd class="col-sm-9">
+                        {{ result.proposal.lead.company_name }}
+                        (#{{ result.proposal.lead.id }})
+                    </dd>
+
+
+                    <dt class="col-sm-3">
+                        Task
+                    </dt>
+
+                    <dd class="col-sm-9">
+                        {{ result.proposal.arguments.title }}
+                    </dd>
+
+
+                    <dt class="col-sm-3">
+                        Type
+                    </dt>
+
+                    <dd class="col-sm-9">
+                        {{ result.proposal.arguments.task_type }}
+                    </dd>
+
+
+                    <dt class="col-sm-3">
+                        Priority
+                    </dt>
+
+                    <dd class="col-sm-9">
+                        {{ result.proposal.arguments.priority }}
+                    </dd>
+
+
+                    {% if result.proposal.arguments.description %}
+
+                        <dt class="col-sm-3">
+                            Description
+                        </dt>
+
+                        <dd class="col-sm-9">
+                            {{ result.proposal.arguments.description }}
+                        </dd>
+
+                    {% endif %}
+
+
+                    {% if result.proposal.arguments.due_date %}
+
+                        <dt class="col-sm-3">
+                            Due
+                        </dt>
+
+                        <dd class="col-sm-9">
+                            {{ result.proposal.arguments.due_date }}
+                        </dd>
+
+                    {% endif %}
+
+                </dl>
+
+
+            <!-- ================================================= -->
+            <!-- COMPLETE TASK PROPOSAL -->
+            <!-- ================================================= -->
+
+            {% elif result.proposal.action == "complete_lead_task" %}
+
+                <!-- ================================================= -->
+                <!-- SAFETY NOTICE -->
+                <!-- ================================================= -->
+
+                <div
+                    class="alert alert-warning"
+                    role="alert"
+                >
+
+                    <strong>
+                        No CRM change has been made yet.
+                    </strong>
+
+                    <div class="mt-2">
+                        This task will be marked completed only
+                        if you click
+                        <strong>Confirm Complete Task</strong>.
+                    </div>
+
+                </div>
+
+
+                <!-- ================================================= -->
+                <!-- TASK DETAILS -->
+                <!-- ================================================= -->
+
+                <dl class="row mb-0">
+
+                    <dt class="col-sm-3">
+                        Task
+                    </dt>
+
+                    <dd class="col-sm-9">
+                        {{ result.proposal.task.title }}
+                        (#{{ result.proposal.task.id }})
+                    </dd>
+
+
+                    <dt class="col-sm-3">
+                        Lead
+                    </dt>
+
+                    <dd class="col-sm-9">
+                        {{ result.proposal.lead.company_name }}
+                        (#{{ result.proposal.lead.id }})
+                    </dd>
+
+
+                    <dt class="col-sm-3">
+                        Current status
+                    </dt>
+
+                    <dd class="col-sm-9">
+                        {{ result.proposal.task.status }}
+                    </dd>
+
+
+                    <dt class="col-sm-3">
+                        Priority
+                    </dt>
+
+                    <dd class="col-sm-9">
+                        {{ result.proposal.task.priority }}
+                    </dd>
+
+                </dl>
+
+
+            <!-- ================================================= -->
+            <!-- CHANGE LEAD STATUS PROPOSAL -->
+            <!-- ================================================= -->
+
+            {% elif result.proposal.action == "change_lead_status" %}
+
+                <!-- ================================================= -->
+                <!-- SAFETY NOTICE -->
+                <!-- ================================================= -->
+
+                <div
+                    class="alert alert-warning"
+                    role="alert"
+                >
+
+                    <strong>
+                        No CRM change has been made yet.
+                    </strong>
+
+                    <div class="mt-2">
+                        The lead status will change only if
+                        you click
+                        <strong>Confirm Status Change</strong>.
+                    </div>
+
+                </div>
+
+
+                <!-- ================================================= -->
+                <!-- LEAD STATUS DETAILS -->
+                <!-- ================================================= -->
+
+                <dl class="row mb-0">
+
+                    <dt class="col-sm-3">
+                        Lead
+                    </dt>
+
+                    <dd class="col-sm-9">
+                        {{ result.proposal.lead.company_name }}
+                        (#{{ result.proposal.lead.id }})
+                    </dd>
+
+
+                    <dt class="col-sm-3">
+                        Current status
+                    </dt>
+
+                    <dd class="col-sm-9">
+                        {{ result.proposal.lead.status }}
+                    </dd>
+
+
+                    <dt class="col-sm-3">
+                        New status
+                    </dt>
+
+                    <dd class="col-sm-9">
+                        {{ result.proposal.arguments.status }}
+                    </dd>
+
+                </dl>
+
+
+            <!-- ================================================= -->
+            <!-- ADD LEAD NOTE PROPOSAL -->
+            <!-- ================================================= -->
+
+            {% elif result.proposal.action == "add_lead_note" %}
+
+                <!-- ================================================= -->
+                <!-- SAFETY NOTICE -->
+                <!-- ================================================= -->
+
+                <div
+                    class="alert alert-warning"
+                    role="alert"
+                >
+
+                    <strong>
+                        No CRM change has been made yet.
+                    </strong>
+
+                    <div class="mt-2">
+                        This note will be added only if
+                        you click
+                        <strong>Confirm Add Note</strong>.
+                    </div>
+
+                </div>
+
+
+                <!-- ================================================= -->
+                <!-- LEAD NOTE DETAILS -->
+                <!-- ================================================= -->
+
+                <dl class="row mb-0">
+
+                    <dt class="col-sm-3">
+                        Lead
+                    </dt>
+
+                    <dd class="col-sm-9">
+                        {{ result.proposal.lead.company_name }}
+                        (#{{ result.proposal.lead.id }})
+                    </dd>
+
+
+                    <dt class="col-sm-3">
+                        Lead status
+                    </dt>
+
+                    <dd class="col-sm-9">
+                        {{ result.proposal.lead.status }}
+                    </dd>
+
+
+                    <dt class="col-sm-3">
+                        Note
+                    </dt>
+
+                    <dd class="col-sm-9">
+                        {{ result.proposal.activity.description }}
+                    </dd>
+
+                </dl>
+
+
+            <!-- ================================================= -->
+            <!-- UNKNOWN PROPOSAL ACTION -->
+            <!-- ================================================= -->
+
+            {% else %}
+
+                <div
+                    class="alert alert-warning"
+                    role="alert"
+                >
+
+                    <strong>
+                        Unsupported CRM proposal.
+                    </strong>
+
+                    <div class="mt-1">
+                        This proposal action is not supported by
+                        the current interface.
+                    </div>
+
+                </div>
+
+            {% endif %}
+
+
+            <!-- ================================================= -->
+            <!-- CONFIRMATION CONTROLS -->
+            <!-- ================================================= -->
+
+            {% if result.proposal.action == "create_lead_task" or result.proposal.action == "complete_lead_task" or result.proposal.action == "change_lead_status" or result.proposal.action == "add_lead_note" %}
+
+                <hr>
+
+                <div class="d-flex justify-content-end gap-2">
+
+                    <!-- Cancel -->
+
+                    <a
+                        href="{% url 'ai:crm_assistant' %}"
+                        class="btn btn-outline-secondary"
+                    >
+                        Cancel
+                    </a>
+
+
+                    <!-- Confirm -->
+
+                    <form
+                        hx-post="{% url 'ai:crm_assistant_task_confirm' %}"
+                        hx-target="#task-action-area"
+                        hx-swap="innerHTML"
+                        hx-disabled-elt="find button"
+                    >
+
+                        {% csrf_token %}
+
+                        <input
+                            type="hidden"
+                            name="proposal_token"
+                            value="{{ proposal_token }}"
+                        >
+
+
+                        <button
+                            type="submit"
+                            class="btn btn-warning"
+                        >
+
+                            {% if result.proposal.action == "complete_lead_task" %}
+
+                                Confirm Complete Task
+
+                            {% elif result.proposal.action == "change_lead_status" %}
+
+                                Confirm Status Change
+
+                            {% elif result.proposal.action == "add_lead_note" %}
+
+                                Confirm Add Note
+
+                            {% else %}
+
+                                Confirm Create Task
+
+                            {% endif %}
+
+                        </button>
+
+                    </form>
+
+                </div>
+
+            {% endif %}
+
+        </div>
+
+    </div>
+
+
+{% else %}
+
+    <!-- ========================================================= -->
+    <!-- ERROR STATE -->
+    <!-- ========================================================= -->
+
+    <div
+        class="alert alert-warning"
+        role="alert"
+    >
+
+        <strong>
+            Could not prepare this CRM action.
+        </strong>
+
+        <div class="mt-1">
+            {{ result.error.message }}
+        </div>
+
+
+        {% if result.error.code %}
+
+            <div class="small text-muted mt-2">
+
+                Code:
+                <code>
+                    {{ result.error.code }}
+                </code>
+
+            </div>
+
+        {% endif %}
+
+    </div>
+
+{% endif %}

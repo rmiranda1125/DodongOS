@@ -137,6 +137,12 @@ class Lead(models.Model):
     )
 
 
+    class Meta:
+        indexes = [
+            models.Index(fields=["status"]),
+        ]
+
+
     def __str__(self):
 
         return f"{self.company_name} - {self.job_title}"
@@ -217,6 +223,9 @@ class LeadActivity(models.Model):
     class Meta:
         ordering = [
             "-created_at",
+        ]
+        indexes = [
+            models.Index(fields=["lead", "-created_at"]),
         ]
 
     def __str__(self):
@@ -306,6 +315,9 @@ class LeadTask(models.Model):
             "status",
             "due_date",
             "-created_at",
+        ]
+        indexes = [
+            models.Index(fields=["status", "due_date"]),
         ]
 
     def __str__(self):

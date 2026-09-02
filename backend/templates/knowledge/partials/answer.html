@@ -1,0 +1,69 @@
+<div class="card shadow-sm border-{% if result.success %}success{% else %}danger{% endif %}">
+
+    <div class="card-header bg-light">
+        <strong>🤖 Dodong Knowledge</strong>
+    </div>
+
+    <div class="card-body">
+
+        {% if question %}
+            <div class="small text-muted mb-1">You asked</div>
+            <div class="border-start border-3 ps-3 mb-3">
+                {{ question }}
+            </div>
+            <hr>
+        {% endif %}
+
+        {% if not result.success %}
+
+            <div class="alert alert-danger mb-0" role="alert">
+                <strong>{{ result.error.code }}</strong>
+                <div>{{ result.error.message }}</div>
+            </div>
+
+        {% else %}
+
+            {% if result.warning %}
+                <div class="alert alert-warning" role="alert">
+                    <strong>{{ result.warning.code }}</strong>
+                    <div>
+                        The AI answer was unavailable; showing
+                        retrieved evidence instead.
+                    </div>
+                </div>
+            {% endif %}
+
+            <div style="white-space: pre-wrap;">{{ result.answer }}</div>
+
+            {% if result.evidence %}
+                <hr>
+                <div class="small text-muted mb-2">
+                    Evidence ({{ result.evidence|length }})
+                    — source: <code>{{ result.source }}</code>
+                </div>
+                <ul class="list-group list-group-flush">
+                    {% for item in result.evidence %}
+                        <li class="list-group-item px-0">
+                            <div class="fw-semibold">
+                                [{{ forloop.counter }}]
+                                {{ item.document_title }}
+                                <span class="text-muted small">
+                                    ({{ item.source_type }}/{{ item.source_reference }},
+                                    chunk {{ item.chunk_index }})
+                                </span>
+                            </div>
+                            <div class="small">{{ item.content|truncatechars:400 }}</div>
+                        </li>
+                    {% endfor %}
+                </ul>
+            {% endif %}
+
+        {% endif %}
+
+    </div>
+
+    <div class="card-footer text-muted small">
+        Read-only knowledge retrieval. No CRM records were changed.
+    </div>
+
+</div>

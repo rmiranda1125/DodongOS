@@ -1,0 +1,162 @@
+{% extends "base.html" %}
+{% block title %}Scan a job posting{% endblock %}
+
+{% block content %}
+
+<a href="{% url 'scanner:review_queue' %}" class="small">
+    <i class="bi bi-arrow-left"></i> Back to queue
+</a>
+
+<div class="dodong-page-header mt-2">
+    <div>
+        <h1 class="dodong-page-title">Scan a job posting</h1>
+        <p class="dodong-page-desc">
+            Paste a public job posting URL to analyse it against your
+            configured skills. This only discovers an opportunity
+            &mdash; nothing is added to the CRM until you review and
+            import it.
+        </p>
+    </div>
+</div>
+
+{% if messages %}
+    {% for message in messages %}
+        <div class="alert alert-{{ message.tags|default:'info' }}">{{ message }}</div>
+    {% endfor %}
+{% endif %}
+
+<div class="row g-3">
+    <div class="col-lg-7">
+        <div class="card">
+            <div class="card-header">Job posting URL</div>
+            <div class="card-body">
+
+                {% if error %}
+                    <div class="alert alert-danger" role="alert">{{ error }}</div>
+                {% endif %}
+
+                <form method="post" id="scan-url-form">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label for="job-url" class="form-label">
+                            Public job posting link
+                        </label>
+                        <input type="url" id="job-url" name="job_url"
+                               class="form-control"
+                               inputmode="url"
+                               placeholder="https://example.com/job-posting"
+                               value="{{ submitted_url|default:'' }}"
+                               aria-describedby="job-url-help" required>
+                        <div id="job-url-help" class="form-text">
+                            Only public <code>http</code> / <code>https</code>
+                            pages can be scanned. Pages that require login or
+                            block automated access will not work.
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary"
+                            id="scan-url-button"
+                            data-idle="&#128269; Scan job"
+                            data-busy="&#128260; Scanning job posting&hellip;">
+                        &#128269; Scan job
+                    </button>
+                    <a href="{% url 'scanner:scan_runs' %}"
+                       class="btn btn-outline-secondary">
+                        Scan history
+                    </a>
+                </form>
+
+                <ol id="scan-progress" class="small text-meta mt-3 mb-0" hidden>
+                    <li>Fetching job posting</li>
+                    <li>Extracting job information</li>
+                    <li>Analysing required skills</li>
+                    <li>Calculating match score</li>
+                    <li>Saving opportunity</li>
+                </ol>
+
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-5">
+        {% if result %}
+            {% if result.success %}
+            <div class="card">
+                <div class="card-header">Scan result</div>
+                <div class="card-body">
+                    <div class="mb-2">
+                        {% if result.created %}
+                            <span class="badge dodong-status text-bg-success">New opportunity</span>
+                        {% else %}
+                            <span class="badge dodong-status text-bg-warning">Already scanned</span>
+                        {% endif %}
+                        <span class="text-meta ms-1">run #{{ result.run_id }}</span>
+                    </div>
+
+                    {% if not result.created %}
+                        <p class="small mb-2">
+                            This job has already been scanned. Open the
+                            existing result to review or import it.
+                        </p>
+                    {% endif %}
+
+                    <dl class="row small mb-2">
+                        <dt class="col-5">Company</dt>
+                        <dd class="col-7">{{ result.company_name|default:"—" }}</dd>
+                        <dt class="col-5">Opportunity</dt>
+                        <dd class="col-7">{{ result.opportunity_title|default:"—" }}</dd>
+                        <dt class="col-5">Match score</dt>
+                        <dd class="col-7">
+                            <span class="dodong-score">{{ result.score }}</span>
+                            <span class="text-meta">/100 ({{ result.qualification }})</span>
+                        </dd>
+                    </dl>
+
+                    <a href="{% url 'scanner:candidate_detail' result.candidate_id %}"
+                       class="btn btn-primary btn-sm mt-1">
+                        {% if result.created %}Review this opportunity{% else %}View existing result{% endif %}
+                    </a>
+                </div>
+            </div>
+            {% else %}
+            <div class="card border-danger">
+                <div class="card-header">Scan failed</div>
+                <div class="card-body">
+                    <div class="alert alert-danger small mb-2" role="alert">
+                        {{ result.error.message }}
+                    </div>
+                    <div class="text-meta small">
+                        Code: <code>{{ result.error.code }}</code>
+                        &middot; run #{{ result.run_id }}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        {% else %}
+        <div class="card">
+            <div class="card-body dodong-empty">
+                <i class="bi bi-link-45deg"></i>
+                Paste a link to see the scan result here.
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+(function () {
+    var form = document.getElementById("scan-url-form");
+    if (!form) { return; }
+    form.addEventListener("submit", function () {
+        var button = document.getElementById("scan-url-button");
+        var progress = document.getElementById("scan-progress");
+        if (button) {
+            button.disabled = true;
+            button.innerHTML = button.getAttribute("data-busy");
+        }
+        if (progress) { progress.hidden = false; }
+    });
+})();
+</script>
+
+{% endblock %}

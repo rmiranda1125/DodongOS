@@ -1,0 +1,227 @@
+/* =========================================================
+   Dodong OS — application design system
+   Bootstrap 5 remains the primary system. This file adds a
+   small set of tokens + shell/table/badge polish only.
+   ========================================================= */
+
+:root {
+    --dodong-sidebar-width: 240px;
+    --dodong-bg: #f4f6f9;
+    --dodong-surface: #ffffff;
+    --dodong-border: #e4e7ec;
+    --dodong-radius: 10px;
+    --dodong-muted: #6b7280;
+    --dodong-sidebar-bg: #1f2430;
+    --dodong-sidebar-fg: #cdd3df;
+    --dodong-sidebar-fg-active: #ffffff;
+    --dodong-sidebar-active-bg: rgba(255, 255, 255, 0.09);
+    --dodong-accent: #2563eb;
+}
+
+html,
+body {
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    background: var(--dodong-bg);
+    font-size: 0.95rem;
+}
+
+h1, h2, h3, h4, h5, h6 {
+    font-weight: 600;
+    letter-spacing: -0.01em;
+}
+
+h1 { font-size: 1.6rem; }
+h2 { font-size: 1.35rem; }
+h3 { font-size: 1.15rem; }
+
+.text-meta {
+    color: var(--dodong-muted);
+    font-size: 0.85rem;
+}
+
+/* ---------- App shell ---------- */
+
+.dodong-shell {
+    display: flex;
+    min-height: 100vh;
+}
+
+.dodong-sidebar {
+    width: var(--dodong-sidebar-width);
+    flex: 0 0 var(--dodong-sidebar-width);
+    background: var(--dodong-sidebar-bg);
+    color: var(--dodong-sidebar-fg);
+    padding: 1rem 0.75rem;
+    position: sticky;
+    top: 0;
+    align-self: flex-start;
+    height: 100vh;
+    overflow-y: auto;
+}
+
+.dodong-main {
+    flex: 1 1 auto;
+    min-width: 0;              /* prevents flex overflow of wide tables */
+    padding: 1.5rem;
+}
+
+@media (max-width: 991.98px) {
+    .dodong-main { padding: 1rem; }
+}
+
+/* ---------- Sidebar nav ---------- */
+
+.dodong-nav-group {
+    text-transform: uppercase;
+    font-size: 0.68rem;
+    letter-spacing: 0.06em;
+    color: #8a93a5;
+    padding: 0 0.5rem;
+    margin: 1rem 0 0.35rem;
+}
+.dodong-nav-group:first-child { margin-top: 0; }
+
+.dodong-nav-link {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.45rem 0.6rem;
+    border-radius: 8px;
+    color: var(--dodong-sidebar-fg);
+    text-decoration: none;
+    font-size: 0.9rem;
+    line-height: 1.2;
+}
+.dodong-nav-link .bi { font-size: 1rem; opacity: 0.85; }
+.dodong-nav-link:hover {
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--dodong-sidebar-fg-active);
+}
+.dodong-nav-link.active {
+    background: var(--dodong-sidebar-active-bg);
+    color: var(--dodong-sidebar-fg-active);
+    font-weight: 600;
+}
+
+.dodong-sidebar-footer {
+    margin-top: 1.25rem;
+    padding: 0.75rem 0.6rem 0;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    font-size: 0.75rem;
+    color: #8a93a5;
+}
+
+/* ---------- Surfaces ---------- */
+
+.card {
+    border: 1px solid var(--dodong-border);
+    border-radius: var(--dodong-radius);
+}
+.card > .card-header {
+    background: #fafbfc;
+    border-bottom: 1px solid var(--dodong-border);
+    font-weight: 600;
+}
+.dodong-card-tight .card-body { padding: 1rem 1.15rem; }
+
+/* ---------- Page header ---------- */
+
+.dodong-page-header {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 1.25rem;
+}
+.dodong-page-header .dodong-page-title { margin: 0; }
+.dodong-page-header .dodong-page-desc {
+    margin: 0.15rem 0 0;
+    color: var(--dodong-muted);
+    font-size: 0.9rem;
+}
+
+/* ---------- Tables ---------- */
+
+.table {
+    --bs-table-hover-bg: #f6f8fb;
+}
+.table > thead th {
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: var(--dodong-muted);
+    border-bottom-width: 1px;
+    white-space: nowrap;
+}
+.table td, .table th { vertical-align: middle; }
+.dodong-truncate {
+    max-width: 22rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* ---------- Status badge helper ---------- */
+
+.badge.dodong-status {
+    font-weight: 600;
+    padding: 0.35em 0.6em;
+    border-radius: 999px;
+}
+
+/* ---------- Score / meter ---------- */
+
+.dodong-score {
+    font-size: 1.5rem;
+    font-weight: 700;
+    line-height: 1;
+}
+.dodong-meter {
+    height: 6px;
+    border-radius: 999px;
+    background: #eceef2;
+    overflow: hidden;
+}
+.dodong-meter > span {
+    display: block;
+    height: 100%;
+    background: var(--dodong-accent);
+}
+
+/* ---------- HTMX loading ---------- */
+
+.htmx-indicator { display: none; }
+.htmx-request .htmx-indicator,
+.htmx-request.htmx-indicator { display: inline-flex; align-items: center; gap: 0.4rem; }
+
+.dodong-working {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    color: var(--dodong-muted);
+    font-size: 0.85rem;
+}
+
+/* ---------- Empty state ---------- */
+
+.dodong-empty {
+    text-align: center;
+    padding: 2.5rem 1rem;
+    color: var(--dodong-muted);
+}
+.dodong-empty .bi { font-size: 1.75rem; opacity: 0.5; display: block; margin-bottom: 0.5rem; }
+
+/* ---------- Focus visibility ---------- */
+
+a:focus-visible,
+.btn:focus-visible,
+.form-control:focus-visible,
+.form-select:focus-visible {
+    outline: 2px solid var(--dodong-accent);
+    outline-offset: 1px;
+}

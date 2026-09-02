@@ -413,6 +413,94 @@
 
 
     <!-- ================================================= -->
+    <!-- CONTACT THIS LEAD -->
+    <!-- ================================================= -->
+
+    <div class="card mb-4">
+
+        <div class="card-header">
+
+            <strong>
+                Contact this lead
+            </strong>
+
+        </div>
+
+
+        <div class="card-body">
+
+            <p class="text-muted">
+                Have the AI assistant draft a first-contact message
+                you can edit and send. This does not change the lead
+                and does not contact anyone.
+            </p>
+
+
+            <form
+                hx-post="{% url 'ai:lead_outreach_draft' lead.id %}"
+                hx-target="#outreach-draft"
+                hx-swap="innerHTML"
+                hx-disabled-elt="this"
+            >
+
+                {% csrf_token %}
+
+
+                <div class="d-flex gap-2 align-items-end flex-wrap">
+
+                    <div>
+
+                        <label
+                            for="outreach-tone"
+                            class="form-label small mb-1"
+                        >
+                            Tone
+                        </label>
+
+                        <select
+                            id="outreach-tone"
+                            name="tone"
+                            class="form-select form-select-sm"
+                        >
+                            <option value="professional">
+                                Professional
+                            </option>
+
+                            <option value="friendly">
+                                Friendly
+                            </option>
+
+                            <option value="concise">
+                                Concise
+                            </option>
+                        </select>
+
+                    </div>
+
+
+                    <button
+                        type="submit"
+                        class="btn btn-primary"
+                    >
+                        Draft outreach message
+                    </button>
+
+                </div>
+
+            </form>
+
+
+            <div
+                id="outreach-draft"
+                class="mt-3"
+            ></div>
+
+        </div>
+
+    </div>
+
+
+    <!-- ================================================= -->
     <!-- JOB INFORMATION -->
     <!-- ================================================= -->
 

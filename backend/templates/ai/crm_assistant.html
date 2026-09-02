@@ -1,0 +1,641 @@
+{% extends "base.html" %}
+
+{% block title %}
+    Dodong Assistant
+{% endblock %}
+
+
+{% block content %}
+
+<div class="container-fluid">
+
+    <div class="row justify-content-center">
+
+        <div class="col-xl-9 col-lg-10">
+
+            <!-- ================================================= -->
+            <!-- HEADER -->
+            <!-- ================================================= -->
+
+            <div class="mb-4">
+
+                <h2 class="mb-1">
+                    <i class="bi bi-stars"></i> Dodong Assistant
+                </h2>
+
+                <p class="text-muted mb-0">
+                    Ask about leads, tasks, activities, and
+                    pipeline. Controlled changes always need an
+                    explicit Confirm step.
+                </p>
+
+                <!-- Staff-only Audit Link -->
+
+                {% if request.user.is_staff %}
+
+                    <a
+                        href="{% url 'ai:crm_action_audit' %}"
+                        class="btn btn-outline-secondary btn-sm mt-2"
+                    >
+                        View Action Audit
+                    </a>
+
+                {% endif %}
+
+            </div>
+
+
+            <!-- ================================================= -->
+            <!-- SAFETY NOTICE -->
+            <!-- ================================================= -->
+
+            <div
+                class="alert alert-info"
+                role="alert"
+            >
+
+                <strong>Read-only mode.</strong>
+
+                Dodong can inspect leads, tasks,
+                activities, and pipeline information,
+                but natural-language CRM changes
+                require an explicit review and confirmation.
+
+            </div>
+
+
+            <!-- ================================================= -->
+            <!-- QUESTION CARD -->
+            <!-- ================================================= -->
+
+            <div class="card shadow-sm mb-4">
+
+                <div class="card-body">
+
+                    <form
+                        hx-post="{% url 'ai:crm_assistant_ask' %}"
+                        hx-target="#assistant-response"
+                        hx-swap="innerHTML"
+                        hx-indicator="#assistant-loading"
+                        hx-disabled-elt="find button"
+                    >
+
+                        {% csrf_token %}
+
+                        <label
+                            for="crm-assistant-message"
+                            class="form-label fw-semibold"
+                        >
+                            Ask Dodong
+                        </label>
+
+                        <div class="input-group">
+
+                            <input
+                                type="text"
+                                id="crm-assistant-message"
+                                name="message"
+                                class="form-control"
+                                placeholder="Ask about tasks, leads, activities, or your pipeline..."
+                                autocomplete="off"
+                                required
+                            >
+
+                            <button
+                                type="submit"
+                                class="btn btn-primary"
+                            >
+                                Ask Dodong
+                            </button>
+
+                        </div>
+
+                    </form>
+
+
+                    <div
+                        id="assistant-loading"
+                        class="htmx-indicator mt-3 text-muted"
+                    >
+                        Dodong is checking your CRM...
+                    </div>
+
+                </div>
+
+            </div>
+
+
+            <!-- ================================================= -->
+            <!-- EXAMPLES -->
+            <!-- ================================================= -->
+
+            <div class="card shadow-sm mb-4">
+
+                <div class="card-body">
+
+                    <h6 class="mb-3">
+                        Example questions
+                    </h6>
+
+                    <div class="d-flex flex-wrap gap-2">
+
+                        <!-- Priority Tasks -->
+
+                        <form
+                            hx-post="{% url 'ai:crm_assistant_ask' %}"
+                            hx-target="#assistant-response"
+                            hx-swap="innerHTML"
+                            hx-indicator="#assistant-loading"
+                            hx-disabled-elt="find button"
+                        >
+
+                            {% csrf_token %}
+
+                            <input
+                                type="hidden"
+                                name="message"
+                                value="What tasks need my attention?"
+                            >
+
+                            <button
+                                type="submit"
+                                class="btn btn-outline-secondary btn-sm"
+                            >
+                                What tasks need my attention?
+                            </button>
+
+                        </form>
+
+
+                        <!-- Overdue Tasks -->
+
+                        <form
+                            hx-post="{% url 'ai:crm_assistant_ask' %}"
+                            hx-target="#assistant-response"
+                            hx-swap="innerHTML"
+                            hx-indicator="#assistant-loading"
+                            hx-disabled-elt="find button"
+                        >
+
+                            {% csrf_token %}
+
+                            <input
+                                type="hidden"
+                                name="message"
+                                value="What tasks are overdue?"
+                            >
+
+                            <button
+                                type="submit"
+                                class="btn btn-outline-secondary btn-sm"
+                            >
+                                What tasks are overdue?
+                            </button>
+
+                        </form>
+
+
+                        <!-- Pending Tasks -->
+
+                        <form
+                            hx-post="{% url 'ai:crm_assistant_ask' %}"
+                            hx-target="#assistant-response"
+                            hx-swap="innerHTML"
+                            hx-indicator="#assistant-loading"
+                            hx-disabled-elt="find button"
+                        >
+
+                            {% csrf_token %}
+
+                            <input
+                                type="hidden"
+                                name="message"
+                                value="Show me pending tasks."
+                            >
+
+                            <button
+                                type="submit"
+                                class="btn btn-outline-secondary btn-sm"
+                            >
+                                Show me pending tasks.
+                            </button>
+
+                        </form>
+
+
+                        <!-- Pipeline -->
+
+                        <form
+                            hx-post="{% url 'ai:crm_assistant_ask' %}"
+                            hx-target="#assistant-response"
+                            hx-swap="innerHTML"
+                            hx-indicator="#assistant-loading"
+                            hx-disabled-elt="find button"
+                        >
+
+                            {% csrf_token %}
+
+                            <input
+                                type="hidden"
+                                name="message"
+                                value="Summarize my pipeline."
+                            >
+
+                            <button
+                                type="submit"
+                                class="btn btn-outline-secondary btn-sm"
+                            >
+                                Summarize my pipeline.
+                            </button>
+
+                        </form>
+
+
+                        <!-- Get Lead -->
+
+                        <form
+                            hx-post="{% url 'ai:crm_assistant_ask' %}"
+                            hx-target="#assistant-response"
+                            hx-swap="innerHTML"
+                            hx-indicator="#assistant-loading"
+                            hx-disabled-elt="find button"
+                        >
+
+                            {% csrf_token %}
+
+                            <input
+                                type="hidden"
+                                name="message"
+                                value="Tell me about lead 12."
+                            >
+
+                            <button
+                                type="submit"
+                                class="btn btn-outline-secondary btn-sm"
+                            >
+                                Tell me about lead 12.
+                            </button>
+
+                        </form>
+
+
+                        <!-- Lead Activities -->
+
+                        <form
+                            hx-post="{% url 'ai:crm_assistant_ask' %}"
+                            hx-target="#assistant-response"
+                            hx-swap="innerHTML"
+                            hx-indicator="#assistant-loading"
+                            hx-disabled-elt="find button"
+                        >
+
+                            {% csrf_token %}
+
+                            <input
+                                type="hidden"
+                                name="message"
+                                value="What happened with lead 12?"
+                            >
+
+                            <button
+                                type="submit"
+                                class="btn btn-outline-secondary btn-sm"
+                            >
+                                What happened with lead 12?
+                            </button>
+
+                        </form>
+
+
+                        <!-- Qualified Leads -->
+
+                        <form
+                            hx-post="{% url 'ai:crm_assistant_ask' %}"
+                            hx-target="#assistant-response"
+                            hx-swap="innerHTML"
+                            hx-indicator="#assistant-loading"
+                            hx-disabled-elt="find button"
+                        >
+
+                            {% csrf_token %}
+
+                            <input
+                                type="hidden"
+                                name="message"
+                                value="Find qualified leads."
+                            >
+
+                            <button
+                                type="submit"
+                                class="btn btn-outline-secondary btn-sm"
+                            >
+                                Find qualified leads.
+                            </button>
+
+                        </form>
+
+
+                        <!-- Power BI Leads -->
+
+                        <form
+                            hx-post="{% url 'ai:crm_assistant_ask' %}"
+                            hx-target="#assistant-response"
+                            hx-swap="innerHTML"
+                            hx-indicator="#assistant-loading"
+                            hx-disabled-elt="find button"
+                        >
+
+                            {% csrf_token %}
+
+                            <input
+                                type="hidden"
+                                name="message"
+                                value="Find Power BI leads."
+                            >
+
+                            <button
+                                type="submit"
+                                class="btn btn-outline-secondary btn-sm"
+                            >
+                                Find Power BI leads.
+                            </button>
+
+                        </form>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+
+            <!-- ================================================= -->
+            <!-- RESPONSE -->
+            <!-- ================================================= -->
+
+            <div
+                id="assistant-response"
+                aria-live="polite"
+                aria-busy="false"
+            >
+
+                <div class="card shadow-sm">
+
+                    <div class="card-body text-muted">
+
+                        Ask a CRM question above to begin.
+
+                    </div>
+
+                </div>
+
+            </div>
+
+
+            <!-- ================================================= -->
+            <!-- CONTROLLED CRM TASK CREATION -->
+            <!-- ================================================= -->
+
+            <div class="card shadow-sm mt-4">
+
+                <div class="card-header bg-light">
+
+                    <strong>
+                        Create Follow-Up Task
+                    </strong>
+
+                </div>
+
+                <div class="card-body">
+
+                    <div
+                        class="alert alert-warning"
+                        role="alert"
+                    >
+
+                        <strong>
+                            Controlled write action.
+                        </strong>
+
+                        Nothing will be written to the CRM
+                        until you review the proposal and
+                        explicitly confirm it.
+
+                    </div>
+
+
+                    <form
+                        hx-post="{% url 'ai:crm_assistant_task_proposal' %}"
+                        hx-target="#task-action-area"
+                        hx-swap="innerHTML"
+                        hx-indicator="#task-proposal-loading"
+                        hx-disabled-elt="find button"
+                    >
+
+                        {% csrf_token %}
+
+
+                        <!-- Lead -->
+
+                        <div class="mb-3">
+
+                            <label
+                                for="task-lead-id"
+                                class="form-label fw-semibold"
+                            >
+                                Lead ID
+                            </label>
+
+                            <input
+                                type="number"
+                                id="task-lead-id"
+                                name="lead_id"
+                                class="form-control"
+                                min="1"
+                                placeholder="e.g. 12"
+                                required
+                            >
+
+                            <div class="form-text">
+                                Enter the CRM lead ID for the
+                                follow-up task.
+                            </div>
+
+                        </div>
+
+
+                        <!-- Task Title -->
+
+                        <div class="mb-3">
+
+                            <label
+                                for="task-title"
+                                class="form-label fw-semibold"
+                            >
+                                Task title
+                            </label>
+
+                            <input
+                                type="text"
+                                id="task-title"
+                                name="title"
+                                class="form-control"
+                                maxlength="255"
+                                placeholder="Follow up with client"
+                                required
+                            >
+
+                        </div>
+
+
+                        <!-- Description -->
+
+                        <div class="mb-3">
+
+                            <label
+                                for="task-description"
+                                class="form-label fw-semibold"
+                            >
+                                Description
+                            </label>
+
+                            <textarea
+                                id="task-description"
+                                name="description"
+                                class="form-control"
+                                rows="3"
+                                placeholder="Describe what needs to be done..."
+                            ></textarea>
+
+                        </div>
+
+
+                        <!-- Task Type -->
+
+                        <div class="mb-3">
+
+                            <label
+                                for="task-type"
+                                class="form-label fw-semibold"
+                            >
+                                Task type
+                            </label>
+
+                            <select
+                                id="task-type"
+                                name="task_type"
+                                class="form-select"
+                            >
+
+                                <option value="follow_up" selected>
+                                    Follow-up
+                                </option>
+
+                                <option value="research">
+                                    Research
+                                </option>
+
+                                <option value="meeting">
+                                    Meeting
+                                </option>
+
+                                <option value="email">
+                                    Email
+                                </option>
+
+                                <option value="other">
+                                    Other
+                                </option>
+
+                            </select>
+
+                        </div>
+
+
+                        <!-- Priority -->
+
+                        <div class="mb-3">
+
+                            <label
+                                for="task-priority"
+                                class="form-label fw-semibold"
+                            >
+                                Priority
+                            </label>
+
+                            <select
+                                id="task-priority"
+                                name="priority"
+                                class="form-select"
+                            >
+
+                                <option value="low">
+                                    Low
+                                </option>
+
+                                <option
+                                    value="medium"
+                                    selected
+                                >
+                                    Medium
+                                </option>
+
+                                <option value="high">
+                                    High
+                                </option>
+
+                                <option value="urgent">
+                                    Urgent
+                                </option>
+
+                            </select>
+
+                        </div>
+
+
+                        <!-- Submit -->
+
+                        <div class="mt-3">
+
+                            <button
+                                type="submit"
+                                class="btn btn-outline-primary"
+                            >
+                                Review Task Proposal
+                            </button>
+
+                        </div>
+
+                    </form>
+
+
+                    <div
+                        id="task-proposal-loading"
+                        class="htmx-indicator mt-3 text-muted"
+                    >
+                        Preparing the task proposal...
+                    </div>
+
+                </div>
+
+            </div>
+
+
+            <!-- ================================================= -->
+            <!-- TASK ACTION AREA -->
+            <!-- ================================================= -->
+
+            <div
+                id="task-action-area"
+                class="mt-3"
+                aria-live="polite"
+            >
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+{% endblock %}

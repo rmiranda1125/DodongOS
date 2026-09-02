@@ -1,0 +1,206 @@
+{% extends "base.html" %}
+{% block title %}Candidate review{% endblock %}
+
+{% block content %}
+
+<a href="{% url 'scanner:review_queue' %}" class="small">
+    <i class="bi bi-arrow-left"></i> Back to queue
+</a>
+
+{% if not candidate %}
+    <div class="alert alert-danger mt-3">Candidate not found.</div>
+{% else %}
+
+{% if messages %}
+    {% for message in messages %}
+        <div class="alert alert-{{ message.tags|default:'info' }} mt-3">{{ message }}</div>
+    {% endfor %}
+{% endif %}
+
+<div class="dodong-page-header mt-2">
+    <div>
+        <h1 class="dodong-page-title">{{ candidate.company_name }}</h1>
+        <p class="dodong-page-desc">
+            {{ candidate.opportunity_title|default:"(no title)" }}
+        </p>
+    </div>
+    <div class="text-end">
+        <span class="dodong-score">{{ candidate.score }}</span>
+        <span class="text-meta">/100</span><br>
+        {% include "partials/status_badge.html" with value=candidate.qualification kind="qualification" %}
+        {% include "partials/status_badge.html" with value=candidate.status kind="scanner" %}
+    </div>
+</div>
+
+{% if candidate.source_url %}
+    <div class="mb-3">
+        <a href="{{ candidate.source_url }}"
+           class="btn btn-outline-primary"
+           rel="nofollow noopener noreferrer" target="_blank">
+            <i class="bi bi-box-arrow-up-right"></i>
+            Open original job posting
+        </a>
+    </div>
+{% endif %}
+
+<div class="row g-3">
+
+    {# ---------- LEFT: candidate information ---------- #}
+    <div class="col-lg-7">
+        <div class="card mb-3">
+            <div class="card-header">Candidate information</div>
+            <div class="card-body">
+                <dl class="row mb-0 small">
+                    <dt class="col-sm-4">Source</dt>
+                    <dd class="col-sm-8"><code>{{ candidate.source }}</code></dd>
+                    <dt class="col-sm-4">Source link</dt>
+                    <dd class="col-sm-8">
+                        {% if candidate.source_url %}
+                            <a href="{{ candidate.source_url }}"
+                               rel="nofollow noopener noreferrer" target="_blank">
+                               {{ candidate.source_url|truncatechars:60 }}</a>
+                        {% else %}—{% endif %}
+                    </dd>
+                    <dt class="col-sm-4">Contact</dt>
+                    <dd class="col-sm-8">{{ candidate.contact_name|default:"—" }}</dd>
+                    <dt class="col-sm-4">Location</dt>
+                    <dd class="col-sm-8">{{ candidate.location|default:"—" }}</dd>
+                    <dt class="col-sm-4">Work arrangement</dt>
+                    <dd class="col-sm-8">{{ candidate.work_arrangement|default:"—" }}</dd>
+                    <dt class="col-sm-4">Compensation</dt>
+                    <dd class="col-sm-8">{{ candidate.compensation_text|default:"—" }}</dd>
+                    <dt class="col-sm-4">Times seen</dt>
+                    <dd class="col-sm-8">{{ candidate.times_seen }}</dd>
+                    <dt class="col-sm-4">Dedup key</dt>
+                    <dd class="col-sm-8"><code class="small">{{ candidate.dedup_key }}</code></dd>
+                </dl>
+            </div>
+        </div>
+
+        <div class="card mb-3">
+            <div class="card-header">Why it matches</div>
+            <div class="card-body">
+                {% if candidate.skills_analysis.matching_required or candidate.skills_analysis.missing_required %}
+                    <div class="mb-2">
+                        {% if candidate.skills_analysis.matching_required %}
+                            <div class="small text-success">
+                                <i class="bi bi-check2"></i>
+                                Matches required skills:
+                                {{ candidate.skills_analysis.matching_required|join:", " }}
+                            </div>
+                        {% endif %}
+                        {% if candidate.skills_analysis.missing_required %}
+                            <div class="small text-warning">
+                                <i class="bi bi-exclamation-triangle"></i>
+                                Missing skills:
+                                {{ candidate.skills_analysis.missing_required|join:", " }}
+                            </div>
+                        {% endif %}
+                        {% if candidate.skills_analysis.matching_preferred %}
+                            <div class="small text-meta">
+                                <i class="bi bi-plus-circle"></i>
+                                Preferred skills:
+                                {{ candidate.skills_analysis.matching_preferred|join:", " }}
+                            </div>
+                        {% endif %}
+                    </div>
+                {% endif %}
+                {% for key, value in candidate.score_components.items %}
+                    <div class="d-flex justify-content-between small">
+                        <span class="text-capitalize">{{ key }}</span>
+                        <span class="text-meta">{{ value }}</span>
+                    </div>
+                    <div class="dodong-meter mb-2">
+                        <span style="width: {% widthratio value 40 100 %}%"></span>
+                    </div>
+                {% endfor %}
+                <ul class="small mb-0 mt-2">
+                    {% for reason in candidate.score_reasons %}
+                        <li>{{ reason }}</li>
+                    {% endfor %}
+                </ul>
+                {% if candidate.ai_note %}
+                    <div class="alert alert-light border small mt-2 mb-0">
+                        <span class="text-meta">AI note (non-authoritative):</span>
+                        {{ candidate.ai_note }}
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">Original opportunity text</div>
+            <div class="card-body small" style="white-space: pre-wrap;">{{ candidate.description|default:"(none)" }}</div>
+        </div>
+    </div>
+
+    {# ---------- RIGHT: CRM import preview ---------- #}
+    <div class="col-lg-5">
+        <div class="card">
+            <div class="card-header">CRM import preview</div>
+            <div class="card-body">
+
+                <div class="alert alert-warning small" role="alert">
+                    <i class="bi bi-exclamation-triangle"></i>
+                    <strong>No CRM change has been made yet.</strong>
+                    A lead is created only when you press
+                    <em>Import to CRM</em>.
+                </div>
+
+                {% if candidate.status == "imported" %}
+                    <div class="alert alert-success small mb-0">
+                        <i class="bi bi-check-circle"></i>
+                        Imported as CRM lead
+                        #{{ candidate.imported_lead_id }}.
+                    </div>
+                {% else %}
+                    {% if preview.duplicate_lead_id %}
+                        <div class="alert alert-danger small">
+                            A CRM lead (#{{ preview.duplicate_lead_id }})
+                            already looks like a match — import is blocked.
+                        </div>
+                    {% endif %}
+
+                    <div class="text-meta small mb-1">This will create:</div>
+                    <dl class="row small mb-3">
+                        {% for key, val in preview.mapping.items %}
+                            <dt class="col-5 text-capitalize">{{ key }}</dt>
+                            <dd class="col-7">{{ val|default:"—" }}</dd>
+                        {% endfor %}
+                    </dl>
+
+                    <form method="post"
+                          action="{% url 'scanner:import_candidate' candidate.id %}">
+                        {% csrf_token %}
+                        <button class="btn btn-primary w-100 mb-2"
+                            {% if preview.duplicate_lead_id %}disabled{% endif %}>
+                            <i class="bi bi-box-arrow-in-down"></i> Import to CRM
+                        </button>
+                    </form>
+
+                    <form method="post" class="d-grid mb-2"
+                          action="{% url 'scanner:mark_reviewed' candidate.id %}">
+                        {% csrf_token %}
+                        <button class="btn btn-outline-secondary btn-sm">
+                            Mark reviewed
+                        </button>
+                    </form>
+
+                    <form method="post"
+                          action="{% url 'scanner:reject_candidate' candidate.id %}">
+                        {% csrf_token %}
+                        <div class="input-group input-group-sm">
+                            <input type="text" name="reason" class="form-control"
+                                   placeholder="reason (optional)"
+                                   aria-label="Rejection reason">
+                            <button class="btn btn-outline-danger">Reject</button>
+                        </div>
+                    </form>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endif %}
+{% endblock %}

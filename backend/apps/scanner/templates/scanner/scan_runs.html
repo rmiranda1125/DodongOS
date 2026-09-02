@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+
+{% block title %}Scan history{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+
+    <a href="{% url 'scanner:review_queue' %}"
+       class="btn btn-sm btn-link px-0 mb-2">&larr; Back to queue</a>
+
+    <h2 class="mb-3">Lead Scanner — run history</h2>
+
+    <div class="card shadow-sm">
+        <div class="table-responsive">
+            <table class="table mb-0 align-middle">
+                <thead>
+                    <tr>
+                        <th>Started</th>
+                        <th>Finished</th>
+                        <th>Source</th>
+                        <th>Status</th>
+                        <th>Seen</th>
+                        <th>Created</th>
+                        <th>Updated</th>
+                        <th>Rejected</th>
+                        <th>Error</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for run in runs %}
+                        <tr>
+                            <td>{{ run.started_at }}</td>
+                            <td>{{ run.finished_at|default:"—" }}</td>
+                            <td><code>{{ run.source }}</code></td>
+                            <td>
+                                {% if run.status == "succeeded" %}
+                                    <span class="badge text-bg-success">succeeded</span>
+                                {% elif run.status == "failed" %}
+                                    <span class="badge text-bg-danger">failed</span>
+                                {% else %}
+                                    <span class="badge text-bg-secondary">{{ run.status }}</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ run.candidates_seen }}</td>
+                            <td>{{ run.candidates_created }}</td>
+                            <td>{{ run.candidates_updated }}</td>
+                            <td>{{ run.rows_rejected }}</td>
+                            <td class="small text-danger">
+                                {{ run.error_message|truncatechars:80 }}
+                            </td>
+                        </tr>
+                    {% empty %}
+                        <tr>
+                            <td colspan="9" class="text-center text-muted py-4">
+                                No scans have run yet.
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</div>
+{% endblock %}
